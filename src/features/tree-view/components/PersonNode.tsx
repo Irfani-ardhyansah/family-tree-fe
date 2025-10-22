@@ -8,17 +8,17 @@ type PersonNodeData = {
 function PersonNode({ data }: { data: PersonNodeData }) {
   return (
     <>
-      {/* 1. Handle ATAS (untuk orang tua) */}
+      {/* 1. Handle ATAS (Masuk) - Untuk Orang Tua */}
       <Handle 
-        type="target" // 'target' = panah masuk
+        type="target"
         position={Position.Top} 
         id="top"
         className="w-2 h-2 !bg-gray-400"
       />
       
-      {/* 2. Handle KIRI (misal: untuk pasangan) */}
+      {/* 2. Handle KIRI (Masuk) - Untuk Pasangan */}
       <Handle 
-        type="target" // 'source' = panah keluar
+        type="target" 
         position={Position.Left}
         id="left"
         className="w-2 h-2 !bg-gray-400"
@@ -31,7 +31,7 @@ function PersonNode({ data }: { data: PersonNodeData }) {
         </div>
       </div>
 
-      {/* 3. Handle KANAN (misal: untuk pasangan) */}
+      {/* 3. Handle KANAN (Keluar) - Untuk Pasangan */}
       <Handle 
         type="source"
         position={Position.Right}
@@ -39,7 +39,7 @@ function PersonNode({ data }: { data: PersonNodeData }) {
         className="w-2 h-2 !bg-gray-400"
       />
 
-      {/* 4. Handle BAWAH (untuk anak) */}
+      {/* 4. Handle BAWAH (Keluar) - Untuk Anak */}
       <Handle 
         type="source"
         position={Position.Bottom}
