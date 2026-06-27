@@ -52,10 +52,6 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center">
-            {/* <button className="flex items-center justify-center bg-primary-500 hover:bg-primary-600 text-white  font-medium py-2 px-4 rounded-full transition">
-              <Plus className="mr-1" size={20} />
-              Add Member
-            </button> */}
             <User size={24} />
           </div>
         </div>
