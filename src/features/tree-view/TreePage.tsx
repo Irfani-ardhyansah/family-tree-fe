@@ -26,11 +26,12 @@ import {
 import PersonNode from './components/PersonNode';
 import { MOCK_FAMILY, getFamilyStats, getMySpouse } from '@/data/mockFamilyData';
 import type { Person, TreeDisplayFilters, TreeLineage, TreeViewConfig } from '@/types/person';
-import { DEFAULT_TREE_VIEW, TREE_DISPLAY_OPTIONS, TREE_LINEAGE_OPTIONS } from '@/types/person';
+import { DEFAULT_TREE_VIEW, TREE_DISPLAY_OPTIONS, TREE_LINEAGE_OPTIONS, ANCESTOR_GENERATION_NAMES } from '@/types/person';
 import {
   filterPersons,
   layoutFamilyTree,
   getVisibleStats,
+  getMaxGenerationsUp,
   resolveFocusPersonId,
   NODE_WIDTH,
   NODE_HEIGHT,
@@ -114,22 +115,38 @@ function TreeCanvas() {
     [viewConfig.perspective],
   );
 
+  const maxGenerationsUp = useMemo(
+    () => getMaxGenerationsUp(MOCK_FAMILY, viewConfig),
+    [viewConfig.perspective, viewConfig.lineage],
+  );
+
+  useEffect(() => {
+    if (maxGenerationsUp > 0 && viewConfig.generationsUp > maxGenerationsUp) {
+      setViewConfig((prev) => ({ ...prev, generationsUp: maxGenerationsUp }));
+    }
+  }, [maxGenerationsUp, viewConfig.generationsUp]);
+
   const visiblePersons = useMemo(
     () => filterPersons(MOCK_FAMILY, viewConfig),
     [viewConfig],
   );
 
-  const visibleStats = useMemo(() => getVisibleStats(visiblePersons), [visiblePersons]);
+  const visibleStats = useMemo(
+    () => getVisibleStats(visiblePersons, focusPersonId, viewConfig.lineage),
+    [visiblePersons, focusPersonId, viewConfig.lineage],
+  );
 
   const { nodes, edges } = useMemo(
     () =>
       layoutFamilyTree(visiblePersons, {
         perspective: viewConfig.perspective,
+        lineage: viewConfig.lineage,
+        rootPersonId: focusPersonId,
         focusPersonId,
         selectedId: selectedPerson?.id,
         searchQuery,
       }),
-    [visiblePersons, viewConfig.perspective, focusPersonId, selectedPerson?.id, searchQuery],
+    [visiblePersons, viewConfig.perspective, viewConfig.lineage, focusPersonId, selectedPerson?.id, searchQuery],
   );
 
   const activeDisplayCount = Object.values(viewConfig.display).filter(Boolean).length;
@@ -140,6 +157,10 @@ function TreeCanvas() {
 
   const setLineage = (lineage: TreeLineage) => {
     setViewConfig((prev) => ({ ...prev, lineage }));
+  };
+
+  const setGenerationsUp = (generationsUp: number) => {
+    setViewConfig((prev) => ({ ...prev, generationsUp }));
   };
 
   const toggleDisplay = (key: keyof TreeDisplayFilters) => {
@@ -260,6 +281,35 @@ function TreeCanvas() {
                   ? 'Hanya garis ayah ke atas. Orang tua penghubung tetap tampil.'
                   : 'Hanya garis ibu ke atas. Orang tua penghubung tetap tampil.'}
               </p>
+            )}
+
+            <p className="text-xs font-semibold text-brand-700 mt-3 mb-2 uppercase tracking-wide">
+              Generasi ke Atas
+            </p>
+            {maxGenerationsUp > 0 ? (
+              <>
+                <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
+                  <span>Sampai {ANCESTOR_GENERATION_NAMES[viewConfig.generationsUp] ?? `Gen ${viewConfig.generationsUp}`}</span>
+                  <span>{viewConfig.generationsUp} / {maxGenerationsUp}</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={maxGenerationsUp}
+                  value={Math.min(viewConfig.generationsUp, maxGenerationsUp)}
+                  onChange={(e) => setGenerationsUp(Number(e.target.value))}
+                  className="w-full h-1.5 accent-primary-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] text-gray-400 mt-1">
+                  <span>Orang tua</span>
+                  <span>{ANCESTOR_GENERATION_NAMES[maxGenerationsUp] ?? 'Leluhur'}</span>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">
+                  Buyut ke atas: hanya pasangan ayah–ibu per jalur (tanpa saudara). Orang tua Kakek/Nenek dan Orang tua Buyut ditampilkan di baris terpisah.
+                </p>
+              </>
+            ) : (
+              <p className="text-[10px] text-gray-500">Data leluhur belum tersedia.</p>
             )}
           </div>
 

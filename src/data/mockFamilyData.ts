@@ -33,18 +33,149 @@ export function buildMockFamilyData(): FamilyData {
   const persons: Person[] = [];
   const add = (...items: Person[]) => persons.push(...items);
 
-  // Gen 0 — Kakek Buyut & Nenek Buyut
+  // Orang tua Buyut / moyang — pasangan terpisah per orang (bukan satu pasangan untuk semua)
+  const [patGgpM, patGgpF] = linkCouple(
+    p('pat-ggp-m', 'H. Mulyono Ardhyansah', 'male', '1900-01-01', {
+      status: 'deceased',
+      deathDate: '1972-06-10',
+      generationLabel: 'Orang Tua Buyut (Ayah)',
+    }),
+    p('pat-ggp-f', 'Hj. Kasuma', 'female', '1902-05-01', {
+      status: 'deceased',
+      deathDate: '1980-12-25',
+      generationLabel: 'Orang Tua Buyut (Ayah)',
+    }),
+  );
+  const [patBuyutFGgpM, patBuyutFGgpF] = linkCouple(
+    p('pat-buyut-f-ggp-m', 'H. Harjo Santoso', 'male', '1899-04-12', {
+      status: 'deceased',
+      deathDate: '1968-02-20',
+      generationLabel: 'Orang Tua Buyut (Ayah)',
+    }),
+    p('pat-buyut-f-ggp-f', 'Hj. Siti Rahayu', 'female', '1903-08-30', {
+      status: 'deceased',
+      deathDate: '1982-10-05',
+      generationLabel: 'Orang Tua Buyut (Ayah)',
+    }),
+  );
+  const [patNbuyutGgpM, patNbuyutGgpF] = linkCouple(
+    p('pat-nbuyut-ggp-m', 'H. Prasetyo', 'male', '1897-06-01', {
+      status: 'deceased',
+      deathDate: '1965-11-11',
+      generationLabel: 'Orang Tua Buyut (Ayah)',
+    }),
+    p('pat-nbuyut-ggp-f', 'Hj. Ani', 'female', '1900-12-15', {
+      status: 'deceased',
+      deathDate: '1975-03-22',
+      generationLabel: 'Orang Tua Buyut (Ayah)',
+    }),
+  );
+  const [patNbuyutFGgpM, patNbuyutFGgpF] = linkCouple(
+    p('pat-nbuyut-f-ggp-m', 'H. Basuki', 'male', '1895-01-20', {
+      status: 'deceased',
+      deathDate: '1960-07-08',
+      generationLabel: 'Orang Tua Buyut (Ayah)',
+    }),
+    p('pat-nbuyut-f-ggp-f', 'Hj. Rukmini', 'female', '1898-09-03', {
+      status: 'deceased',
+      deathDate: '1978-01-14',
+      generationLabel: 'Orang Tua Buyut (Ayah)',
+    }),
+  );
+
+  const [matGgpM, matGgpF] = linkCouple(
+    p('mat-ggp-m', 'H. Surya Wijaya', 'male', '1898-11-01', {
+      status: 'deceased',
+      deathDate: '1970-03-18',
+      generationLabel: 'Orang Tua Buyut (Ibu)',
+    }),
+    p('mat-ggp-f', 'Hj. Mira', 'female', '1901-08-01', {
+      status: 'deceased',
+      deathDate: '1985-07-04',
+      generationLabel: 'Orang Tua Buyut (Ibu)',
+    }),
+  );
+  const [matBuyutFGgpM, matBuyutFGgpF] = linkCouple(
+    p('mat-buyut-f-ggp-m', 'H. Gunawan', 'male', '1896-05-18', {
+      status: 'deceased',
+      deathDate: '1963-09-25',
+      generationLabel: 'Orang Tua Buyut (Ibu)',
+    }),
+    p('mat-buyut-f-ggp-f', 'Hj. Wulan', 'female', '1900-02-07', {
+      status: 'deceased',
+      deathDate: '1979-12-01',
+      generationLabel: 'Orang Tua Buyut (Ibu)',
+    }),
+  );
+  const [matNbuyutGgpM, matNbuyutGgpF] = linkCouple(
+    p('mat-nbuyut-ggp-m', 'H. Iskandar', 'male', '1894-10-10', {
+      status: 'deceased',
+      deathDate: '1958-04-30',
+      generationLabel: 'Orang Tua Buyut (Ibu)',
+    }),
+    p('mat-nbuyut-ggp-f', 'Hj. Melati', 'female', '1897-07-22', {
+      status: 'deceased',
+      deathDate: '1971-08-16',
+      generationLabel: 'Orang Tua Buyut (Ibu)',
+    }),
+  );
+  const [matNbuyutFGgpM, matNbuyutFGgpF] = linkCouple(
+    p('mat-nbuyut-f-ggp-m', 'H. Darma', 'male', '1892-03-05', {
+      status: 'deceased',
+      deathDate: '1955-06-12',
+      generationLabel: 'Orang Tua Buyut (Ibu)',
+    }),
+    p('mat-nbuyut-f-ggp-f', 'Hj. Sari', 'female', '1895-11-28', {
+      status: 'deceased',
+      deathDate: '1973-02-09',
+      generationLabel: 'Orang Tua Buyut (Ibu)',
+    }),
+  );
+
+  add(
+    patGgpM,
+    patGgpF,
+    patBuyutFGgpM,
+    patBuyutFGgpF,
+    patNbuyutGgpM,
+    patNbuyutGgpF,
+    patNbuyutFGgpM,
+    patNbuyutFGgpF,
+    matGgpM,
+    matGgpF,
+    matBuyutFGgpM,
+    matBuyutFGgpF,
+    matNbuyutGgpM,
+    matNbuyutGgpF,
+    matNbuyutFGgpM,
+    matNbuyutFGgpF,
+  );
+
+  // Orang tua Kakek/Nenek — ortu kakek dan ortu nenek terpisah per jalur
   let [patBuyutM, patBuyutF] = linkCouple(
     p('pat-buyut-m', 'H. Ardhyansah', 'male', '1925-03-12', {
       status: 'deceased',
       deathDate: '1998-08-20',
-      generationLabel: 'Buyut (Ayah)',
+      generationLabel: 'Orang Tua Kakek/Nenek (Ayah)',
       occupation: 'Petani',
     }),
     p('pat-buyut-f', 'Hj. Suminah', 'female', '1928-07-04', {
       status: 'deceased',
       deathDate: '2005-11-15',
-      generationLabel: 'Buyut (Ayah)',
+      generationLabel: 'Orang Tua Kakek/Nenek (Ayah)',
+    }),
+  );
+  let [patNbuyutM, patNbuyutF] = linkCouple(
+    p('pat-nbuyut-m', 'H. Sutrisno', 'male', '1924-11-08', {
+      status: 'deceased',
+      deathDate: '1996-05-17',
+      generationLabel: 'Orang Tua Kakek/Nenek (Ayah)',
+      occupation: 'Tukang Kayu',
+    }),
+    p('pat-nbuyut-f', 'Hj. Kartini', 'female', '1927-02-19', {
+      status: 'deceased',
+      deathDate: '2003-09-28',
+      generationLabel: 'Orang Tua Kakek/Nenek (Ayah)',
     }),
   );
 
@@ -52,29 +183,38 @@ export function buildMockFamilyData(): FamilyData {
     p('mat-buyut-m', 'H. Wijaya Kusuma', 'male', '1926-01-18', {
       status: 'deceased',
       deathDate: '2001-04-09',
-      generationLabel: 'Buyut (Ibu)',
+      generationLabel: 'Orang Tua Kakek/Nenek (Ibu)',
       occupation: 'Guru',
     }),
     p('mat-buyut-f', 'Hj. Dewi Lestari', 'female', '1930-09-22', {
       status: 'deceased',
       deathDate: '2010-06-30',
-      generationLabel: 'Buyut (Ibu)',
+      generationLabel: 'Orang Tua Kakek/Nenek (Ibu)',
+    }),
+  );
+  let [matNbuyutM, matNbuyutF] = linkCouple(
+    p('mat-nbuyut-m', 'H. Hartono', 'male', '1923-08-14', {
+      status: 'deceased',
+      deathDate: '1994-12-03',
+      generationLabel: 'Orang Tua Kakek/Nenek (Ibu)',
+      occupation: 'Pedagang',
+    }),
+    p('mat-nbuyut-f', 'Hj. Sulastri', 'female', '1929-05-06', {
+      status: 'deceased',
+      deathDate: '2008-07-19',
+      generationLabel: 'Orang Tua Kakek/Nenek (Ibu)',
     }),
   );
 
-  // Hidden anchors — dipakai untuk mengelompokkan saudara buyut, tidak ditampilkan
-  const patGgpM = p('pat-ggp-m', 'Leluhur Ardhyansah', 'male', '1900-01-01');
-  const patGgpF = p('pat-ggp-f', 'Leluhur Suminah', 'female', '1902-05-01');
-  const matGgpM = p('mat-ggp-m', 'Leluhur Wijaya', 'male', '1898-11-01');
-  const matGgpF = p('mat-ggp-f', 'Leluhur Dewi', 'female', '1901-08-01');
-  add(patGgpM, patGgpF, matGgpM, matGgpF);
-
-  // Buyut — tautkan ke leluhur tersembunyi
   patBuyutM = withParents(patBuyutM, patGgpM.id, patGgpF.id);
-  patBuyutF = withParents(patBuyutF, patGgpM.id, patGgpF.id);
+  patBuyutF = withParents(patBuyutF, patBuyutFGgpM.id, patBuyutFGgpF.id);
+  patNbuyutM = withParents(patNbuyutM, patNbuyutGgpM.id, patNbuyutGgpF.id);
+  patNbuyutF = withParents(patNbuyutF, patNbuyutFGgpM.id, patNbuyutFGgpF.id);
   matBuyutM = withParents(matBuyutM, matGgpM.id, matGgpF.id);
-  matBuyutF = withParents(matBuyutF, matGgpM.id, matGgpF.id);
-  add(patBuyutM, patBuyutF, matBuyutM, matBuyutF);
+  matBuyutF = withParents(matBuyutF, matBuyutFGgpM.id, matBuyutFGgpF.id);
+  matNbuyutM = withParents(matNbuyutM, matNbuyutGgpM.id, matNbuyutGgpF.id);
+  matNbuyutF = withParents(matNbuyutF, matNbuyutFGgpM.id, matNbuyutFGgpF.id);
+  add(patBuyutM, patBuyutF, patNbuyutM, patNbuyutF, matBuyutM, matBuyutF, matNbuyutM, matNbuyutF);
 
   // Saudara buyut (garis ayah)
   const patBuyutSibMeta = [
@@ -84,7 +224,7 @@ export function buildMockFamilyData(): FamilyData {
   for (const meta of patBuyutSibMeta) {
     const sib = withParents(
       p(meta.id, meta.name, meta.gender, meta.birth, {
-        generationLabel: 'Saudara Buyut (Ayah)',
+        generationLabel: 'Saudara Orang Tua Buyut (Ayah)',
         status: 'deceased',
         deathDate: '2015-01-01',
       }),
@@ -104,7 +244,7 @@ export function buildMockFamilyData(): FamilyData {
   for (const meta of matBuyutSibMeta) {
     const sib = withParents(
       p(meta.id, meta.name, meta.gender, meta.birth, {
-        generationLabel: 'Saudara Buyut (Ibu)',
+        generationLabel: 'Saudara Orang Tua Buyut (Ibu)',
         status: 'deceased',
         deathDate: '2018-03-01',
       }),
@@ -130,8 +270,8 @@ export function buildMockFamilyData(): FamilyData {
       p('pat-gp-f', 'Hj. Ratna Sari', 'female', '1953-12-01', {
         generationLabel: 'Nenek (Ayah)',
       }),
-      patBuyutM.id,
-      patBuyutF.id,
+      patNbuyutM.id,
+      patNbuyutF.id,
     ),
   );
 
@@ -148,8 +288,8 @@ export function buildMockFamilyData(): FamilyData {
       p('mat-gp-f', 'Hj. Lestari', 'female', '1955-08-27', {
         generationLabel: 'Nenek (Ibu)',
       }),
-      matBuyutM.id,
-      matBuyutF.id,
+      matNbuyutM.id,
+      matNbuyutF.id,
     ),
   );
 

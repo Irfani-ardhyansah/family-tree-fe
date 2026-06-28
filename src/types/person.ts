@@ -39,15 +39,30 @@ export type TreeDisplayFilters = {
   showChildren: boolean;
 };
 
+/** Kedalaman ke atas di mana saudara tidak lagi ditampilkan — hanya pasangan ayah/ibu per jalur. */
+export const BUYUT_ANCESTOR_DEPTH = 3;
+
+/** Nama generasi ke atas dari fokus (index = jumlah generasi). */
+export const ANCESTOR_GENERATION_NAMES: Record<number, string> = {
+  1: 'Orang tua',
+  2: 'Kakek/Nenek',
+  3: 'Orang tua Kakek/Nenek',
+  4: 'Orang tua Buyut',
+  5: 'Leluhur',
+};
+
 export type TreeViewConfig = {
   perspective: TreePerspective;
   lineage: TreeLineage;
+  /** Berapa generasi ke atas dari fokus (1 = orang tua, 2 = kakek/nenek, …) */
+  generationsUp: number;
   display: TreeDisplayFilters;
 };
 
 export const DEFAULT_TREE_VIEW: TreeViewConfig = {
   perspective: 'self',
   lineage: 'both',
+  generationsUp: 4,
   display: {
     showSpouses: false,
     showSiblings: false,

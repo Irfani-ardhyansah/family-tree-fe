@@ -7,6 +7,8 @@ function formatBirthYear(birthDate: string): string {
   return birthDate.slice(0, 4);
 }
 
+const SHOWN_LABELS = new Set(['Kamu', 'Pasangan', 'Ayah', 'Ibu', 'Saudara', 'Anak']);
+
 function PersonNode({ data }: { data: PersonNodeData }) {
   const { person, isFocus, isHighlighted, isSelected, isDimmed } = data;
   const isDeceased = person.status === 'deceased';
@@ -74,7 +76,7 @@ function PersonNode({ data }: { data: PersonNodeData }) {
           </div>
 
           <div className="mt-2 flex items-center justify-between gap-1">
-            {person.generationLabel && (
+            {person.generationLabel && SHOWN_LABELS.has(person.generationLabel) && (
               <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-brand-50 text-brand-600 truncate max-w-[70%]">
                 {person.generationLabel}
               </span>
