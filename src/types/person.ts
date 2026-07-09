@@ -86,14 +86,14 @@ export const TREE_DISPLAY_OPTIONS: {
   desc: string;
 }[] = [
   {
-    key: 'showSpouses',
-    label: 'Pasangan',
-    desc: 'Pasangan orang segaris (nenek, ibu, istri/suami saudara, dll.)',
-  },
-  {
     key: 'showSiblings',
     label: 'Saudara',
-    desc: 'Saudara ayah, ibu, kakek, nenek, buyut & saudara kandung',
+    desc: 'Saudara ayah, ibu, kakek, nenek & saudara kandung',
+  },
+  {
+    key: 'showSpouses',
+    label: 'Pasangan',
+    desc: 'Pasangan orang segaris beserta pasangan saudara',
   },
   {
     key: 'showChildren',

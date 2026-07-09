@@ -14,6 +14,7 @@ export type PersonNodeData = {
   isHighlighted?: boolean;
   isSelected?: boolean;
   isDimmed?: boolean;
+  isAncestorPath?: boolean;
 };
 
 export const NODE_WIDTH = 176;
@@ -57,21 +58,23 @@ function getSiblings(
   );
 }
 
-/** Naik garis darah langsung dari root sesuai jalur keturunan. */
+/** Naik garis darah langsung dari root, maksimum sampai kedalaman maxDepth generasi. */
 function collectBloodLine(
   rootId: string,
   map: Map<string, Person>,
   lineage: TreeLineage,
+  maxDepth = Infinity,
 ): Set<string> {
   const blood = new Set<string>();
-  const walk = (id: string) => {
+  const walk = (id: string, depth: number) => {
+    if (depth > maxDepth) return;
     const person = map.get(id);
     if (!person || blood.has(id)) return;
     blood.add(id);
-    if (lineage !== 'maternal' && person.fatherId) walk(person.fatherId);
-    if (lineage !== 'paternal' && person.motherId) walk(person.motherId);
+    if (lineage !== 'maternal' && person.fatherId) walk(person.fatherId, depth + 1);
+    if (lineage !== 'paternal' && person.motherId) walk(person.motherId, depth + 1);
   };
-  walk(rootId);
+  walk(rootId, 0);
   return blood;
 }
 
@@ -106,6 +109,72 @@ export function buildAncestorDepthMap(
 
   walk(rootId, 0);
   return depths;
+}
+
+/**
+ * Extends ancestorDepths to include siblings of ancestors (same parents → depth D-1)
+ * and their spouses, so visual tier can be computed correctly for all visible persons.
+ */
+export function buildFullDepthMap(
+  persons: Person[],
+  ancestorDepths: Map<string, number>,
+): Map<string, number> {
+  const full = new Map(ancestorDepths);
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const person of persons) {
+      if (full.has(person.id)) continue;
+      if (person.generationLabel === 'Anak') continue;
+
+      // Propagate from spouse that already has a depth
+      for (const spouseId of person.spouseIds) {
+        if (full.has(spouseId)) {
+          full.set(person.id, full.get(spouseId)!);
+          changed = true;
+          break;
+        }
+      }
+      if (full.has(person.id)) continue;
+
+      // Sibling inference: parent at depth D → child at depth D-1
+      for (const parentId of [person.fatherId, person.motherId]) {
+        if (parentId && full.has(parentId)) {
+          const pd = full.get(parentId)!;
+          if (pd > 0) {
+            full.set(person.id, pd - 1);
+            changed = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return full;
+}
+
+/**
+ * Kumpulkan semua ID leluhur (naik ke atas via fatherId/motherId) dari orang yang dipilih,
+ * termasuk orang itu sendiri. Hanya yang ada di `visibleSet` yang dimasukkan.
+ */
+function collectAncestorPath(
+  personId: string,
+  map: Map<string, Person>,
+  visibleSet: Set<string>,
+): Set<string> {
+  const path = new Set<string>();
+  const walk = (id: string) => {
+    if (path.has(id) || !visibleSet.has(id)) return;
+    path.add(id);
+    const person = map.get(id);
+    if (!person) return;
+    if (person.fatherId) walk(person.fatherId);
+    if (person.motherId) walk(person.motherId);
+  };
+  walk(personId);
+  return path;
 }
 
 /** Maks generasi ke atas yang tersedia di data untuk konfigurasi aktif. */
@@ -265,10 +334,15 @@ function ensureParentPairsOnBloodLine(
   bloodLine: Set<string>,
   map: Map<string, Person>,
   visible: Set<string>,
+  ancestorDepths: Map<string, number>,
+  maxDepth: number,
 ) {
   for (const id of bloodLine) {
     const person = map.get(id);
     if (!person) continue;
+    const personDepth = ancestorDepths.get(id) ?? 0;
+    // Jangan tambahkan orang tua jika person sudah di batas atas generasi
+    if (personDepth >= maxDepth) continue;
     if (person.fatherId && map.has(person.fatherId)) visible.add(person.fatherId);
     if (person.motherId && map.has(person.motherId)) visible.add(person.motherId);
     addSpousesOf([person.fatherId, person.motherId].filter(Boolean) as string[], map, visible);
@@ -280,6 +354,7 @@ function expandVisibleAncestorParents(
   visible: Set<string>,
   map: Map<string, Person>,
   ancestorDepths: Map<string, number>,
+  maxDepth: number,
 ) {
   let changed = true;
   while (changed) {
@@ -289,6 +364,8 @@ function expandVisibleAncestorParents(
       if (!person) continue;
       const depth = getPersonAncestorDepth(person, ancestorDepths);
       if (depth === undefined || depth === 0) continue;
+      // Jangan naik lebih jauh dari batas generasi
+      if (depth >= maxDepth) continue;
 
       for (const parentId of [person.fatherId, person.motherId]) {
         if (parentId && map.has(parentId) && !visible.has(parentId)) {
@@ -352,7 +429,9 @@ export function filterPersons(data: FamilyData, config: TreeViewConfig): Person[
   if (!root) return [];
 
   const visible = new Set<string>();
-  const bloodLine = collectBloodLine(rootId, map, config.lineage);
+  const generationsUp = config.generationsUp;
+  // bloodLine dibatasi sesuai generationsUp agar leluhur di luar batas tidak masuk
+  const bloodLine = collectBloodLine(rootId, map, config.lineage, generationsUp);
   const ancestorDepths = buildAncestorDepthMap(rootId, map, config.lineage);
 
   // Garis segaris naik
@@ -360,8 +439,8 @@ export function filterPersons(data: FamilyData, config: TreeViewConfig): Person[
 
   // Pasangan struktural di garis segaris — selalu pasangan ayah+ibu lengkap per jalur
   addSpousesOf(bloodLine, map, visible);
-  ensureParentPairsOnBloodLine(bloodLine, map, visible);
-  expandVisibleAncestorParents(visible, map, ancestorDepths);
+  ensureParentPairsOnBloodLine(bloodLine, map, visible, ancestorDepths, generationsUp);
+  expandVisibleAncestorParents(visible, map, ancestorDepths, generationsUp);
 
   // Pasangan di node root (saya ↔ istri/suami)
   addSpousesOf([rootId], map, visible);
@@ -428,7 +507,9 @@ export function filterPersons(data: FamilyData, config: TreeViewConfig): Person[
   }
 
   applyLineageFilter(visible, config, map);
-  applyGenerationsUpFilter(visible, config, map, ancestorDepths);
+  // Use fullDepths so siblings at ancestor levels are also filtered by generationsUp
+  const fullDepths = buildFullDepthMap([...data.persons], ancestorDepths);
+  applyGenerationsUpFilter(visible, config, map, fullDepths);
 
   return data.persons.filter((p) => visible.has(p.id));
 }
@@ -602,49 +683,6 @@ function layoutRow(
   return positions;
 }
 
-function nodeCenterX(id: string, positions: Map<string, { x: number; y: number }>): number {
-  const pos = positions.get(id);
-  return pos ? pos.x + NODE_WIDTH / 2 : 0;
-}
-
-function coupleWidth(fatherId?: string, motherId?: string): number {
-  return fatherId && motherId ? NODE_WIDTH * 2 + COUPLE_GAP : NODE_WIDTH;
-}
-
-function placeParentCoupleAboveChild(
-  childId: string,
-  map: Map<string, Person>,
-  positions: Map<string, { x: number; y: number }>,
-  parentDepth: number,
-  tierToY: (tier: number) => number,
-) {
-  const child = map.get(childId);
-  if (!child || !positions.has(childId)) return;
-
-  const father = child.fatherId ? map.get(child.fatherId) : undefined;
-  const mother = child.motherId ? map.get(child.motherId) : undefined;
-  if (!father && !mother) return;
-
-  // Only place parents that exist in the visible set (have positions or are about to get one)
-  const hasFather = !!father;
-  const hasMother = !!mother;
-
-  const childCenter = nodeCenterX(childId, positions);
-  const totalW =
-    hasFather && hasMother
-      ? NODE_WIDTH * 2 + COUPLE_GAP
-      : NODE_WIDTH;
-  const startX = childCenter - totalW / 2;
-  const y = tierToY(ROOT_VISUAL_TIER - parentDepth);
-
-  if (hasFather) positions.set(father!.id, { x: startX, y });
-  if (hasMother) {
-    positions.set(mother!.id, {
-      x: hasFather ? startX + NODE_WIDTH + COUPLE_GAP : startX,
-      y,
-    });
-  }
-}
 
 function resolveCoupleRowOverlaps(
   parentIds: string[],
@@ -682,43 +720,144 @@ function resolveCoupleRowOverlaps(
   }
 }
 
+/** Determine which side siblings should be placed relative to their ancestor (in the couple). */
+function siblingSide(
+  ancestorId: string,
+  positions: Map<string, { x: number; y: number }>,
+  person: Person,
+): 'left' | 'right' {
+  const pos = positions.get(ancestorId);
+  if (!pos) return 'left';
+  for (const spouseId of person.spouseIds) {
+    const spousePos = positions.get(spouseId);
+    if (!spousePos) continue;
+    return spousePos.x < pos.x ? 'right' : 'left';
+  }
+  // No visible spouse — use id prefix as fallback
+  if (ancestorId.startsWith('mat-') || ancestorId === 'mother' || ancestorId === 'sp-mother') return 'right';
+  return 'left';
+}
+
 function alignParentCouplesAboveChildren(
   persons: Person[],
   map: Map<string, Person>,
   ancestorDepths: Map<string, number>,
+  fullDepths: Map<string, number>,
   positions: Map<string, { x: number; y: number }>,
   tierToY: (tier: number) => number,
 ) {
-  const allDepths = persons.map((p) => getPersonAncestorDepth(p, ancestorDepths) ?? 0);
-  const maxDepth = Math.max(0, ...allDepths);
+  const personSet = new Set(persons.map((p) => p.id));
+  const maxDepth = Math.max(0, ...[...fullDepths.values()].filter((v) => isFinite(v)));
 
-  // Process from shallowest (orang tua) to deepest (moyang) so child positions
-  // are finalized before we use them to position their parents.
   for (let childDepth = 1; childDepth < maxDepth; childDepth += 1) {
     const parentDepth = childDepth + 1;
+    const parentY = tierToY(ROOT_VISUAL_TIER - parentDepth);
 
-    // Collect all persons at this depth; use Set to deduplicate spouses.
-    const childIds = new Set<string>();
+    // --- Sub-pass A: group depth-childDepth children by parent pair, place parents above center ---
+    const groups = new Map<string, string[]>(); // "fatherId_motherId" → childIds
+
     for (const p of persons) {
-      if ((getPersonAncestorDepth(p, ancestorDepths) ?? -1) === childDepth) {
-        childIds.add(p.id);
+      if ((fullDepths.get(p.id) ?? -1) !== childDepth) continue;
+      if (!positions.has(p.id)) continue;
+      const child = map.get(p.id);
+      if (!child) continue;
+      const fId = child.fatherId && personSet.has(child.fatherId) ? child.fatherId : '';
+      const mId = child.motherId && personSet.has(child.motherId) ? child.motherId : '';
+      if (!fId && !mId) continue;
+      const key = `${fId}|${mId}`;
+      const arr = groups.get(key) ?? [];
+      arr.push(p.id);
+      groups.set(key, arr);
+    }
+
+    const parentIdsPlaced = new Set<string>();
+
+    for (const [key, childIds] of groups) {
+      const xs: number[] = [];
+      for (const id of childIds) {
+        const pos = positions.get(id);
+        if (pos) { xs.push(pos.x); xs.push(pos.x + NODE_WIDTH); }
+      }
+      if (xs.length === 0) continue;
+
+      const groupCenter = (Math.min(...xs) + Math.max(...xs)) / 2;
+      const [fId, mId] = key.split('|');
+      const hasFather = !!fId && personSet.has(fId);
+      const hasMother = !!mId && personSet.has(mId);
+      const totalW = hasFather && hasMother ? NODE_WIDTH * 2 + COUPLE_GAP : NODE_WIDTH;
+      const startX = groupCenter - totalW / 2;
+
+      if (hasFather) { positions.set(fId, { x: startX, y: parentY }); parentIdsPlaced.add(fId); }
+      if (hasMother) {
+        positions.set(mId, { x: hasFather ? startX + NODE_WIDTH + COUPLE_GAP : startX, y: parentY });
+        parentIdsPlaced.add(mId);
       }
     }
 
-    // Place each person's parents directly above them.
-    for (const childId of childIds) {
-      placeParentCoupleAboveChild(childId, map, positions, parentDepth, tierToY);
-    }
+    resolveCoupleRowOverlaps([...parentIdsPlaced], map, positions);
 
-    // Collect all parent IDs placed in this pass, then resolve overlaps.
-    const parentIds = new Set<string>();
-    for (const childId of childIds) {
-      const child = map.get(childId);
-      if (!child) continue;
-      if (child.fatherId && positions.has(child.fatherId)) parentIds.add(child.fatherId);
-      if (child.motherId && positions.has(child.motherId)) parentIds.add(child.motherId);
+    // --- Sub-pass B: move siblings of newly-placed depth-parentDepth ancestors adjacent to them ---
+    // This ensures they're in the right X position before the next depth pass uses their locations.
+    const childY = tierToY(ROOT_VISUAL_TIER - parentDepth);
+    const processedSiblings = new Set<string>();
+
+    const directAtParentDepth = persons.filter(
+      (p) => (ancestorDepths.get(p.id) ?? -1) === parentDepth && positions.has(p.id),
+    );
+
+    for (const ancestor of directAtParentDepth) {
+      const ancestorPerson = map.get(ancestor.id);
+      if (!ancestorPerson) continue;
+      const ancPos = positions.get(ancestor.id)!;
+
+      // Couple right edge (ancestor + visible spouse)
+      const spouseId = ancestor.spouseIds.find((sid) => personSet.has(sid) && positions.has(sid));
+      const coupleLeft = ancPos.x;
+      const coupleRight = spouseId
+        ? positions.get(spouseId)!.x + NODE_WIDTH
+        : ancPos.x + NODE_WIDTH;
+
+      const side = siblingSide(ancestor.id, positions, ancestorPerson);
+
+      // Find siblings: same fatherId+motherId, not a direct ancestor, same depth
+      const sibs = persons.filter((p) => {
+        if (processedSiblings.has(p.id)) return false;
+        if (ancestorDepths.has(p.id)) return false;
+        if ((fullDepths.get(p.id) ?? -1) !== parentDepth) return false;
+        const pp = map.get(p.id);
+        return pp?.fatherId === ancestorPerson.fatherId && pp?.motherId === ancestorPerson.motherId;
+      });
+
+      if (side === 'left') {
+        // Oldest sibling furthest left, youngest closest to ancestor
+        sibs.sort((a, b) => b.birthDate.localeCompare(a.birthDate));
+        let curX = coupleLeft;
+        for (const sib of sibs) {
+          const sp = sib.spouseIds.find((sid) => personSet.has(sid));
+          const hasSpouse = !!sp;
+          const unitW = hasSpouse ? NODE_WIDTH * 2 + COUPLE_GAP : NODE_WIDTH;
+          curX -= UNIT_GAP + unitW;
+          positions.set(sib.id, { x: curX, y: childY });
+          if (hasSpouse && sp) positions.set(sp, { x: curX + NODE_WIDTH + COUPLE_GAP, y: childY });
+          processedSiblings.add(sib.id);
+          if (hasSpouse && sp) processedSiblings.add(sp);
+        }
+      } else {
+        // Oldest sibling closest to ancestor, youngest furthest right
+        sibs.sort((a, b) => a.birthDate.localeCompare(b.birthDate));
+        let curX = coupleRight;
+        for (const sib of sibs) {
+          const sp = sib.spouseIds.find((sid) => personSet.has(sid));
+          const hasSpouse = !!sp;
+          curX += UNIT_GAP;
+          positions.set(sib.id, { x: curX, y: childY });
+          if (hasSpouse && sp) positions.set(sp, { x: curX + NODE_WIDTH + COUPLE_GAP, y: childY });
+          processedSiblings.add(sib.id);
+          if (hasSpouse && sp) processedSiblings.add(sp);
+          curX += hasSpouse ? NODE_WIDTH * 2 + COUPLE_GAP : NODE_WIDTH;
+        }
+      }
     }
-    resolveCoupleRowOverlaps([...parentIds], map, positions);
   }
 }
 
@@ -753,7 +892,9 @@ export function layoutFamilyTree(
   const focusId = options.focusPersonId ?? rootId;
   const map = buildPersonMap(persons);
   const ancestorDepths = buildAncestorDepthMap(rootId, map, lineage);
-  const units = buildCoupleUnits(persons, map, perspective, ancestorDepths);
+  // fullDepths extends ancestorDepths with sibling/spouse depths so tiers are correct
+  const fullDepths = buildFullDepthMap(persons, ancestorDepths);
+  const units = buildCoupleUnits(persons, map, perspective, fullDepths);
 
   const ancestorUnits = units.filter((u) => u.tier < CHILD_VISUAL_TIER);
   const ancestorTiers = [...new Set(ancestorUnits.map((u) => u.tier))].sort((a, b) => a - b);
@@ -772,7 +913,7 @@ export function layoutFamilyTree(
     for (const [id, pos] of rowPositions) allPositions.set(id, pos);
   }
 
-  alignParentCouplesAboveChildren(persons, map, ancestorDepths, allPositions, tierToY);
+  alignParentCouplesAboveChildren(persons, map, ancestorDepths, fullDepths, allPositions, tierToY);
 
   const rootRowY = tierToY(ROOT_VISUAL_TIER);
   const childRowY = rootRowY + ROW_HEIGHT;
@@ -825,6 +966,13 @@ export function layoutFamilyTree(
   }
   const hasSearch = searchLower.length > 0;
 
+  // Ancestor path: semua leluhur dari orang yang dipilih (inklusif)
+  const visibleSet = new Set(persons.map((p) => p.id));
+  const ancestorPath = options.selectedId
+    ? collectAncestorPath(options.selectedId, map, visibleSet)
+    : new Set<string>();
+  const hasSelection = ancestorPath.size > 0;
+
   const nodes: Node<PersonNodeData>[] = persons
     .filter((p) => allPositions.has(p.id))
     .map((person) => {
@@ -832,14 +980,18 @@ export function layoutFamilyTree(
       const isFocus = person.id === focusId;
       const isHighlighted = matchIds.has(person.id);
       const isSelected = options.selectedId === person.id;
-      const isDimmed = hasSearch && !isHighlighted && !isFocus;
+      const isAncestorPath = hasSelection && ancestorPath.has(person.id);
+      // Redup: saat ada pencarian ATAU ada pilihan (yang bukan bagian dari ancestor path)
+      const isDimmed =
+        (hasSearch && !isHighlighted && !isFocus) ||
+        (hasSelection && !isAncestorPath);
 
       return {
         id: person.id,
         type: 'personNode',
         position: pos,
-        data: { person, isFocus, isHighlighted, isSelected, isDimmed },
-        zIndex: isFocus ? 10 : isSelected ? 9 : 1,
+        data: { person, isFocus, isHighlighted, isSelected, isDimmed, isAncestorPath },
+        zIndex: isFocus ? 10 : isSelected ? 9 : isAncestorPath ? 8 : 1,
       };
     });
 
@@ -853,6 +1005,9 @@ export function layoutFamilyTree(
       const id = `parent-f-${person.fatherId}-${person.id}`;
       if (!edgeIds.has(id)) {
         edgeIds.add(id);
+        // Garis ke atas disorot jika keduanya berada di ancestor path
+        const onPath = hasSelection && ancestorPath.has(person.id) && ancestorPath.has(person.fatherId);
+        const dimmed = hasSelection && !onPath;
         edges.push({
           id,
           source: person.fatherId,
@@ -860,7 +1015,13 @@ export function layoutFamilyTree(
           sourceHandle: 'bottom',
           targetHandle: 'top',
           type: 'smoothstep',
-          style: { stroke: '#6AA86A', strokeWidth: 2 },
+          style: {
+            stroke: onPath ? '#1D4ED8' : dimmed ? '#BFDBFE' : '#2563EB',
+            strokeWidth: onPath ? 3 : 2,
+            opacity: dimmed ? 0.3 : 1,
+          },
+          animated: onPath,
+          zIndex: onPath ? 10 : 1,
         });
       }
     }
@@ -869,6 +1030,8 @@ export function layoutFamilyTree(
       const id = `parent-m-${person.motherId}-${person.id}`;
       if (!edgeIds.has(id)) {
         edgeIds.add(id);
+        const onPath = hasSelection && ancestorPath.has(person.id) && ancestorPath.has(person.motherId);
+        const dimmed = hasSelection && !onPath;
         edges.push({
           id,
           source: person.motherId,
@@ -876,13 +1039,20 @@ export function layoutFamilyTree(
           sourceHandle: 'bottom',
           targetHandle: 'top',
           type: 'smoothstep',
-          style: { stroke: '#A485D1', strokeWidth: 2 },
+          style: {
+            stroke: onPath ? '#BE185D' : dimmed ? '#FBCFE8' : '#DB2777',
+            strokeWidth: onPath ? 3 : 2,
+            opacity: dimmed ? 0.3 : 1,
+          },
+          animated: onPath,
+          zIndex: onPath ? 10 : 1,
         });
       }
     }
 
     for (const spouseId of person.spouseIds) {
       if (person.id >= spouseId || !allPositions.has(spouseId)) continue;
+      const dimmed = hasSelection && !ancestorPath.has(person.id) && !ancestorPath.has(spouseId);
       edges.push({
         id: `spouse-${person.id}-${spouseId}`,
         source: person.id,
@@ -890,7 +1060,12 @@ export function layoutFamilyTree(
         sourceHandle: 'right',
         targetHandle: 'left',
         type: 'straight',
-        style: { stroke: '#8a99a7', strokeWidth: 2 },
+        style: {
+          stroke: '#94A3B8',
+          strokeWidth: 2,
+          strokeDasharray: '5 3',
+          opacity: dimmed ? 0.2 : 1,
+        },
       });
     }
   }

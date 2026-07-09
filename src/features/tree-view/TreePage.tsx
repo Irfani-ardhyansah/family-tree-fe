@@ -405,9 +405,9 @@ function TreeCanvas() {
               <MiniMap
                 nodeColor={(node) => {
                   const data = node.data as PersonNodeData;
-                  if (data.isFocus) return '#6AA86A';
+                  if (data.isFocus) return '#2563EB';
                   if (data.person.status === 'deceased') return '#aeb8c2';
-                  return data.person.gender === 'male' ? '#90c190' : '#A485D1';
+                  return data.person.gender === 'male' ? '#93C5FD' : '#F9A8D4';
                 }}
                 nodeStrokeWidth={2}
                 zoomable
@@ -465,16 +465,48 @@ function TreeCanvas() {
               )}
 
               <Panel position="bottom-left" className="!m-3">
-                <div className="bg-white/95 rounded-lg border border-gray-200 px-3 py-2 text-[10px] text-gray-500 flex flex-wrap gap-x-3 gap-y-1 shadow-sm">
-                  <span className="flex items-center gap-1">
-                    <span className="w-3 h-0.5 bg-primary-500 inline-block" /> Garis ayah
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-3 h-0.5 bg-secondary-500 inline-block" /> Garis ibu
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded border-2 border-primary-500 inline-block" /> Fokus
-                  </span>
+                <div className="bg-white/95 rounded-lg border border-gray-200 px-3 py-2.5 shadow-sm">
+                  <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Keterangan</p>
+                  <div className="flex flex-col gap-1.5 text-[10px] text-gray-600">
+                    {/* Garis keturunan */}
+                    <span className="flex items-center gap-2">
+                      <span className="w-6 h-0.5 bg-blue-600 inline-block rounded-full flex-shrink-0" />
+                      Garis dari Ayah
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="w-6 h-0.5 bg-pink-600 inline-block rounded-full flex-shrink-0" />
+                      Garis dari Ibu
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <svg width="24" height="4" className="flex-shrink-0">
+                        <line x1="0" y1="2" x2="24" y2="2" stroke="#94A3B8" strokeWidth="2" strokeDasharray="5 3" />
+                      </svg>
+                      Pasangan
+                    </span>
+                    {/* Divider */}
+                    <span className="border-t border-gray-100 my-0.5" />
+                    {/* Gender */}
+                    <span className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="11" height="11">
+                          <circle cx="10" cy="14" r="5.5" />
+                          <line x1="14.2" y1="9.8" x2="20" y2="4" />
+                          <polyline points="15.5 4 20 4 20 8.5" />
+                        </svg>
+                      </span>
+                      Laki-laki
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-pink-100 text-pink-500 flex items-center justify-center flex-shrink-0">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="11" height="11">
+                          <circle cx="12" cy="8" r="5.5" />
+                          <line x1="12" y1="13.5" x2="12" y2="20" />
+                          <line x1="9" y1="17" x2="15" y2="17" />
+                        </svg>
+                      </span>
+                      Perempuan
+                    </span>
+                  </div>
                 </div>
               </Panel>
             </ReactFlow>

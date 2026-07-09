@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import { Handle, Position } from 'reactflow';
-import { User } from 'react-feather';
 import type { PersonNodeData } from '@/utils/treeLayout';
 
 function formatBirthYear(birthDate: string): string {
@@ -9,20 +8,42 @@ function formatBirthYear(birthDate: string): string {
 
 const SHOWN_LABELS = new Set(['Kamu', 'Pasangan', 'Ayah', 'Ibu', 'Saudara', 'Anak']);
 
+function MaleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="17" height="17">
+      <circle cx="10" cy="14" r="5.5" />
+      <line x1="14.2" y1="9.8" x2="20" y2="4" />
+      <polyline points="15.5 4 20 4 20 8.5" />
+    </svg>
+  );
+}
+
+function FemaleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="17" height="17">
+      <circle cx="12" cy="8" r="5.5" />
+      <line x1="12" y1="13.5" x2="12" y2="20" />
+      <line x1="9" y1="17" x2="15" y2="17" />
+    </svg>
+  );
+}
+
 function PersonNode({ data }: { data: PersonNodeData }) {
-  const { person, isFocus, isHighlighted, isSelected, isDimmed } = data;
+  const { person, isFocus, isHighlighted, isSelected, isDimmed, isAncestorPath } = data;
   const isDeceased = person.status === 'deceased';
   const showBadge = isFocus;
 
   const borderClass = isFocus
     ? 'border-primary-500 ring-2 ring-primary-200'
     : isSelected
-      ? 'border-secondary-500 ring-2 ring-secondary-100'
-      : isHighlighted
-        ? 'border-yellow-400 ring-2 ring-yellow-100'
-        : 'border-gray-200';
+      ? 'border-amber-500 ring-2 ring-amber-200 shadow-amber-100'
+      : isAncestorPath
+        ? 'border-violet-400 ring-2 ring-violet-100'
+        : isHighlighted
+          ? 'border-yellow-400 ring-2 ring-yellow-100'
+          : 'border-gray-200';
 
-  const opacityClass = isDimmed ? 'opacity-35' : 'opacity-100';
+  const opacityClass = isDimmed ? 'opacity-30' : 'opacity-100';
 
   return (
     <>
@@ -52,17 +73,27 @@ function PersonNode({ data }: { data: PersonNodeData }) {
             {person.isSelf ? 'Kamu' : 'Fokus'}
           </div>
         )}
+        {!showBadge && isSelected && (
+          <div className="bg-amber-500 text-white text-[10px] font-semibold text-center py-0.5 rounded-t-[10px]">
+            Dipilih
+          </div>
+        )}
+        {!showBadge && !isSelected && isAncestorPath && (
+          <div className="bg-violet-500 text-white text-[10px] font-semibold text-center py-0.5 rounded-t-[10px]">
+            Leluhur
+          </div>
+        )}
 
-        <div className={`px-3 py-2.5 ${showBadge ? '' : 'rounded-t-[10px]'}`}>
+        <div className={`px-3 py-2.5 ${!showBadge && !isSelected && !isAncestorPath ? 'rounded-t-[10px]' : ''}`}>
           <div className="flex items-start gap-2">
             <div
               className={`
                 flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center
-                ${person.gender === 'male' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600'}
+                ${person.gender === 'male' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-500'}
                 ${isDeceased ? 'grayscale' : ''}
               `}
             >
-              <User size={16} />
+              {person.gender === 'male' ? <MaleIcon /> : <FemaleIcon />}
             </div>
 
             <div className="min-w-0 flex-1">
