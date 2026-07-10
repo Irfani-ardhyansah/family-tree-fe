@@ -6,6 +6,7 @@ import { LoginPage } from '@/features/auth/LoginPage';
 import { RegisterPage } from '@/features/auth/RegisterPage';
 import { FamilyDataPage } from '@/features/family-data/FamilyDataPage';
 import { TreePage } from '@/features/tree-view/TreePage';
+import { FamilyDataProvider } from '@/context/FamilyDataContext';
 
 const ProtectedRoute = () => {
     const isAuthenticated = true;
@@ -72,5 +73,9 @@ const router = createBrowserRouter([
 ]);
 
 export function AppRouter() {
-  return <RouterProvider router={router} />;
+  return (
+    <FamilyDataProvider>
+      <RouterProvider router={router} />
+    </FamilyDataProvider>
+  );
 }
