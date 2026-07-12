@@ -74,6 +74,7 @@ export function Navbar() {
               { to: '/family/tree', label: 'Pohon Keluarga' },
               { to: '/family/data', label: 'Data Anggota' },
               { to: '/events', label: 'Acara Keluarga' },
+              { to: '/in-memoriam', label: 'In Memoriam' },
             ].map(({ to, label, exact }) => (
               <NavLink
                 key={to}

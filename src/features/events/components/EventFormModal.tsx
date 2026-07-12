@@ -21,6 +21,8 @@ type FormData = {
   description: string;
   personIds: string[];
   photoUrls: string[];
+  attendeeIds: string[];
+  restrictAccess: boolean;
 };
 
 const defaultForm: FormData = {
@@ -32,6 +34,8 @@ const defaultForm: FormData = {
   description: '',
   personIds: [],
   photoUrls: [],
+  attendeeIds: [],
+  restrictAccess: false,
 };
 
 function toFormData(e: FamilyEvent): FormData {
@@ -44,7 +48,72 @@ function toFormData(e: FamilyEvent): FormData {
     description: e.description ?? '',
     personIds: e.personIds,
     photoUrls: e.photoUrls,
+    attendeeIds: e.attendeeIds ?? [],
+    restrictAccess: (e.attendeeIds ?? []).length > 0,
   };
+}
+
+// ─── Attendee selector ────────────────────────────────────────────────────────
+function AttendeeSelector({
+  value,
+  onChange,
+  persons,
+  enabled,
+  onEnabledChange,
+}: {
+  value: string[];
+  onChange: (ids: string[]) => void;
+  persons: Person[];
+  enabled: boolean;
+  onEnabledChange: (enabled: boolean) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Siapa yang Bisa Melihat?
+      </label>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <button
+          type="button"
+          onClick={() => {
+            onEnabledChange(false);
+            onChange([]);
+          }}
+          className={`py-2.5 px-3 rounded-xl text-xs font-semibold border-2 transition-all ${
+            !enabled
+              ? 'border-primary-500 bg-primary-50 text-primary-700'
+              : 'border-gray-200 text-gray-500 hover:border-gray-300'
+          }`}
+        >
+          Semua Keluarga
+        </button>
+        <button
+          type="button"
+          onClick={() => onEnabledChange(true)}
+          className={`py-2.5 px-3 rounded-xl text-xs font-semibold border-2 transition-all ${
+            enabled
+              ? 'border-primary-500 bg-primary-50 text-primary-700'
+              : 'border-gray-200 text-gray-500 hover:border-gray-300'
+          }`}
+        >
+          Pilih Peserta
+        </button>
+      </div>
+      {!enabled ? (
+        <p className="text-xs text-gray-400 leading-relaxed">
+          Semua anggota di pohon keluarga dapat melihat dan berkontribusi foto.
+        </p>
+      ) : (
+        <PersonSelector
+          value={value}
+          onChange={onChange}
+          persons={persons}
+          label="Peserta yang Diizinkan"
+          placeholder="Cari nama peserta..."
+        />
+      )}
+    </div>
+  );
 }
 
 // ─── Person chip selector ─────────────────────────────────────────────────────
@@ -52,10 +121,14 @@ function PersonSelector({
   value,
   onChange,
   persons,
+  label = 'Anggota Terkait',
+  placeholder = 'Cari nama anggota keluarga...',
 }: {
   value: string[];
   onChange: (ids: string[]) => void;
   persons: Person[];
+  label?: string;
+  placeholder?: string;
 }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -80,7 +153,7 @@ function PersonSelector({
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">
-        Anggota Terkait{' '}
+        {label}{' '}
         <span className="text-gray-400 font-normal">(opsional)</span>
       </label>
 
@@ -111,7 +184,7 @@ function PersonSelector({
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
-          placeholder="Cari nama anggota keluarga..."
+          placeholder={placeholder}
           className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
         />
         {open && filtered.length > 0 && (
@@ -252,6 +325,8 @@ export function EventFormModal({
       description: formData.description.trim() || undefined,
       personIds: formData.personIds,
       photoUrls: formData.photoUrls,
+      attendeeIds: formData.restrictAccess ? formData.attendeeIds : [],
+      contributions: eventToEdit?.contributions ?? [],
     });
     onClose();
   };
@@ -426,6 +501,17 @@ export function EventFormModal({
                           className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500 resize-none"
                         />
                       </div>
+
+                      <AttendeeSelector
+                        value={formData.attendeeIds}
+                        onChange={(ids) => set('attendeeIds', ids)}
+                        persons={persons}
+                        enabled={formData.restrictAccess}
+                        onEnabledChange={(enabled) => {
+                          set('restrictAccess', enabled);
+                          if (!enabled) set('attendeeIds', []);
+                        }}
+                      />
 
                       <PersonSelector
                         value={formData.personIds}

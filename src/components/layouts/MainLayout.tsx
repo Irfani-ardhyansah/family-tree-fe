@@ -13,11 +13,15 @@ const FAMILY_ROUTES = ['/', '/family/tree', '/family/data', '/events'];
 export function MainLayout({ children }: MainLayoutProps) {
   const location = useLocation();
   const { theme } = useFamilyPerspective();
-  const showPerspectiveUI = FAMILY_ROUTES.some((path) =>
-    path === '/'
-      ? location.pathname === '/'
-      : location.pathname.startsWith(path),
-  );
+  const showPerspectiveUI = FAMILY_ROUTES.some((path) => {
+    if (path === '/') return location.pathname === '/';
+    if (path === '/events')
+      return (
+        location.pathname === '/events' ||
+        location.pathname.startsWith('/events/')
+      );
+    return location.pathname.startsWith(path);
+  });
 
   return (
     <div

@@ -6,6 +6,14 @@ export type EventType =
   | 'reunion'
   | 'other';
 
+export type EventContribution = {
+  id: string;
+  photoUrl: string;
+  contributorId: string;
+  caption?: string;
+  createdAt: string;
+};
+
 export type FamilyEvent = {
   id: string;
   title: string;
@@ -14,9 +22,17 @@ export type FamilyEvent = {
   endDate?: string;
   location?: string;
   description?: string;
+  /** Anggota terkait acara */
   personIds: string[];
-  /** Multiple photo URLs (base64 data URLs or remote URLs) */
+  /** Foto cover dari form (legacy, digabung ke galeri) */
   photoUrls: string[];
+  /**
+   * Peserta yang boleh melihat & berkontribusi.
+   * Kosong = semua anggota keluarga boleh akses.
+   */
+  attendeeIds: string[];
+  /** Foto kontribusi dari anggota keluarga */
+  contributions: EventContribution[];
 };
 
 export const EVENT_TYPE_CONFIG: Record<

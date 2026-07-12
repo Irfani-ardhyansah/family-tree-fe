@@ -9,7 +9,12 @@ import { TreePage } from '@/features/tree-view/TreePage';
 import { FamilyDataProvider } from '@/context/FamilyDataContext';
 import { FamilyPerspectiveProvider } from '@/context/FamilyPerspectiveContext';
 import { EventProvider } from '@/context/EventContext';
+import { MemoriamProvider } from '@/context/MemoriamContext';
 import { EventsPage } from '@/features/events/EventsPage';
+import { EventDetailPage } from '@/features/events/EventDetailPage';
+import { InMemoriamListPage } from '@/features/in-memoriam/InMemoriamListPage';
+import { MemorialPage } from '@/features/in-memoriam/MemorialPage';
+import { PrayerGatePage } from '@/features/in-memoriam/PrayerGatePage';
 
 const ProtectedRoute = () => {
     const isAuthenticated = true;
@@ -61,7 +66,23 @@ const router = createBrowserRouter([
           path: '/events',
           element: <EventsPage />,
       },
+      {
+          path: '/events/:eventId',
+          element: <EventDetailPage />,
+      },
+      {
+          path: '/in-memoriam',
+          element: <InMemoriamListPage />,
+      },
+      {
+          path: '/in-memoriam/:personId',
+          element: <MemorialPage />,
+      },
     ],
+  },
+  {
+    path: '/in-memoriam/:personId/doa',
+    element: <PrayerGatePage />,
   },
     {
         path: '/',
@@ -84,7 +105,9 @@ export function AppRouter() {
     <FamilyDataProvider>
       <FamilyPerspectiveProvider>
         <EventProvider>
-          <RouterProvider router={router} />
+          <MemoriamProvider>
+            <RouterProvider router={router} />
+          </MemoriamProvider>
         </EventProvider>
       </FamilyPerspectiveProvider>
     </FamilyDataProvider>

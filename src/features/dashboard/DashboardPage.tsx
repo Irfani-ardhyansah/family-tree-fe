@@ -9,10 +9,15 @@ import {
   Plus,
   GitBranch,
   User,
+  BookOpen,
 } from 'react-feather';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import { useEvents } from '@/context/EventContext';
+import { useFamily } from '@/context/FamilyDataContext';
+import { useMemoriam } from '@/context/MemoriamContext';
 import { eventMatchesPerspective } from '@/utils/familyPerspective';
+import { canAccessMemorial, getMemorialEntryPath } from '@/utils/memoriamAccess';
+import { getRichTextPlainText } from '@/utils/richText';
 import { EVENT_TYPE_CONFIG } from '@/types/event';
 import type { FamilyEvent } from '@/types/event';
 
@@ -85,7 +90,10 @@ function StatCard({
 function EventMiniCard({ event }: { event: FamilyEvent }) {
   const cfg = EVENT_TYPE_CONFIG[event.type];
   return (
-    <div className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition bg-white">
+    <Link
+      to={`/events/${event.id}`}
+      className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition bg-white block"
+    >
       <div className="flex items-center gap-2 mb-2">
         <span className={`text-lg ${cfg.bg} w-8 h-8 rounded-full flex items-center justify-center`}>
           {cfg.emoji}
@@ -94,7 +102,7 @@ function EventMiniCard({ event }: { event: FamilyEvent }) {
       </div>
       <p className="font-medium text-brand-700 text-sm leading-snug">{event.title}</p>
       <p className="text-gray-400 text-xs mt-2">{formatDate(event.date)}</p>
-    </div>
+    </Link>
   );
 }
 
@@ -107,8 +115,11 @@ export function DashboardPage() {
     focusShortLabel,
     theme,
     perspective,
+    me,
   } = useFamilyPerspective();
   const { events } = useEvents();
+  const { persons: allPersons } = useFamily();
+  const { tributes } = useMemoriam();
 
   const perspectiveEvents = useMemo(
     () => events.filter((e) => eventMatchesPerspective(e.personIds, visiblePersonIds)),
@@ -130,6 +141,27 @@ export function DashboardPage() {
         .slice(0, 5),
     [perspectiveEvents],
   );
+
+  const personMap = useMemo(
+    () => new Map(allPersons.map((p) => [p.id, p])),
+    [allPersons],
+  );
+
+  const recentTributes = useMemo(() => {
+    return [...tributes]
+      .filter((t) => {
+        const deceased = personMap.get(t.deceasedId);
+        return (
+          deceased?.status === 'deceased' &&
+          canAccessMemorial(me?.id, t.deceasedId, allPersons)
+        );
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
+      .slice(0, 4);
+  }, [tributes, personMap, me?.id, allPersons]);
 
   const stats = useMemo(() => {
     const photoCount =
@@ -245,7 +277,11 @@ export function DashboardPage() {
               {recentEvents.map((event) => {
                 const cfg = EVENT_TYPE_CONFIG[event.type];
                 return (
-                  <div key={event.id} className="flex items-start gap-3">
+                  <Link
+                    key={event.id}
+                    to={`/events/${event.id}`}
+                    className="flex items-start gap-3 p-2 -mx-2 rounded-xl hover:bg-gray-50 transition-colors"
+                  >
                     <div className={`${cfg.bg} p-2 rounded-full flex-shrink-0 text-base`}>
                       {cfg.emoji}
                     </div>
@@ -255,7 +291,7 @@ export function DashboardPage() {
                         {cfg.label} · {formatDate(event.date)}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
@@ -293,8 +329,62 @@ export function DashboardPage() {
               </span>
               <ChevronRight size={18} />
             </Link>
+            <Link
+              to="/in-memoriam"
+              className="w-full bg-white border border-gray-200 hover:border-slate-300 text-brand-700 px-4 py-3 rounded-xl transition flex items-center justify-between text-sm font-semibold"
+            >
+              <span className="flex items-center gap-2">
+                <BookOpen size={16} />
+                In Memoriam
+              </span>
+              <ChevronRight size={18} />
+            </Link>
           </div>
         </div>
+      </div>
+
+      {/* Recent tributes */}
+      <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="text-lg font-bold text-brand-700">Kenangan Terbaru</h2>
+          <Link
+            to="/in-memoriam"
+            className="text-sm font-medium text-slate-600 hover:underline"
+          >
+            Lihat semua
+          </Link>
+        </div>
+        {recentTributes.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-8">
+            Belum ada kenangan yang ditulis
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {recentTributes.map((tribute) => {
+              const deceased = personMap.get(tribute.deceasedId);
+              const author = personMap.get(tribute.authorId);
+              if (!deceased) return null;
+              return (
+                <Link
+                  key={tribute.id}
+                  to={getMemorialEntryPath(deceased)}
+                  className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition bg-[#fafaf8] block"
+                >
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">
+                    Untuk {deceased.fullName}
+                  </p>
+                  <p className="text-sm text-slate-700 mt-2 line-clamp-2 leading-relaxed">
+                    {getRichTextPlainText(tribute.content)}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-3">
+                    {author?.fullName ?? 'Anggota'} ·{' '}
+                    {formatDate(tribute.createdAt)}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Upcoming events */}

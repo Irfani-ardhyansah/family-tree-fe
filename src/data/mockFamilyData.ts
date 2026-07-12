@@ -7,7 +7,7 @@ function p(
   birthDate: string,
   extra: Partial<Person> = {},
 ): Person {
-  return {
+  const person: Person = {
     id,
     fullName,
     gender,
@@ -16,6 +16,10 @@ function p(
     spouseIds: [],
     ...extra,
   };
+  if (person.status === 'deceased' && !person.religion) {
+    person.religion = 'islam';
+  }
+  return person;
 }
 
 function linkCouple(husband: Person, wife: Person): [Person, Person] {
@@ -39,6 +43,8 @@ export function buildMockFamilyData(): FamilyData {
       status: 'deceased',
       deathDate: '1972-06-10',
       generationLabel: 'Orang Tua Buyut (Ayah)',
+      photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
+      occupation: 'Petani & Pedagang',
     }),
     p('pat-ggp-f', 'Hj. Kasuma', 'female', '1902-05-01', {
       status: 'deceased',

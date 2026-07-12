@@ -12,7 +12,7 @@ import {
 import { Fragment, useState, useEffect } from 'react';
 import { X, Check, ChevronDown } from 'react-feather';
 import { ImageDropzone } from '@/components/ui/ImageDropzone';
-import type { Gender, LifeStatus, Person } from '@/types/person';
+import type { Gender, LifeStatus, Person, Religion } from '@/types/person';
 
 type FormData = {
   fullName: string;
@@ -21,6 +21,7 @@ type FormData = {
   birthDate: string;
   status: LifeStatus;
   deathDate: string;
+  religion: Religion;
   occupation: string;
   photoUrls: string[];
   fatherId: string;
@@ -35,6 +36,7 @@ const defaultForm: FormData = {
   birthDate: '',
   status: 'alive',
   deathDate: '',
+  religion: 'islam',
   occupation: '',
   photoUrls: [],
   fatherId: '',
@@ -50,6 +52,7 @@ function toFormData(p: Person): FormData {
     birthDate: p.birthDate,
     status: p.status,
     deathDate: p.deathDate ?? '',
+    religion: p.religion ?? 'islam',
     occupation: p.occupation ?? '',
     photoUrls: p.photoUrl ? [p.photoUrl] : [],
     fatherId: p.fatherId ?? '',
@@ -353,6 +356,8 @@ export function PersonFormModal({
         formData.status === 'deceased' && formData.deathDate
           ? formData.deathDate
           : undefined,
+      religion:
+        formData.status === 'deceased' ? formData.religion : undefined,
       occupation: formData.occupation.trim() || undefined,
       photoUrl: formData.photoUrls[0] || undefined,
       fatherId: formData.fatherId || undefined,
@@ -541,6 +546,7 @@ export function PersonFormModal({
                       </div>
 
                       {formData.status === 'deceased' && (
+                        <>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Tanggal Meninggal{' '}
@@ -555,6 +561,37 @@ export function PersonFormModal({
                             className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
                           />
                         </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Agama
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {(
+                              [
+                                { value: 'islam', label: '☪️ Islam' },
+                                { value: 'other', label: '🕊️ Lainnya' },
+                              ] as const
+                            ).map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => set('religion', opt.value)}
+                                className={`py-3 px-2 rounded-xl text-sm font-medium border-2 transition-all ${
+                                  formData.religion === opt.value
+                                    ? 'border-slate-500 bg-slate-100 text-slate-700'
+                                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1.5">
+                            Halaman doa ditampilkan untuk almarhum/almarhumah beragama Islam
+                          </p>
+                        </div>
+                        </>
                       )}
 
                       <div>

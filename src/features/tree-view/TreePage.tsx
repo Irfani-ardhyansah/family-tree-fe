@@ -19,7 +19,9 @@ import {
   Crosshair,
   Maximize2,
   Minimize2,
+  BookOpen,
 } from 'react-feather';
+import { Link } from 'react-router-dom';
 
 import PersonNode from './components/PersonNode';
 import { useFamily } from '@/context/FamilyDataContext';
@@ -36,6 +38,7 @@ import {
   NODE_HEIGHT,
   type PersonNodeData,
 } from '@/utils/treeLayout';
+import { getMemorialEntryPath } from '@/utils/memoriamAccess';
 
 const nodeTypes = { personNode: PersonNode };
 
@@ -92,6 +95,15 @@ function PersonDetailPanel({ person, onClose }: { person: Person; onClose: () =>
             <p className="text-gray-400">Posisi</p>
             <p className="font-medium text-brand-700">{person.generationLabel}</p>
           </div>
+        )}
+        {person.status === 'deceased' && (
+          <Link
+            to={getMemorialEntryPath(person)}
+            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold transition-colors"
+          >
+            <BookOpen size={14} />
+            Lihat Kenangan
+          </Link>
         )}
       </div>
     </div>

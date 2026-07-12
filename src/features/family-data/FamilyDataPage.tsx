@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, ChevronLeft, ChevronRight, Users, Filter, X } from 'react-feather';
+import { Link } from 'react-router-dom';
+import { Plus, Search, Edit2, Trash2, ChevronLeft, ChevronRight, Users, Filter, X, BookOpen } from 'react-feather';
 import type { Gender, LifeStatus, Person } from '@/types/person';
 import { useFamily } from '@/context/FamilyDataContext';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
+import { canAccessMemorial, getMemorialEntryPath } from '@/utils/memoriamAccess';
 import { PersonFormModal } from './components/PersonFormModal';
 import { DeleteConfirmDialog } from './components/DeleteConfirmDialog';
 
@@ -92,6 +94,7 @@ export function FamilyDataPage() {
     focusPerson,
     focusShortLabel,
     theme,
+    me,
   } = useFamilyPerspective();
 
   const persons = visiblePersons;
@@ -456,6 +459,17 @@ export function FamilyDataPage() {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-1">
+                        {person.status === 'deceased' &&
+                          canAccessMemorial(me?.id, person.id, allPersons) && (
+                          <Link
+                            to={getMemorialEntryPath(person)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+                            aria-label={`Kenangan ${person.fullName}`}
+                          >
+                            <BookOpen size={13} />
+                            Kenangan
+                          </Link>
+                        )}
                         <button
                           onClick={() => openEdit(person)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-primary-600 hover:bg-primary-50 transition-colors"
@@ -581,6 +595,16 @@ export function FamilyDataPage() {
               </div>
 
               <div className="flex gap-2 mt-3 pt-3 border-t border-gray-50">
+                {person.status === 'deceased' &&
+                  canAccessMemorial(me?.id, person.id, allPersons) && (
+                  <Link
+                    to={getMemorialEntryPath(person)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                  >
+                    <BookOpen size={13} />
+                    Kenangan
+                  </Link>
+                )}
                 <button
                   onClick={() => openEdit(person)}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors"

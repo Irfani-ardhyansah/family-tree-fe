@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Plus,
   Search,
@@ -58,10 +59,16 @@ function EventCard({
   const cfg = EVENT_TYPE_CONFIG[event.type];
   const upcoming = isUpcoming(event.date);
 
+  const totalPhotos =
+    (event.photoUrls ?? []).length + (event.contributions ?? []).length;
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group">
+    <Link
+      to={`/events/${event.id}`}
+      className="block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group"
+    >
       {/* Top: photo strip or color accent */}
-      {event.photoUrls.length > 0 ? (
+          {(event.photoUrls ?? []).length > 0 ? (
         <div className="relative h-36 overflow-hidden">
           <img
             src={event.photoUrls[0]}
@@ -69,9 +76,23 @@ function EventCard({
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-          {event.photoUrls.length > 1 && (
+          {totalPhotos > 1 && (
             <span className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
-              +{event.photoUrls.length - 1} foto
+              {totalPhotos} foto
+            </span>
+          )}
+        </div>
+      ) : (event.contributions ?? []).length > 0 ? (
+        <div className="relative h-36 overflow-hidden">
+          <img
+            src={event.contributions[0].photoUrl}
+            alt={event.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+          {totalPhotos > 1 && (
+            <span className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
+              {totalPhotos} foto
             </span>
           )}
         </div>
@@ -98,14 +119,14 @@ function EventCard({
           {/* Action buttons — visible on hover/always on mobile */}
           <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             <button
-              onClick={onEdit}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }}
               className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
               aria-label={`Edit ${event.title}`}
             >
               <Edit2 size={15} />
             </button>
             <button
-              onClick={onDelete}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
               className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
               aria-label={`Hapus ${event.title}`}
             >
@@ -115,7 +136,7 @@ function EventCard({
         </div>
 
         {/* Title */}
-        <h3 className="text-base font-bold text-brand-700 leading-snug mb-2">
+        <h3 className="text-base font-bold text-brand-700 leading-snug mb-2 group-hover:text-primary-600 transition-colors">
           {event.title}
         </h3>
 
@@ -158,20 +179,20 @@ function EventCard({
         {/* Mobile action buttons */}
         <div className="flex gap-2 mt-4 pt-3 border-t border-gray-50 sm:hidden">
           <button
-            onClick={onEdit}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }}
             className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors"
           >
             <Edit2 size={13} /> Edit
           </button>
           <button
-            onClick={onDelete}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
             className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
           >
             <Trash2 size={13} /> Hapus
           </button>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -361,8 +382,15 @@ export function EventsPage() {
   const openEdit = (e: FamilyEvent) => { setEventToEdit(e); setIsFormOpen(true); };
 
   const handleSave = (data: Omit<FamilyEvent, 'id'>) => {
-    if (eventToEdit) updateEvent({ ...data, id: eventToEdit.id });
-    else addEvent(data);
+    if (eventToEdit) {
+      updateEvent({
+        ...data,
+        id: eventToEdit.id,
+        contributions: eventToEdit.contributions,
+      });
+    } else {
+      addEvent({ ...data, contributions: [] });
+    }
   };
 
   const upcomingCount = events.filter((e) => isUpcoming(e.date)).length;

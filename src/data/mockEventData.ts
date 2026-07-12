@@ -7,9 +7,34 @@ export const MOCK_EVENTS: FamilyEvent[] = [
     type: 'wedding',
     date: '2015-06-15',
     location: 'Madiun, Jawa Timur',
-    description: 'Akad nikah dan resepsi di Gedung Serbaguna Madiun.',
+    description:
+      'Akad nikah dan resepsi di Gedung Serbaguna Madiun. Momen bahagia menyatukan dua keluarga besar.',
     personIds: ['me', 'me-sp'],
     photoUrls: [],
+    attendeeIds: [],
+    contributions: [
+      {
+        id: 'c-ev1-1',
+        photoUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=600&q=80',
+        contributorId: 'me',
+        caption: 'Momen akad nikah',
+        createdAt: '2015-06-15T10:00:00',
+      },
+      {
+        id: 'c-ev1-2',
+        photoUrl: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=600&q=80',
+        contributorId: 'me-sp',
+        caption: 'Resepsi bersama keluarga',
+        createdAt: '2015-06-15T14:30:00',
+      },
+      {
+        id: 'c-ev1-3',
+        photoUrl: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=600&q=80',
+        contributorId: 'father',
+        caption: 'Foto bersama orang tua',
+        createdAt: '2015-06-15T16:00:00',
+      },
+    ],
   },
   {
     id: 'ev-2',
@@ -20,6 +45,16 @@ export const MOCK_EVENTS: FamilyEvent[] = [
     description: 'Putra pertama Irfa & Ayu lahir dengan sehat.',
     personIds: ['me', 'me-sp'],
     photoUrls: [],
+    attendeeIds: ['me', 'me-sp', 'father', 'mother'],
+    contributions: [
+      {
+        id: 'c-ev2-1',
+        photoUrl: 'https://images.unsplash.com/photo-1515488042361-ee00e17ddd11?w=600&q=80',
+        contributorId: 'me-sp',
+        caption: 'Bayi pertama kami',
+        createdAt: '2016-09-20T08:00:00',
+      },
+    ],
   },
   {
     id: 'ev-3',
@@ -27,9 +62,41 @@ export const MOCK_EVENTS: FamilyEvent[] = [
     type: 'reunion',
     date: '2023-08-17',
     location: 'Rumah Kakek, Madiun',
-    description: 'Reuni tahunan keluarga besar, dihadiri lebih dari 50 anggota keluarga.',
+    description:
+      'Reuni tahunan keluarga besar, dihadiri lebih dari 50 anggota keluarga dari berbagai generasi.',
     personIds: ['me', 'me-sp'],
     photoUrls: [],
+    attendeeIds: [],
+    contributions: [
+      {
+        id: 'c-ev3-1',
+        photoUrl: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&q=80',
+        contributorId: 'me',
+        caption: 'Foto keluarga besar',
+        createdAt: '2023-08-17T11:00:00',
+      },
+      {
+        id: 'c-ev3-2',
+        photoUrl: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=600&q=80',
+        contributorId: 'sib-1',
+        caption: 'Makan bersama',
+        createdAt: '2023-08-17T13:00:00',
+      },
+      {
+        id: 'c-ev3-3',
+        photoUrl: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=600&q=80',
+        contributorId: 'sib-2',
+        caption: 'Games bareng sepupu',
+        createdAt: '2023-08-17T15:00:00',
+      },
+      {
+        id: 'c-ev3-4',
+        photoUrl: 'https://images.unsplash.com/photo-1464207687429-7505649dae38?w=600&q=80',
+        contributorId: 'me-sp',
+        caption: 'Selfie dengan kakek nenek',
+        createdAt: '2023-08-17T16:30:00',
+      },
+    ],
   },
   {
     id: 'ev-4',
@@ -40,6 +107,8 @@ export const MOCK_EVENTS: FamilyEvent[] = [
     description: 'Buyut dari pihak ayah.',
     personIds: ['pat-ggp-m'],
     photoUrls: [],
+    attendeeIds: [],
+    contributions: [],
   },
   {
     id: 'ev-5',
@@ -50,6 +119,23 @@ export const MOCK_EVENTS: FamilyEvent[] = [
     description: 'Perayaan ulang tahun emas kakek dari pihak ayah.',
     personIds: ['pat-gp-m'],
     photoUrls: [],
+    attendeeIds: ['me', 'me-sp', 'father', 'mother', 'pat-gp-m'],
+    contributions: [
+      {
+        id: 'c-ev5-1',
+        photoUrl: 'https://images.unsplash.com/photo-1464349153739-4e242edb5c8b?w=600&q=80',
+        contributorId: 'me',
+        caption: 'Kue ulang tahun ke-70',
+        createdAt: '2024-03-12T12:00:00',
+      },
+      {
+        id: 'c-ev5-2',
+        photoUrl: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=600&q=80',
+        contributorId: 'mother',
+        caption: 'Doa bersama keluarga',
+        createdAt: '2024-03-12T14:00:00',
+      },
+    ],
   },
   {
     id: 'ev-6',
@@ -60,5 +146,7 @@ export const MOCK_EVENTS: FamilyEvent[] = [
     description: 'Gathering keluarga besar menyambut tahun baru.',
     personIds: ['me', 'me-sp'],
     photoUrls: [],
+    attendeeIds: [],
+    contributions: [],
   },
 ];

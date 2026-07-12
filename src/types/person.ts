@@ -1,5 +1,6 @@
 export type Gender = 'male' | 'female';
 export type LifeStatus = 'alive' | 'deceased';
+export type Religion = 'islam' | 'other';
 
 export type Person = {
   id: string;
@@ -9,6 +10,7 @@ export type Person = {
   birthDate: string;
   deathDate?: string;
   status: LifeStatus;
+  religion?: Religion;
   photoUrl?: string;
   occupation?: string;
   fatherId?: string;
