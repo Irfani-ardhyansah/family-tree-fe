@@ -11,6 +11,7 @@ import {
 } from '@headlessui/react';
 import { Fragment, useState, useEffect } from 'react';
 import { X, Check, ChevronDown } from 'react-feather';
+import { ImageDropzone } from '@/components/ui/ImageDropzone';
 import type { Gender, LifeStatus, Person } from '@/types/person';
 
 type FormData = {
@@ -21,7 +22,7 @@ type FormData = {
   status: LifeStatus;
   deathDate: string;
   occupation: string;
-  photoUrl: string;
+  photoUrls: string[];
   fatherId: string;
   motherId: string;
   spouseIds: string[];
@@ -35,7 +36,7 @@ const defaultForm: FormData = {
   status: 'alive',
   deathDate: '',
   occupation: '',
-  photoUrl: '',
+  photoUrls: [],
   fatherId: '',
   motherId: '',
   spouseIds: [],
@@ -50,7 +51,7 @@ function toFormData(p: Person): FormData {
     status: p.status,
     deathDate: p.deathDate ?? '',
     occupation: p.occupation ?? '',
-    photoUrl: p.photoUrl ?? '',
+    photoUrls: p.photoUrl ? [p.photoUrl] : [],
     fatherId: p.fatherId ?? '',
     motherId: p.motherId ?? '',
     spouseIds: p.spouseIds,
@@ -353,7 +354,7 @@ export function PersonFormModal({
           ? formData.deathDate
           : undefined,
       occupation: formData.occupation.trim() || undefined,
-      photoUrl: formData.photoUrl.trim() || undefined,
+      photoUrl: formData.photoUrls[0] || undefined,
       fatherId: formData.fatherId || undefined,
       motherId: formData.motherId || undefined,
       spouseIds: formData.spouseIds,
@@ -574,17 +575,15 @@ export function PersonFormModal({
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          URL Foto{' '}
+                          Foto Profil{' '}
                           <span className="text-gray-400 font-normal">
                             (opsional)
                           </span>
                         </label>
-                        <input
-                          type="url"
-                          value={formData.photoUrl}
-                          onChange={(e) => set('photoUrl', e.target.value)}
-                          placeholder="https://..."
-                          className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+                        <ImageDropzone
+                          value={formData.photoUrls}
+                          onChange={(urls) => set('photoUrls', urls)}
+                          multiple={false}
                         />
                       </div>
                     </div>

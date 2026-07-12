@@ -7,6 +7,9 @@ import { RegisterPage } from '@/features/auth/RegisterPage';
 import { FamilyDataPage } from '@/features/family-data/FamilyDataPage';
 import { TreePage } from '@/features/tree-view/TreePage';
 import { FamilyDataProvider } from '@/context/FamilyDataContext';
+import { FamilyPerspectiveProvider } from '@/context/FamilyPerspectiveContext';
+import { EventProvider } from '@/context/EventContext';
+import { EventsPage } from '@/features/events/EventsPage';
 
 const ProtectedRoute = () => {
     const isAuthenticated = true;
@@ -54,6 +57,10 @@ const router = createBrowserRouter([
           path: '/family/tree',
           element: <TreePage />,
       },
+      {
+          path: '/events',
+          element: <EventsPage />,
+      },
     ],
   },
     {
@@ -75,7 +82,11 @@ const router = createBrowserRouter([
 export function AppRouter() {
   return (
     <FamilyDataProvider>
-      <RouterProvider router={router} />
+      <FamilyPerspectiveProvider>
+        <EventProvider>
+          <RouterProvider router={router} />
+        </EventProvider>
+      </FamilyPerspectiveProvider>
     </FamilyDataProvider>
   );
 }

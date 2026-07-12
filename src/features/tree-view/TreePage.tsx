@@ -19,12 +19,11 @@ import {
   Crosshair,
   Maximize2,
   Minimize2,
-  User,
-  Heart,
 } from 'react-feather';
 
 import PersonNode from './components/PersonNode';
-import { MOCK_FAMILY, getFamilyStats, getMySpouse } from '@/data/mockFamilyData';
+import { useFamily } from '@/context/FamilyDataContext';
+import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import type { Person, TreeDisplayFilters, TreeLineage, TreeViewConfig } from '@/types/person';
 import { DEFAULT_TREE_VIEW, TREE_DISPLAY_OPTIONS, TREE_LINEAGE_OPTIONS, ANCESTOR_GENERATION_NAMES } from '@/types/person';
 import {
@@ -102,22 +101,44 @@ function PersonDetailPanel({ person, onClose }: { person: Person; onClose: () =>
 function TreeCanvas() {
   const { fitView, setCenter } = useReactFlow();
   const { containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen();
-  const totalStats = getFamilyStats();
-  const mySpouse = getMySpouse();
-  const hasSpouse = !!mySpouse;
+  const { persons, rootPersonId } = useFamily();
+  const familyData = useMemo(
+    () => ({ persons, rootPersonId }),
+    [persons, rootPersonId],
+  );
+  const {
+    perspective,
+    focusShortLabel,
+    spouse,
+    theme,
+  } = useFamilyPerspective();
 
-  const [viewConfig, setViewConfig] = useState<TreeViewConfig>(DEFAULT_TREE_VIEW);
+  const totalStats = useMemo(
+    () => ({ totalMembers: persons.length }),
+    [persons.length],
+  );
+
+  const [viewConfig, setViewConfig] = useState<Omit<TreeViewConfig, 'perspective'>>({
+    lineage: DEFAULT_TREE_VIEW.lineage,
+    generationsUp: DEFAULT_TREE_VIEW.generationsUp,
+    display: DEFAULT_TREE_VIEW.display,
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
 
+  const fullViewConfig = useMemo(
+    (): TreeViewConfig => ({ ...viewConfig, perspective }),
+    [viewConfig, perspective],
+  );
+
   const focusPersonId = useMemo(
-    () => resolveFocusPersonId(MOCK_FAMILY, viewConfig.perspective),
-    [viewConfig.perspective],
+    () => resolveFocusPersonId(familyData, perspective),
+    [familyData, perspective],
   );
 
   const maxGenerationsUp = useMemo(
-    () => getMaxGenerationsUp(MOCK_FAMILY, viewConfig),
-    [viewConfig.perspective, viewConfig.lineage],
+    () => getMaxGenerationsUp(familyData, fullViewConfig),
+    [familyData, fullViewConfig],
   );
 
   useEffect(() => {
@@ -127,33 +148,36 @@ function TreeCanvas() {
   }, [maxGenerationsUp, viewConfig.generationsUp]);
 
   const visiblePersons = useMemo(
-    () => filterPersons(MOCK_FAMILY, viewConfig),
-    [viewConfig],
+    () => filterPersons(familyData, fullViewConfig),
+    [familyData, fullViewConfig],
   );
 
   const visibleStats = useMemo(
-    () => getVisibleStats(visiblePersons, focusPersonId, viewConfig.lineage),
-    [visiblePersons, focusPersonId, viewConfig.lineage],
+    () => getVisibleStats(visiblePersons, focusPersonId, fullViewConfig.lineage),
+    [visiblePersons, focusPersonId, fullViewConfig.lineage],
   );
 
   const { nodes, edges } = useMemo(
     () =>
       layoutFamilyTree(visiblePersons, {
-        perspective: viewConfig.perspective,
-        lineage: viewConfig.lineage,
+        perspective: fullViewConfig.perspective,
+        lineage: fullViewConfig.lineage,
         rootPersonId: focusPersonId,
         focusPersonId,
         selectedId: selectedPerson?.id,
         searchQuery,
       }),
-    [visiblePersons, viewConfig.perspective, viewConfig.lineage, focusPersonId, selectedPerson?.id, searchQuery],
+    [
+      visiblePersons,
+      fullViewConfig.perspective,
+      fullViewConfig.lineage,
+      focusPersonId,
+      selectedPerson?.id,
+      searchQuery,
+    ],
   );
 
   const activeDisplayCount = Object.values(viewConfig.display).filter(Boolean).length;
-
-  const setPerspective = (perspective: TreeViewConfig['perspective']) => {
-    setViewConfig((prev) => ({ ...prev, perspective }));
-  };
 
   const setLineage = (lineage: TreeLineage) => {
     setViewConfig((prev) => ({ ...prev, lineage }));
@@ -197,10 +221,7 @@ function TreeCanvas() {
     }
   }, [nodes, setCenter]);
 
-  const focusLabel =
-    viewConfig.perspective === 'self'
-      ? 'Saya'
-      : mySpouse?.nickname ?? mySpouse?.fullName.split(' ').slice(-1)[0] ?? 'Pasangan';
+  const focusLabel = focusShortLabel;
 
   return (
     <>
@@ -214,48 +235,16 @@ function TreeCanvas() {
             </p>
           </div>
 
-          {/* Filter 1: Perspektif */}
-          <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
+          {/* Filter 1: Jalur & generasi */}
+          <div className={`bg-white rounded-xl border p-3 shadow-sm ${theme.accentBorder}`}>
             <p className="text-xs font-semibold text-brand-700 mb-2 uppercase tracking-wide">
-              Filter 1 · Pusat Pohon
+              Filter 1 · Jalur Keturunan
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setPerspective('self')}
-                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition ${
-                  viewConfig.perspective === 'self'
-                    ? 'bg-primary-500 text-white border-primary-500'
-                    : 'bg-white text-brand-600 border-gray-200 hover:border-primary-300'
-                }`}
-              >
-                <User size={13} />
-                Saya
-              </button>
-              {hasSpouse && (
-                <button
-                  type="button"
-                  onClick={() => setPerspective('spouse')}
-                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition ${
-                    viewConfig.perspective === 'spouse'
-                      ? 'bg-primary-500 text-white border-primary-500'
-                      : 'bg-white text-brand-600 border-gray-200 hover:border-primary-300'
-                  }`}
-                >
-                  <Heart size={13} />
-                  Pasangan
-                </button>
-              )}
-            </div>
-            {viewConfig.perspective === 'spouse' && (
-              <p className="text-[10px] text-primary-600 mt-2 leading-relaxed">
-                Garis naik mengikuti keluarga {mySpouse?.nickname ?? 'pasangan'}. Data pasangan disederhanakan.
+            {perspective === 'spouse' && (
+              <p className="text-[10px] text-secondary-500 mb-2 leading-relaxed">
+                Pusat pohon: {spouse?.nickname ?? spouse?.fullName ?? 'Pasangan'} (atur di navbar)
               </p>
             )}
-
-            <p className="text-xs font-semibold text-brand-700 mt-3 mb-2 uppercase tracking-wide">
-              Jalur Keturunan
-            </p>
             <div className="grid grid-cols-3 gap-1.5">
               {TREE_LINEAGE_OPTIONS.map(({ value, label, desc }) => (
                 <button
@@ -384,9 +373,9 @@ function TreeCanvas() {
         <div className="flex-1 min-w-0">
           <div
             ref={containerRef}
-            className={`bg-white shadow-md border border-gray-200 overflow-hidden ${
+            className={`bg-white shadow-md border overflow-hidden ${
               isFullscreen ? 'rounded-none h-screen' : 'rounded-xl'
-            }`}
+            } ${theme.accentBorder}`}
             style={{ height: isFullscreen ? undefined : '72vh' }}
           >
             <ReactFlow

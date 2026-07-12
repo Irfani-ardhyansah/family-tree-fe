@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Plus, Search, Edit2, Trash2, ChevronLeft, ChevronRight, Users, Filter, X } from 'react-feather';
 import type { Gender, LifeStatus, Person } from '@/types/person';
 import { useFamily } from '@/context/FamilyDataContext';
+import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import { PersonFormModal } from './components/PersonFormModal';
 import { DeleteConfirmDialog } from './components/DeleteConfirmDialog';
 
@@ -85,7 +86,15 @@ function StatusBadge({ status }: { status: Person['status'] }) {
 }
 
 export function FamilyDataPage() {
-  const { persons, addPerson, updatePerson, deletePerson } = useFamily();
+  const { persons: allPersons, addPerson, updatePerson, deletePerson } = useFamily();
+  const {
+    visiblePersons,
+    focusPerson,
+    focusShortLabel,
+    theme,
+  } = useFamilyPerspective();
+
+  const persons = visiblePersons;
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
@@ -177,7 +186,10 @@ export function FamilyDataPage() {
             Data Anggota Keluarga
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {persons.length} anggota tercatat
+            {persons.length} anggota · fokus{' '}
+            <span className={`font-medium ${theme.accentText}`}>
+              {focusShortLabel}
+            </span>
           </p>
         </div>
         <button
@@ -395,10 +407,16 @@ export function FamilyDataPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {paginated.map((person) => (
+                {paginated.map((person) => {
+                  const isFocus = person.id === focusPerson?.id;
+                  return (
                   <tr
                     key={person.id}
-                    className="hover:bg-gray-50/60 transition-colors"
+                    className={`transition-colors ${
+                      isFocus
+                        ? `${theme.accentBg} border-l-4 ${theme.accentBorder}`
+                        : 'hover:bg-gray-50/60'
+                    }`}
                   >
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -406,7 +424,12 @@ export function FamilyDataPage() {
                         <div>
                           <p className="text-sm font-semibold text-brand-700 leading-tight">
                             {person.fullName}
-                            {person.isSelf && (
+                            {isFocus && (
+                              <span className={`ml-2 text-xs font-normal px-1.5 py-0.5 rounded ${theme.accentBg} ${theme.accentText}`}>
+                                Fokus
+                              </span>
+                            )}
+                            {person.isSelf && !isFocus && (
                               <span className="ml-2 text-xs font-normal text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">
                                 Kamu
                               </span>
@@ -454,7 +477,8 @@ export function FamilyDataPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>
@@ -506,10 +530,16 @@ export function FamilyDataPage() {
       {/* ── Mobile card list ─────────────────────────────── */}
       {filtered.length > 0 && (
         <div className="md:hidden space-y-3">
-          {paginated.map((person) => (
+          {paginated.map((person) => {
+            const isFocus = person.id === focusPerson?.id;
+            return (
             <div
               key={person.id}
-              className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4"
+              className={`rounded-2xl shadow-sm border p-4 ${
+                isFocus
+                  ? `${theme.accentBg} ${theme.accentBorder} border-2`
+                  : 'bg-white border-gray-100'
+              }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
@@ -517,7 +547,12 @@ export function FamilyDataPage() {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-brand-700 truncate leading-tight">
                       {person.fullName}
-                      {person.isSelf && (
+                      {isFocus && (
+                        <span className={`ml-2 text-xs font-normal px-1.5 py-0.5 rounded ${theme.accentBg} ${theme.accentText}`}>
+                          Fokus
+                        </span>
+                      )}
+                      {person.isSelf && !isFocus && (
                         <span className="ml-2 text-xs font-normal text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">
                           Kamu
                         </span>
@@ -563,7 +598,8 @@ export function FamilyDataPage() {
                 </button>
               </div>
             </div>
-          ))}
+          );
+          })}
 
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 pt-2">
@@ -595,7 +631,7 @@ export function FamilyDataPage() {
         onClose={() => setIsFormOpen(false)}
         personToEdit={personToEdit}
         onSave={handleSave}
-        persons={persons}
+        persons={allPersons}
       />
 
       <DeleteConfirmDialog
