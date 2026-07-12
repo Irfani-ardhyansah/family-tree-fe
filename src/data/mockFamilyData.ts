@@ -356,6 +356,17 @@ export function buildMockFamilyData(): FamilyData {
         nickname: meta.isFather ? 'Ayah' : undefined,
         generationLabel: meta.isFather ? 'Ayah' : 'Paman/Bibi (Ayah)',
         occupation: meta.isFather ? 'Wiraswasta' : undefined,
+        phone: meta.isFather ? '081234567890' : undefined,
+        address: meta.isFather
+          ? {
+              street: 'Jl. Diponegoro No. 45',
+              district: 'Lowokwaru',
+              city: 'Kota Malang',
+              province: 'Jawa Timur',
+              postalCode: '65141',
+              country: 'Indonesia',
+            }
+          : undefined,
       }),
       patGpM.id,
       patGpF.id,
@@ -391,6 +402,18 @@ export function buildMockFamilyData(): FamilyData {
         nickname: meta.isMother ? 'Ibu' : undefined,
         generationLabel: meta.isMother ? 'Ibu' : 'Paman/Bibi (Ibu)',
         occupation: meta.isMother ? 'Guru SD' : undefined,
+        phone: meta.isMother ? '081298765432' : undefined,
+        phoneAlt: meta.isMother ? '0341123456' : undefined,
+        address: meta.isMother
+          ? {
+              street: 'Jl. Diponegoro No. 45',
+              district: 'Lowokwaru',
+              city: 'Kota Malang',
+              province: 'Jawa Timur',
+              postalCode: '65141',
+              country: 'Indonesia',
+            }
+          : undefined,
       }),
       matGpM.id,
       matGpF.id,
@@ -567,6 +590,19 @@ export function buildMockFamilyData(): FamilyData {
         isSelf: meta.isSelf,
         generationLabel: meta.isSelf ? 'Kamu' : 'Saudara',
         occupation: meta.isSelf ? 'Software Engineer' : undefined,
+        phone: meta.isSelf ? '081112223344' : undefined,
+        address: meta.isSelf
+          ? {
+              street: 'Jl. Soekarno Hatta No. 8, Perumahan Green Valley Blok B-12',
+              district: 'Lowokwaru',
+              city: 'Kota Malang',
+              province: 'Jawa Timur',
+              postalCode: '65141',
+              country: 'Indonesia',
+              latitude: -7.9666,
+              longitude: 112.6326,
+            }
+          : undefined,
       }),
       father.id,
       mother.id,
@@ -579,6 +615,7 @@ export function buildMockFamilyData(): FamilyData {
             p(meta.spouseId, meta.spouseName, spouseGender, '2001-05-17', {
               nickname: 'Ayu',
               generationLabel: 'Pasangan',
+              phone: '081355566677',
             }),
             spFather.id,
             spMother.id,

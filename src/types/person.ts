@@ -2,6 +2,18 @@ export type Gender = 'male' | 'female';
 export type LifeStatus = 'alive' | 'deceased';
 export type Religion = 'islam' | 'other';
 
+/** Terstruktur agar nanti mudah di-pin ke Google Maps. */
+export type PersonAddress = {
+  street?: string;
+  district?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+};
+
 export type Person = {
   id: string;
   fullName: string;
@@ -13,6 +25,9 @@ export type Person = {
   religion?: Religion;
   photoUrl?: string;
   occupation?: string;
+  phone?: string;
+  phoneAlt?: string;
+  address?: PersonAddress;
   fatherId?: string;
   motherId?: string;
   spouseIds: string[];

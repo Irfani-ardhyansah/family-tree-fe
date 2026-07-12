@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Edit2, Trash2, ChevronLeft, ChevronRight, Users, Filter, X, BookOpen } from 'react-feather';
+import { Plus, Search, Edit2, Trash2, ChevronLeft, ChevronRight, Users, Filter, X, BookOpen, Eye } from 'react-feather';
 import type { Gender, LifeStatus, Person } from '@/types/person';
 import { useFamily } from '@/context/FamilyDataContext';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import { canAccessMemorial, getMemorialEntryPath } from '@/utils/memoriamAccess';
 import { PersonFormModal } from './components/PersonFormModal';
 import { DeleteConfirmDialog } from './components/DeleteConfirmDialog';
+import { PersonDetailModal } from './components/PersonDetailModal';
+import { PersonContactBadges } from '@/components/ui/PersonContactInfo';
 
 const PAGE_SIZE = 15;
 
@@ -105,6 +107,7 @@ export function FamilyDataPage() {
   const [page, setPage] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [personToEdit, setPersonToEdit] = useState<Person | null>(null);
+  const [detailTarget, setDetailTarget] = useState<Person | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Person | null>(null);
 
   const generationOptions = useMemo(() => {
@@ -162,6 +165,10 @@ export function FamilyDataPage() {
   const openEdit = (person: Person) => {
     setPersonToEdit(person);
     setIsFormOpen(true);
+  };
+
+  const openDetail = (person: Person) => {
+    setDetailTarget(person);
   };
 
   const openDelete = (person: Person) => {
@@ -422,10 +429,14 @@ export function FamilyDataPage() {
                     }`}
                   >
                     <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => openDetail(person)}
+                        className="flex items-center gap-3 text-left group"
+                      >
                         <PersonAvatar person={person} />
                         <div>
-                          <p className="text-sm font-semibold text-brand-700 leading-tight">
+                          <p className="text-sm font-semibold text-brand-700 leading-tight group-hover:text-primary-600 transition-colors">
                             {person.fullName}
                             {isFocus && (
                               <span className={`ml-2 text-xs font-normal px-1.5 py-0.5 rounded ${theme.accentBg} ${theme.accentText}`}>
@@ -443,8 +454,9 @@ export function FamilyDataPage() {
                               "{person.nickname}"
                             </p>
                           )}
+                          <PersonContactBadges person={person} />
                         </div>
-                      </div>
+                      </button>
                     </td>
                     <td className="px-5 py-4 text-sm text-gray-600">
                       {formatDate(person.birthDate)}
@@ -459,6 +471,14 @@ export function FamilyDataPage() {
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => openDetail(person)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+                          aria-label={`Detail ${person.fullName}`}
+                        >
+                          <Eye size={13} />
+                          Detail
+                        </button>
                         {person.status === 'deceased' &&
                           canAccessMemorial(me?.id, person.id, allPersons) && (
                           <Link
@@ -556,10 +576,14 @@ export function FamilyDataPage() {
               }`}
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => openDetail(person)}
+                  className="flex items-center gap-3 min-w-0 text-left"
+                >
                   <PersonAvatar person={person} />
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-brand-700 truncate leading-tight">
+                    <p className="text-sm font-semibold text-brand-700 truncate leading-tight hover:text-primary-600 transition-colors">
                       {person.fullName}
                       {isFocus && (
                         <span className={`ml-2 text-xs font-normal px-1.5 py-0.5 rounded ${theme.accentBg} ${theme.accentText}`}>
@@ -577,8 +601,9 @@ export function FamilyDataPage() {
                         "{person.nickname}"
                       </p>
                     )}
+                    <PersonContactBadges person={person} />
                   </div>
-                </div>
+                </button>
                 <StatusBadge status={person.status} />
               </div>
 
@@ -595,6 +620,13 @@ export function FamilyDataPage() {
               </div>
 
               <div className="flex gap-2 mt-3 pt-3 border-t border-gray-50">
+                <button
+                  onClick={() => openDetail(person)}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                >
+                  <Eye size={13} />
+                  Detail
+                </button>
                 {person.status === 'deceased' &&
                   canAccessMemorial(me?.id, person.id, allPersons) && (
                   <Link
@@ -650,6 +682,15 @@ export function FamilyDataPage() {
       )}
 
       {/* ── Modals ───────────────────────────────────────── */}
+      <PersonDetailModal
+        isOpen={detailTarget !== null}
+        onClose={() => setDetailTarget(null)}
+        person={detailTarget}
+        allPersons={allPersons}
+        currentUserId={me?.id}
+        onEdit={openEdit}
+      />
+
       <PersonFormModal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}

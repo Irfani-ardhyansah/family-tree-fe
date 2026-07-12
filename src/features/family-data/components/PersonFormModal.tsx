@@ -9,10 +9,14 @@ import {
   ComboboxOption,
   ComboboxOptions,
 } from '@headlessui/react';
-import { Fragment, useState, useEffect } from 'react';
-import { X, Check, ChevronDown } from 'react-feather';
+import { Fragment, useState, useEffect, useMemo } from 'react';
+import { X, Check, ChevronDown, MapPin, Phone } from 'react-feather';
 import { ImageDropzone } from '@/components/ui/ImageDropzone';
 import type { Gender, LifeStatus, Person, Religion } from '@/types/person';
+import {
+  buildAddressFromFields,
+  getGoogleMapsSearchUrl,
+} from '@/utils/personContact';
 
 type FormData = {
   fullName: string;
@@ -23,6 +27,13 @@ type FormData = {
   deathDate: string;
   religion: Religion;
   occupation: string;
+  phone: string;
+  phoneAlt: string;
+  addressStreet: string;
+  addressDistrict: string;
+  addressCity: string;
+  addressProvince: string;
+  addressPostalCode: string;
   photoUrls: string[];
   fatherId: string;
   motherId: string;
@@ -38,6 +49,13 @@ const defaultForm: FormData = {
   deathDate: '',
   religion: 'islam',
   occupation: '',
+  phone: '',
+  phoneAlt: '',
+  addressStreet: '',
+  addressDistrict: '',
+  addressCity: '',
+  addressProvince: '',
+  addressPostalCode: '',
   photoUrls: [],
   fatherId: '',
   motherId: '',
@@ -54,6 +72,13 @@ function toFormData(p: Person): FormData {
     deathDate: p.deathDate ?? '',
     religion: p.religion ?? 'islam',
     occupation: p.occupation ?? '',
+    phone: p.phone ?? '',
+    phoneAlt: p.phoneAlt ?? '',
+    addressStreet: p.address?.street ?? '',
+    addressDistrict: p.address?.district ?? '',
+    addressCity: p.address?.city ?? '',
+    addressProvince: p.address?.province ?? '',
+    addressPostalCode: p.address?.postalCode ?? '',
     photoUrls: p.photoUrl ? [p.photoUrl] : [],
     fatherId: p.fatherId ?? '',
     motherId: p.motherId ?? '',
@@ -359,6 +384,15 @@ export function PersonFormModal({
       religion:
         formData.status === 'deceased' ? formData.religion : undefined,
       occupation: formData.occupation.trim() || undefined,
+      phone: formData.phone.trim() || undefined,
+      phoneAlt: formData.phoneAlt.trim() || undefined,
+      address: buildAddressFromFields({
+        street: formData.addressStreet,
+        district: formData.addressDistrict,
+        city: formData.addressCity,
+        province: formData.addressProvince,
+        postalCode: formData.addressPostalCode,
+      }),
       photoUrl: formData.photoUrls[0] || undefined,
       fatherId: formData.fatherId || undefined,
       motherId: formData.motherId || undefined,
@@ -373,6 +407,23 @@ export function PersonFormModal({
   const malePersons = persons.filter((p) => p.gender === 'male');
   const femalePersons = persons.filter((p) => p.gender === 'female');
   const isEditing = personToEdit !== null;
+
+  const mapsPreviewUrl = useMemo(() => {
+    const address = buildAddressFromFields({
+      street: formData.addressStreet,
+      district: formData.addressDistrict,
+      city: formData.addressCity,
+      province: formData.addressProvince,
+      postalCode: formData.addressPostalCode,
+    });
+    return address ? getGoogleMapsSearchUrl(address) : null;
+  }, [
+    formData.addressStreet,
+    formData.addressDistrict,
+    formData.addressCity,
+    formData.addressProvince,
+    formData.addressPostalCode,
+  ]);
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -608,6 +659,124 @@ export function PersonFormModal({
                           placeholder="contoh: Guru, Petani, Dokter"
                           className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
                         />
+                      </div>
+
+                      <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 space-y-4">
+                        <div>
+                          <p className="text-sm font-semibold text-brand-700 flex items-center gap-2">
+                            <Phone size={15} className="text-primary-500" />
+                            Kontak & Alamat
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Opsional. Alamat terstruktur agar nanti bisa ditampilkan di Google Maps.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              No. Telepon / WhatsApp
+                            </label>
+                            <input
+                              type="tel"
+                              value={formData.phone}
+                              onChange={(e) => set('phone', e.target.value)}
+                              placeholder="08xx xxxx xxxx"
+                              className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              No. Alternatif
+                            </label>
+                            <input
+                              type="tel"
+                              value={formData.phoneAlt}
+                              onChange={(e) => set('phoneAlt', e.target.value)}
+                              placeholder="Opsional"
+                              className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Jalan / Detail Alamat
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.addressStreet}
+                            onChange={(e) => set('addressStreet', e.target.value)}
+                            placeholder="Jl. Contoh No. 12, RT/RW"
+                            className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Kecamatan
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.addressDistrict}
+                              onChange={(e) => set('addressDistrict', e.target.value)}
+                              placeholder="Kecamatan"
+                              className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Kota / Kabupaten
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.addressCity}
+                              onChange={(e) => set('addressCity', e.target.value)}
+                              placeholder="Kota"
+                              className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Provinsi
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.addressProvince}
+                              onChange={(e) => set('addressProvince', e.target.value)}
+                              placeholder="Provinsi"
+                              className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Kode Pos
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.addressPostalCode}
+                              onChange={(e) => set('addressPostalCode', e.target.value)}
+                              placeholder="60111"
+                              className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+                            />
+                          </div>
+                        </div>
+
+                        {mapsPreviewUrl && (
+                          <a
+                            href={mapsPreviewUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                          >
+                            <MapPin size={14} />
+                            Pratinjau lokasi di Google Maps
+                          </a>
+                        )}
                       </div>
 
                       <div>

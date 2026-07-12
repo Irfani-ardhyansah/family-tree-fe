@@ -39,6 +39,7 @@ import {
   type PersonNodeData,
 } from '@/utils/treeLayout';
 import { getMemorialEntryPath } from '@/utils/memoriamAccess';
+import { PersonContactInfo } from '@/components/ui/PersonContactInfo';
 
 const nodeTypes = { personNode: PersonNode };
 
@@ -68,7 +69,7 @@ function PersonDetailPanel({ person, onClose }: { person: Person; onClose: () =>
   const age = new Date().getFullYear() - new Date(person.birthDate).getFullYear();
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 w-72 overflow-hidden">
+    <div className="bg-white rounded-xl shadow-lg border border-gray-200 w-80 overflow-hidden max-h-[85vh] overflow-y-auto">
       <div className="bg-primary-500 px-4 py-3 flex justify-between items-center">
         <h3 className="text-white font-semibold text-sm">Profil Anggota</h3>
         <button type="button" onClick={onClose} className="text-white/80 hover:text-white transition" aria-label="Tutup">
@@ -96,6 +97,7 @@ function PersonDetailPanel({ person, onClose }: { person: Person; onClose: () =>
             <p className="font-medium text-brand-700">{person.generationLabel}</p>
           </div>
         )}
+        <PersonContactInfo person={person} />
         {person.status === 'deceased' && (
           <Link
             to={getMemorialEntryPath(person)}
