@@ -365,8 +365,19 @@ export function buildMockFamilyData(): FamilyData {
               province: 'Jawa Timur',
               postalCode: '65141',
               country: 'Indonesia',
+              latitude: -7.97,
+              longitude: 112.63,
             }
-          : undefined,
+          : meta.id === 'pat-sib-1'
+            ? {
+                street: 'Jl. Raya Darmo No. 88',
+                district: 'Wonokromo',
+                city: 'Kota Surabaya',
+                province: 'Jawa Timur',
+                postalCode: '60241',
+                country: 'Indonesia',
+              }
+            : undefined,
       }),
       patGpM.id,
       patGpF.id,
@@ -412,8 +423,19 @@ export function buildMockFamilyData(): FamilyData {
               province: 'Jawa Timur',
               postalCode: '65141',
               country: 'Indonesia',
+              latitude: -7.965,
+              longitude: 112.635,
             }
-          : undefined,
+          : meta.id === 'mat-sib-1'
+            ? {
+                street: 'Jl. Sudirman Kav. 52',
+                district: 'Senayan',
+                city: 'DKI Jakarta',
+                province: 'DKI Jakarta',
+                postalCode: '12190',
+                country: 'Indonesia',
+              }
+            : undefined,
       }),
       matGpM.id,
       matGpF.id,

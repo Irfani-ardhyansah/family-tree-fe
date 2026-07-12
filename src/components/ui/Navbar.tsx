@@ -1,8 +1,39 @@
-import { Users, User, Heart } from 'react-feather';
+import { useState } from 'react';
+import {
+  Users,
+  User,
+  Heart,
+  Menu,
+  X,
+  Layout,
+  GitBranch,
+  Database,
+  Map as MapIcon,
+  Calendar,
+  BookOpen,
+} from 'react-feather';
 import { Link, NavLink } from 'react-router-dom';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 
-function PerspectiveSwitcher() {
+import type { Icon } from 'react-feather';
+
+type NavItemConfig = {
+  to: string;
+  label: string;
+  icon: Icon;
+  exact?: boolean;
+};
+
+const NAV_ITEMS: NavItemConfig[] = [
+  { to: '/', label: 'Dashboard', exact: true, icon: Layout },
+  { to: '/family/tree', label: 'Pohon', icon: GitBranch },
+  { to: '/family/data', label: 'Data', icon: Database },
+  { to: '/family/map', label: 'Peta', icon: MapIcon },
+  { to: '/events', label: 'Acara', icon: Calendar },
+  { to: '/in-memoriam', label: 'Memoriam', icon: BookOpen },
+];
+
+function PerspectiveSwitcher({ compact = false }: { compact?: boolean }) {
   const {
     perspective,
     setPerspective,
@@ -16,16 +47,16 @@ function PerspectiveSwitcher() {
   if (!hasSpouse) {
     return (
       <div
-        className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${theme.accentBg} ${theme.accentText} ${theme.accentBorder}`}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${theme.accentBg} ${theme.accentText} ${theme.accentBorder}`}
       >
         <User size={13} />
-        {me?.nickname ?? me?.fullName ?? 'Saya'}
+        {!compact && (me?.nickname ?? me?.fullName ?? 'Saya')}
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200">
+    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-gray-100/80 border border-gray-200">
       <button
         type="button"
         onClick={() => setPerspective('self')}
@@ -37,8 +68,7 @@ function PerspectiveSwitcher() {
         title={me?.fullName}
       >
         <User size={13} />
-        <span className="hidden sm:inline">Saya</span>
-        <span className="sm:hidden">{me?.nickname ?? 'Saya'}</span>
+        {!compact && <span>Saya</span>}
       </button>
       <button
         type="button"
@@ -51,53 +81,124 @@ function PerspectiveSwitcher() {
         title={spouse?.fullName}
       >
         <Heart size={13} />
-        <span className="hidden sm:inline">Pasangan</span>
-        <span className="sm:hidden">{focusShortLabel}</span>
+        {!compact && <span>Pasangan</span>}
+        {compact && <span>{focusShortLabel}</span>}
       </button>
     </div>
   );
 }
 
-export function Navbar() {
+function NavItem({
+  to,
+  label,
+  icon: Icon,
+  exact,
+  onClick,
+}: {
+  to: string;
+  label: string;
+  icon: typeof Layout;
+  exact?: boolean;
+  onClick?: () => void;
+}) {
   return (
-    <nav className="bg-white shadow-lg">
+    <NavLink
+      to={to}
+      end={exact}
+      onClick={onClick}
+      className={({ isActive }) =>
+        `inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+          isActive
+            ? 'bg-primary-50 text-primary-700 shadow-sm ring-1 ring-primary-100'
+            : 'text-brand-600 hover:bg-gray-50 hover:text-primary-600'
+        }`
+      }
+    >
+      <Icon size={16} className="flex-shrink-0" />
+      <span>{label}</span>
+    </NavLink>
+  );
+}
+
+export function Navbar() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  return (
+    <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200/80 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center gap-4">
-          <Link to="/" className="flex items-center flex-shrink-0">
-            <Users className="text-primary-500 mr-2" size={24} />
-            <span className="text-xl font-bold text-gray-800">FamilyRoots</span>
+        <div className="flex justify-between h-16 items-center gap-3">
+          {/* Logo */}
+          <Link
+            to="/"
+            className="flex items-center gap-2.5 flex-shrink-0 group"
+            onClick={() => setMobileOpen(false)}
+          >
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+              <Users className="text-white" size={18} />
+            </div>
+            <div className="hidden sm:block">
+              <span className="text-lg font-bold text-brand-700 leading-none">
+                FamilyRoots
+              </span>
+              <span className="block text-[10px] text-gray-400 font-medium tracking-wide">
+                Silsilah Keluarga
+              </span>
+            </div>
           </Link>
 
-          <div className="hidden md:flex space-x-8">
-            {[
-              { to: '/', label: 'Dashboard', exact: true },
-              { to: '/family/tree', label: 'Pohon Keluarga' },
-              { to: '/family/data', label: 'Data Anggota' },
-              { to: '/events', label: 'Acara Keluarga' },
-              { to: '/in-memoriam', label: 'In Memoriam' },
-            ].map(({ to, label, exact }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={exact}
-                className={({ isActive }) =>
-                  `font-medium transition ${
-                    isActive
-                      ? 'text-primary-500'
-                      : 'text-brand-700 hover:text-primary-500'
-                  }`
-                }
-              >
-                {label}
-              </NavLink>
+          {/* Desktop nav */}
+          <div className="hidden lg:flex items-center gap-1 flex-1 justify-center max-w-2xl">
+            {NAV_ITEMS.map(({ to, label, exact, icon }) => (
+              <NavItem key={to} to={to} label={label} icon={icon} exact={exact} />
             ))}
           </div>
 
-          <div className="flex items-center gap-3">
-            <PerspectiveSwitcher />
+          {/* Right actions */}
+          <div className="flex items-center gap-2">
+            <div className="hidden md:block">
+              <PerspectiveSwitcher />
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileOpen((v) => !v)}
+              className="lg:hidden p-2 rounded-xl text-brand-600 hover:bg-gray-100 transition-colors"
+              aria-label={mobileOpen ? 'Tutup menu' : 'Buka menu'}
+            >
+              {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Mobile menu */}
+      {mobileOpen && (
+        <div className="lg:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-4 shadow-lg">
+          <div className="md:hidden">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1">
+              Fokus Keluarga
+            </p>
+            <PerspectiveSwitcher compact />
+          </div>
+
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1">
+              Navigasi
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {NAV_ITEMS.map(({ to, label, exact, icon }) => (
+                <NavItem
+                  key={to}
+                  to={to}
+                  label={label}
+                  icon={icon}
+                  exact={exact}
+                  onClick={() => setMobileOpen(false)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

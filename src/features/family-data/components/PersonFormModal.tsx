@@ -9,7 +9,7 @@ import {
   ComboboxOption,
   ComboboxOptions,
 } from '@headlessui/react';
-import { Fragment, useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { X, Check, ChevronDown, MapPin, Phone } from 'react-feather';
 import { ImageDropzone } from '@/components/ui/ImageDropzone';
 import type { Gender, LifeStatus, Person, Religion } from '@/types/person';
@@ -17,6 +17,17 @@ import {
   buildAddressFromFields,
   getGoogleMapsSearchUrl,
 } from '@/utils/personContact';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import {
+  resolveAddressCoordinates,
+  type GeocodeSource,
+} from '@/utils/addressGeocoding';
+
+const AddressPinPicker = lazy(() =>
+  import('@/components/ui/AddressPinPicker').then((m) => ({
+    default: m.AddressPinPicker,
+  })),
+);
 
 type FormData = {
   fullName: string;
@@ -34,6 +45,8 @@ type FormData = {
   addressCity: string;
   addressProvince: string;
   addressPostalCode: string;
+  addressLatitude: string;
+  addressLongitude: string;
   photoUrls: string[];
   fatherId: string;
   motherId: string;
@@ -56,6 +69,8 @@ const defaultForm: FormData = {
   addressCity: '',
   addressProvince: '',
   addressPostalCode: '',
+  addressLatitude: '',
+  addressLongitude: '',
   photoUrls: [],
   fatherId: '',
   motherId: '',
@@ -79,6 +94,10 @@ function toFormData(p: Person): FormData {
     addressCity: p.address?.city ?? '',
     addressProvince: p.address?.province ?? '',
     addressPostalCode: p.address?.postalCode ?? '',
+    addressLatitude:
+      p.address?.latitude != null ? String(p.address.latitude) : '',
+    addressLongitude:
+      p.address?.longitude != null ? String(p.address.longitude) : '',
     photoUrls: p.photoUrl ? [p.photoUrl] : [],
     fatherId: p.fatherId ?? '',
     motherId: p.motherId ?? '',
@@ -337,12 +356,25 @@ export function PersonFormModal({
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>(
     {},
   );
+  const [showPinPicker, setShowPinPicker] = useState(false);
+  const [pinIsManual, setPinIsManual] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [geocodeSource, setGeocodeSource] = useState<GeocodeSource | null>(
+    null,
+  );
 
   useEffect(() => {
     if (isOpen) {
       setStep(1);
       setErrors({});
       setFormData(personToEdit ? toFormData(personToEdit) : defaultForm);
+      const hasCoords =
+        personToEdit?.address?.latitude != null &&
+        personToEdit?.address?.longitude != null;
+      setShowPinPicker(hasCoords);
+      setPinIsManual(hasCoords);
+      setIsGeocoding(false);
+      setGeocodeSource(hasCoords ? 'api' : null);
     }
   }, [isOpen, personToEdit]);
 
@@ -350,6 +382,107 @@ export function PersonFormModal({
     setFormData((prev) => ({ ...prev, [key]: value }));
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
   };
+
+  const addressFieldsKey = useMemo(
+    () =>
+      [
+        formData.addressStreet,
+        formData.addressDistrict,
+        formData.addressCity,
+        formData.addressProvince,
+        formData.addressPostalCode,
+      ].join('|'),
+    [
+      formData.addressStreet,
+      formData.addressDistrict,
+      formData.addressCity,
+      formData.addressProvince,
+      formData.addressPostalCode,
+    ],
+  );
+
+  const debouncedAddressKey = useDebouncedValue(addressFieldsKey, 900);
+
+  const applyGeocodeResult = useCallback(
+    (lat: number, lng: number, source: GeocodeSource) => {
+      const latStr = String(lat);
+      const lngStr = String(lng);
+      setFormData((prev) => {
+        if (
+          prev.addressLatitude === latStr &&
+          prev.addressLongitude === lngStr
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          addressLatitude: latStr,
+          addressLongitude: lngStr,
+        };
+      });
+      setGeocodeSource(source);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!isOpen || !showPinPicker || pinIsManual) return;
+
+    const abort = new AbortController();
+
+    (async () => {
+      setIsGeocoding(true);
+      try {
+        const result = await resolveAddressCoordinates(
+          {
+            street: formData.addressStreet,
+            district: formData.addressDistrict,
+            city: formData.addressCity,
+            province: formData.addressProvince,
+            postalCode: formData.addressPostalCode,
+          },
+          abort.signal,
+        );
+        if (result) {
+          applyGeocodeResult(result.lat, result.lng, result.source);
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+      } finally {
+        if (!abort.signal.aborted) setIsGeocoding(false);
+      }
+    })();
+
+    return () => {
+      abort.abort();
+      setIsGeocoding(false);
+    };
+  }, [
+    debouncedAddressKey,
+    showPinPicker,
+    pinIsManual,
+    isOpen,
+    applyGeocodeResult,
+    formData.addressStreet,
+    formData.addressDistrict,
+    formData.addressCity,
+    formData.addressProvince,
+    formData.addressPostalCode,
+  ]);
+
+  const handleSyncPinFromAddress = useCallback(() => {
+    setPinIsManual(false);
+  }, []);
+
+  const parsedLatitude = useMemo(() => {
+    const n = Number(formData.addressLatitude.trim());
+    return Number.isFinite(n) ? n : null;
+  }, [formData.addressLatitude]);
+
+  const parsedLongitude = useMemo(() => {
+    const n = Number(formData.addressLongitude.trim());
+    return Number.isFinite(n) ? n : null;
+  }, [formData.addressLongitude]);
 
   const validateStep1 = () => {
     const e: typeof errors = {};
@@ -392,6 +525,8 @@ export function PersonFormModal({
         city: formData.addressCity,
         province: formData.addressProvince,
         postalCode: formData.addressPostalCode,
+        latitude: formData.addressLatitude,
+        longitude: formData.addressLongitude,
       }),
       photoUrl: formData.photoUrls[0] || undefined,
       fatherId: formData.fatherId || undefined,
@@ -415,6 +550,8 @@ export function PersonFormModal({
       city: formData.addressCity,
       province: formData.addressProvince,
       postalCode: formData.addressPostalCode,
+      latitude: formData.addressLatitude,
+      longitude: formData.addressLongitude,
     });
     return address ? getGoogleMapsSearchUrl(address) : null;
   }, [
@@ -423,6 +560,8 @@ export function PersonFormModal({
     formData.addressCity,
     formData.addressProvince,
     formData.addressPostalCode,
+    formData.addressLatitude,
+    formData.addressLongitude,
   ]);
 
   return (
@@ -668,7 +807,7 @@ export function PersonFormModal({
                             Kontak & Alamat
                           </p>
                           <p className="text-xs text-gray-400 mt-1">
-                            Opsional. Alamat terstruktur agar nanti bisa ditampilkan di Google Maps.
+                            Opsional. Aktifkan pin peta untuk lokasi akurat di Peta Keluarga.
                           </p>
                         </div>
 
@@ -699,6 +838,46 @@ export function PersonFormModal({
                           </div>
                         </div>
 
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Provinsi
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.addressProvince}
+                              onChange={(e) => set('addressProvince', e.target.value)}
+                              placeholder="contoh: Jawa Timur"
+                              className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Kota / Kabupaten
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.addressCity}
+                              onChange={(e) => set('addressCity', e.target.value)}
+                              placeholder="contoh: Kota Malang"
+                              className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Kecamatan
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.addressDistrict}
+                            onChange={(e) => set('addressDistrict', e.target.value)}
+                            placeholder="contoh: Klojen"
+                            className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+                          />
+                        </div>
+
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">
                             Jalan / Detail Alamat
@@ -712,59 +891,81 @@ export function PersonFormModal({
                           />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
-                              Kecamatan
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.addressDistrict}
-                              onChange={(e) => set('addressDistrict', e.target.value)}
-                              placeholder="Kecamatan"
-                              className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
-                              Kota / Kabupaten
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.addressCity}
-                              onChange={(e) => set('addressCity', e.target.value)}
-                              placeholder="Kota"
-                              className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
-                            />
-                          </div>
+                        <div className="sm:max-w-[200px]">
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Kode Pos
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.addressPostalCode}
+                            onChange={(e) => set('addressPostalCode', e.target.value)}
+                            placeholder="60111"
+                            inputMode="numeric"
+                            className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+                          />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
-                              Provinsi
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.addressProvince}
-                              onChange={(e) => set('addressProvince', e.target.value)}
-                              placeholder="Provinsi"
-                              className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
-                            />
+                        <div className="flex items-center justify-between gap-3 pt-3 border-t border-gray-200">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-gray-700">
+                              Pin lokasi di peta
+                            </p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                              {showPinPicker
+                                ? 'Pin mengikuti alamat secara otomatis'
+                                : 'Nonaktif — tidak memuat peta (lebih ringan)'}
+                            </p>
                           </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
-                              Kode Pos
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.addressPostalCode}
-                              onChange={(e) => set('addressPostalCode', e.target.value)}
-                              placeholder="60111"
-                              className="block w-full rounded-lg border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={showPinPicker}
+                            onClick={() =>
+                              setShowPinPicker((prev) => {
+                                const next = !prev;
+                                if (next && !pinIsManual) {
+                                  setGeocodeSource(null);
+                                }
+                                return next;
+                              })
+                            }
+                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                              showPinPicker ? 'bg-primary-500' : 'bg-gray-200'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                showPinPicker ? 'translate-x-6' : 'translate-x-1'
+                              }`}
                             />
-                          </div>
+                          </button>
                         </div>
+
+                        {showPinPicker && (
+                          <Suspense
+                            fallback={
+                              <div className="h-[200px] rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                                Memuat peta…
+                              </div>
+                            }
+                          >
+                            <AddressPinPicker
+                              latitude={parsedLatitude}
+                              longitude={parsedLongitude}
+                              onChange={(lat, lng) => {
+                                set('addressLatitude', String(lat));
+                                set('addressLongitude', String(lng));
+                              }}
+                              onManualChange={() => setPinIsManual(true)}
+                              onSyncFromAddress={handleSyncPinFromAddress}
+                              city={formData.addressCity}
+                              province={formData.addressProvince}
+                              isGeocoding={isGeocoding}
+                              pinIsManual={pinIsManual}
+                              geocodeSource={geocodeSource}
+                            />
+                          </Suspense>
+                        )}
 
                         {mapsPreviewUrl && (
                           <a

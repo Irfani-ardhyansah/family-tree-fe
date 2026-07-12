@@ -8,7 +8,14 @@ type MainLayoutProps = {
   children: React.ReactNode;
 };
 
-const FAMILY_ROUTES = ['/', '/family/tree', '/family/data', '/events'];
+const FAMILY_ROUTES = [
+  '/',
+  '/family/tree',
+  '/family/data',
+  '/family/map',
+  '/events',
+  '/in-memoriam',
+];
 
 export function MainLayout({ children }: MainLayoutProps) {
   const location = useLocation();
@@ -19,6 +26,11 @@ export function MainLayout({ children }: MainLayoutProps) {
       return (
         location.pathname === '/events' ||
         location.pathname.startsWith('/events/')
+      );
+    if (path === '/in-memoriam')
+      return (
+        location.pathname === '/in-memoriam' ||
+        location.pathname.startsWith('/in-memoriam/')
       );
     return location.pathname.startsWith(path);
   });

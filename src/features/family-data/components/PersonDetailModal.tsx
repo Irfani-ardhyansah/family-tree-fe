@@ -15,10 +15,12 @@ import {
   BookOpen,
   Briefcase,
   Users,
+  Map as MapIcon,
 } from 'react-feather';
 import type { Person } from '@/types/person';
 import { PersonContactInfo } from '@/components/ui/PersonContactInfo';
 import { canAccessMemorial, getMemorialEntryPath } from '@/utils/memoriamAccess';
+import { hasAddress } from '@/utils/personContact';
 
 function formatDate(dateStr?: string): string {
   if (!dateStr) return '—';
@@ -262,6 +264,17 @@ export function PersonDetailModal({
                   )}
 
                   <PersonContactInfo person={person} />
+
+                  {hasAddress(person) && (
+                    <Link
+                      to={`/family/map?person=${person.id}`}
+                      onClick={onClose}
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-100 text-sm font-semibold transition-colors"
+                    >
+                      <MapIcon size={16} />
+                      Lihat di Peta Keluarga
+                    </Link>
+                  )}
 
                   {showMemorial && (
                     <Link

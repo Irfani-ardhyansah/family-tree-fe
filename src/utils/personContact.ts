@@ -65,19 +65,34 @@ export function formatAddressSingleLine(address: PersonAddress): string {
   return parts.join(', ');
 }
 
+function parseOptionalCoord(value?: string): number | undefined {
+  if (value == null) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 export function buildAddressFromFields(fields: {
   street: string;
   district: string;
   city: string;
   province: string;
   postalCode: string;
+  latitude?: string;
+  longitude?: string;
 }): PersonAddress | undefined {
   const street = fields.street.trim();
   const district = fields.district.trim();
   const city = fields.city.trim();
   const province = fields.province.trim();
   const postalCode = fields.postalCode.trim();
-  if (!street && !district && !city && !province && !postalCode) return undefined;
+  const latitude = parseOptionalCoord(fields.latitude);
+  const longitude = parseOptionalCoord(fields.longitude);
+  const hasCoords = latitude != null && longitude != null;
+  if (!street && !district && !city && !province && !postalCode && !hasCoords) {
+    return undefined;
+  }
   return {
     street: street || undefined,
     district: district || undefined,
@@ -85,6 +100,7 @@ export function buildAddressFromFields(fields: {
     province: province || undefined,
     postalCode: postalCode || undefined,
     country: 'Indonesia',
+    ...(hasCoords ? { latitude, longitude } : {}),
   };
 }
 

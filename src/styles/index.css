@@ -1,4 +1,12 @@
 /* src/index.css */
+@import 'leaflet/dist/leaflet.css';
+
+/* Leaflet custom div markers */
+.family-map-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

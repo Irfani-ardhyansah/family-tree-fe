@@ -1,4 +1,4 @@
-import type { FamilyData, Person, TreePerspective, TreeViewConfig } from '@/types/person';
+import type { FamilyData, Person, TreePerspective, TreeLineage, TreeViewConfig } from '@/types/person';
 import { filterPersons, getMaxGenerationsUp } from '@/utils/treeLayout';
 
 /** Broad view config to include all related members for a perspective. */
@@ -24,7 +24,18 @@ export function getPersonsForPerspective(
   data: FamilyData,
   perspective: TreePerspective,
 ): Person[] {
-  const config = buildPerspectiveViewConfig(perspective, data);
+  return getPersonsForPerspectiveLineage(data, perspective, 'both');
+}
+
+export function getPersonsForPerspectiveLineage(
+  data: FamilyData,
+  perspective: TreePerspective,
+  lineage: TreeLineage,
+): Person[] {
+  const config: TreeViewConfig = {
+    ...buildPerspectiveViewConfig(perspective, data),
+    lineage,
+  };
   return filterPersons(data, config);
 }
 

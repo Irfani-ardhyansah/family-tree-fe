@@ -1,4 +1,5 @@
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import { MainLayout } from '@/components/layouts/MainLayout';
 import { AuthLayout } from '@/components/layouts/AuthLayout';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
@@ -15,6 +16,28 @@ import { EventDetailPage } from '@/features/events/EventDetailPage';
 import { InMemoriamListPage } from '@/features/in-memoriam/InMemoriamListPage';
 import { MemorialPage } from '@/features/in-memoriam/MemorialPage';
 import { PrayerGatePage } from '@/features/in-memoriam/PrayerGatePage';
+
+const FamilyMapPage = lazy(() =>
+  import('@/features/family-map/FamilyMapPage').then((m) => ({
+    default: m.FamilyMapPage,
+  })),
+);
+
+function MapPageLoader() {
+  return (
+    <div className="flex items-center justify-center py-24 text-gray-400 text-sm">
+      Memuat peta...
+    </div>
+  );
+}
+
+function LazyFamilyMapPage() {
+  return (
+    <Suspense fallback={<MapPageLoader />}>
+      <FamilyMapPage />
+    </Suspense>
+  );
+}
 
 const ProtectedRoute = () => {
     const isAuthenticated = true;
@@ -61,6 +84,10 @@ const router = createBrowserRouter([
       {
           path: '/family/tree',
           element: <TreePage />,
+      },
+      {
+          path: '/family/map',
+          element: <LazyFamilyMapPage />,
       },
       {
           path: '/events',

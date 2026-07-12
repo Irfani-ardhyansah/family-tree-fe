@@ -10,6 +10,7 @@ import {
   GitBranch,
   User,
   BookOpen,
+  Map as MapIcon,
 } from 'react-feather';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import { useEvents } from '@/context/EventContext';
@@ -316,6 +317,16 @@ export function DashboardPage() {
               <span className="flex items-center gap-2">
                 <Plus size={16} />
                 Tambah Anggota
+              </span>
+              <ChevronRight size={18} />
+            </Link>
+            <Link
+              to="/family/map"
+              className="w-full bg-white border border-gray-200 hover:border-primary-300 text-brand-700 px-4 py-3 rounded-xl transition flex items-center justify-between text-sm font-semibold"
+            >
+              <span className="flex items-center gap-2">
+                <MapIcon size={16} />
+                Peta Keluarga
               </span>
               <ChevronRight size={18} />
             </Link>
