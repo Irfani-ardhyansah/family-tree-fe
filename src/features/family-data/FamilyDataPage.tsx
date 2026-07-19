@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Edit2, Trash2, ChevronLeft, ChevronRight, Users, Filter, X, BookOpen, Eye } from 'react-feather';
+import { Plus, Search, Edit2, Trash2, ChevronLeft, ChevronRight, Users, Filter, X, BookOpen, Eye, Upload } from 'react-feather';
 import type { Gender, LifeStatus, Person } from '@/types/person';
 import { useFamily } from '@/context/FamilyDataContext';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { canAccessMemorial, getMemorialEntryPath } from '@/utils/memoriamAccess';
 import { PersonFormModal } from './components/PersonFormModal';
+import { PersonImportModal } from './components/PersonImportModal';
 import { DeleteConfirmDialog } from './components/DeleteConfirmDialog';
 import { PersonDetailModal } from './components/PersonDetailModal';
 import { PersonContactBadges } from '@/components/ui/PersonContactInfo';
@@ -98,6 +100,7 @@ export function FamilyDataPage() {
     theme,
     me,
   } = useFamilyPerspective();
+  const isAdmin = useIsAdmin();
 
   const persons = visiblePersons;
 
@@ -106,6 +109,7 @@ export function FamilyDataPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [personToEdit, setPersonToEdit] = useState<Person | null>(null);
   const [detailTarget, setDetailTarget] = useState<Person | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Person | null>(null);
@@ -202,13 +206,25 @@ export function FamilyDataPage() {
             </span>
           </p>
         </div>
-        <button
-          onClick={openAdd}
-          className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm self-start sm:self-auto"
-        >
-          <Plus size={18} />
-          Tambah Anggota
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setIsImportOpen(true)}
+              className="inline-flex items-center gap-2 bg-white border border-primary-200 hover:border-primary-400 text-primary-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+            >
+              <Upload size={18} />
+              Import
+            </button>
+          )}
+          <button
+            onClick={openAdd}
+            className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm"
+          >
+            <Plus size={18} />
+            Tambah Anggota
+          </button>
+        </div>
       </div>
 
       {/* ── Search + Filter bar ──────────────────────────── */}
@@ -698,6 +714,13 @@ export function FamilyDataPage() {
         onSave={handleSave}
         persons={allPersons}
       />
+
+      {isAdmin && (
+        <PersonImportModal
+          isOpen={isImportOpen}
+          onClose={() => setIsImportOpen(false)}
+        />
+      )}
 
       <DeleteConfirmDialog
         isOpen={deleteTarget !== null}

@@ -11,9 +11,11 @@ import {
   Map as MapIcon,
   Calendar,
   BookOpen,
+  LogOut,
 } from 'react-feather';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
+import { useAuth } from '@/context/AuthContext';
 
 import type { Icon } from 'react-feather';
 
@@ -122,6 +124,14 @@ function NavItem({
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    setMobileOpen(false);
+    navigate('/login', { replace: true });
+  };
 
   return (
     <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200/80 shadow-sm">
@@ -158,6 +168,23 @@ export function Navbar() {
             <div className="hidden md:block">
               <PerspectiveSwitcher />
             </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors"
+              title="Keluar dari akun"
+            >
+              <LogOut size={16} />
+              <span>Keluar</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="sm:hidden p-2 rounded-xl text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+              aria-label="Keluar"
+            >
+              <LogOut size={20} />
+            </button>
             <button
               type="button"
               onClick={() => setMobileOpen((v) => !v)}
@@ -197,6 +224,15 @@ export function Navbar() {
               ))}
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 transition-colors"
+          >
+            <LogOut size={16} />
+            Keluar
+          </button>
         </div>
       )}
     </nav>

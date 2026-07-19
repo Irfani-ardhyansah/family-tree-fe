@@ -610,6 +610,7 @@ export function buildMockFamilyData(): FamilyData {
       p(meta.id, meta.name, meta.gender, meta.birth, {
         nickname: meta.nickname,
         isSelf: meta.isSelf,
+        role: meta.isSelf ? 'admin' : 'member',
         generationLabel: meta.isSelf ? 'Kamu' : 'Saudara',
         occupation: meta.isSelf ? 'Software Engineer' : undefined,
         phone: meta.isSelf ? '081112223344' : undefined,
@@ -662,6 +663,26 @@ export function buildMockFamilyData(): FamilyData {
       );
     }
   }
+
+  // Akun demo login — kode MR170845 (Mulyono Raka, 17 Agustus 1945)
+  add(
+    p('demo-mr', 'Mulyono Raka', 'male', '1945-08-17', {
+      role: 'admin',
+      generationLabel: 'Kakek (Demo Login)',
+      occupation: 'Pensiunan PNS',
+      phone: '081300011223',
+      address: {
+        street: 'Jl. Merdeka No. 17',
+        district: 'Klojen',
+        city: 'Kota Malang',
+        province: 'Jawa Timur',
+        postalCode: '65111',
+        country: 'Indonesia',
+        latitude: -7.9666,
+        longitude: 112.6326,
+      },
+    }),
+  );
 
   return {
     persons,

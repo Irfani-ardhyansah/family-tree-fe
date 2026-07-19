@@ -1,6 +1,7 @@
 export type Gender = 'male' | 'female';
 export type LifeStatus = 'alive' | 'deceased';
 export type Religion = 'islam' | 'other';
+export type UserRole = 'admin' | 'member';
 
 /** Terstruktur agar nanti mudah di-pin ke Google Maps. */
 export type PersonAddress = {
@@ -33,6 +34,7 @@ export type Person = {
   spouseIds: string[];
   generationLabel?: string;
   isSelf?: boolean;
+  role?: UserRole;
 };
 
 export type FamilyData = {

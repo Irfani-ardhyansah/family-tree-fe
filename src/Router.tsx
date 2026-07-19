@@ -11,6 +11,7 @@ import { FamilyDataProvider } from '@/context/FamilyDataContext';
 import { FamilyPerspectiveProvider } from '@/context/FamilyPerspectiveContext';
 import { EventProvider } from '@/context/EventContext';
 import { MemoriamProvider } from '@/context/MemoriamContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { EventsPage } from '@/features/events/EventsPage';
 import { EventDetailPage } from '@/features/events/EventDetailPage';
 import { InMemoriamListPage } from '@/features/in-memoriam/InMemoriamListPage';
@@ -40,21 +41,21 @@ function LazyFamilyMapPage() {
 }
 
 const ProtectedRoute = () => {
-    const isAuthenticated = true;
+  const { isAuthenticated } = useAuth();
 
-    if (!isAuthenticated) {
-        return <Navigate to="/login" replace />;
-    }
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
-    return (
-        <MainLayout>
-        <Outlet /> 
-        </MainLayout>
-    );
+  return (
+    <MainLayout>
+      <Outlet />
+    </MainLayout>
+  );
 };
 
 const PublicRoute = () => {
-  const isAuthenticated = false;
+  const { isAuthenticated } = useAuth();
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -129,14 +130,16 @@ const router = createBrowserRouter([
 
 export function AppRouter() {
   return (
-    <FamilyDataProvider>
-      <FamilyPerspectiveProvider>
-        <EventProvider>
-          <MemoriamProvider>
-            <RouterProvider router={router} />
-          </MemoriamProvider>
-        </EventProvider>
-      </FamilyPerspectiveProvider>
-    </FamilyDataProvider>
+    <AuthProvider>
+      <FamilyDataProvider>
+        <FamilyPerspectiveProvider>
+          <EventProvider>
+            <MemoriamProvider>
+              <RouterProvider router={router} />
+            </MemoriamProvider>
+          </EventProvider>
+        </FamilyPerspectiveProvider>
+      </FamilyDataProvider>
+    </AuthProvider>
   );
 }

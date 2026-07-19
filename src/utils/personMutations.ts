@@ -1,7 +1,67 @@
 import type { FamilyData, Person } from '@/types/person';
+import type { PersonImportDraft } from '@/utils/personImport';
 
 function generateId(): string {
   return `person-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function buildPersonFromDraft(
+  draft: PersonImportDraft,
+  id: string,
+): Person {
+  const hasAddress =
+    draft.street ||
+    draft.district ||
+    draft.city ||
+    draft.province ||
+    draft.postalCode ||
+    draft.latitude != null ||
+    draft.longitude != null;
+
+  return {
+    id,
+    fullName: draft.fullName.trim(),
+    nickname: draft.nickname,
+    gender: draft.gender,
+    birthDate: draft.birthDate,
+    status: draft.status,
+    deathDate: draft.deathDate,
+    religion: draft.religion,
+    occupation: draft.occupation,
+    phone: draft.phone,
+    phoneAlt: draft.phoneAlt,
+    address: hasAddress
+      ? {
+          street: draft.street,
+          district: draft.district,
+          city: draft.city,
+          province: draft.province,
+          postalCode: draft.postalCode,
+          country: 'Indonesia',
+          latitude: draft.latitude,
+          longitude: draft.longitude,
+        }
+      : undefined,
+    generationLabel: draft.generationLabel,
+    spouseIds: [],
+    role: 'member',
+  };
+}
+
+function findIdByName(
+  name: string | undefined,
+  nameToId: Map<string, string>,
+): string | undefined {
+  if (!name?.trim()) return undefined;
+  return nameToId.get(name.trim().toLowerCase());
+}
+
+function splitSpouseNames(raw?: string): string[] {
+  if (!raw?.trim()) return [];
+  return raw
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean);
 }
 
 export function addPersonMutation(
@@ -60,6 +120,53 @@ export function deletePersonMutation(data: FamilyData, id: string): FamilyData {
       fatherId: p.fatherId === id ? undefined : p.fatherId,
       motherId: p.motherId === id ? undefined : p.motherId,
     }));
+
+  return { ...data, persons };
+}
+
+export function importPersonsMutation(
+  data: FamilyData,
+  drafts: PersonImportDraft[],
+): FamilyData {
+  if (drafts.length === 0) return data;
+
+  const nameToId = new Map(
+    data.persons.map((p) => [p.fullName.trim().toLowerCase(), p.id]),
+  );
+
+  const newPersons: Person[] = drafts.map((draft) => {
+    const id = generateId();
+    nameToId.set(draft.fullName.trim().toLowerCase(), id);
+    return buildPersonFromDraft(draft, id);
+  });
+
+  const linkedPersons = newPersons.map((person, index) => {
+    const draft = drafts[index];
+    const fatherId = findIdByName(draft.fatherName, nameToId);
+    const motherId = findIdByName(draft.motherName, nameToId);
+    const spouseIds = splitSpouseNames(draft.spouseNames)
+      .map((name) => findIdByName(name, nameToId))
+      .filter((id): id is string => !!id && id !== person.id);
+
+    return {
+      ...person,
+      fatherId,
+      motherId,
+      spouseIds,
+    };
+  });
+
+  let persons = [...data.persons, ...linkedPersons];
+
+  for (const person of linkedPersons) {
+    for (const spouseId of person.spouseIds) {
+      persons = persons.map((p) => {
+        if (p.id !== spouseId) return p;
+        if (p.spouseIds.includes(person.id)) return p;
+        return { ...p, spouseIds: [...p.spouseIds, person.id] };
+      });
+    }
+  }
 
   return { ...data, persons };
 }

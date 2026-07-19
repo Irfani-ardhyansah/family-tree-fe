@@ -1,113 +1,175 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Users } from 'react-feather';
-import { AuthLayout } from '@/components/layouts/AuthLayout';
-// Komponen ini akan dibungkus oleh AuthLayout melalui Router
+import { Key, Eye, EyeOff, LogIn, HelpCircle } from 'react-feather';
+import { useAuth } from '@/context/AuthContext';
+import { useFamily } from '@/context/FamilyDataContext';
+import { normalizeLoginCode, LOGIN_CODE_MAX_LENGTH } from '@/utils/loginCode';
+
 export function LoginPage() {
-  // 1. State untuk mengontrol input
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  
-  // 2. Hook untuk redirect setelah login
+  const [code, setCode] = useState('');
+  const [remember, setRemember] = useState(true);
+  const [showCode, setShowCode] = useState(false);
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { login } = useAuth();
+  const { persons } = useFamily();
   const navigate = useNavigate();
 
-  // 3. Fungsi untuk menangani submit form
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Di aplikasi sungguhan, Anda akan kirim ini ke API Go
-    console.log('Login attempt:', { email, password });
-    
-    // Untuk demo, kita langsung redirect ke dashboard
-    // Ini adalah cara SPA, tidak me-refresh halaman
-    navigate('/dashboard'); 
+    setError('');
+    setIsSubmitting(true);
+
+    const result = await login(code, persons, remember);
+    setIsSubmitting(false);
+
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+
+    navigate('/', { replace: true });
+  };
+
+  const handleCodeChange = (value: string) => {
+    setCode(
+      normalizeLoginCode(value)
+        .replace(/[^A-Z0-9]/g, '')
+        .slice(0, LOGIN_CODE_MAX_LENGTH),
+    );
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-    <div className="text-center mb-8">
-        {/* 4. Ikon diganti ke komponen react-feather */}
-        <Users className="text-primary-500 w-12 h-12 mx-auto" />
-        <h1 className="text-2xl font-bold text-brand-700 mt-4">Welcome Back</h1>
-        <p className="text-gray-600">Login to your FamilyRoots account</p>
-    </div>
-
-    {/* 5. Form dihubungkan ke handler */}
-    <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-        <label 
-            htmlFor="email" // <-- 'for' menjadi 'htmlFor'
-            className="block text-sm font-medium text-gray-700 mb-1"
-        >
-            Email
-        </label>
-        <input 
-            type="email" 
-            id="email" 
-            name="email" 
-            required 
-            value={email} // <-- Hubungkan ke state
-            onChange={(e) => setEmail(e.target.value)} // <-- Hubungkan ke state
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
-            autoComplete="email"
-        />
-        </div>
-        <div>
-        <label 
-            htmlFor="password" // <-- 'for' menjadi 'htmlFor'
-            className="block text-sm font-medium text-gray-700 mb-1"
-        >
-            Password
-        </label>
-        <input 
-            type="password" 
-            id="password" 
-            name="password" 
-            required
-            value={password} // <-- Hubungkan ke state
-            onChange={(e) => setPassword(e.target.value)} // <-- Hubungkan ke state
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
-            autoComplete="current-password"
-        />
-        </div>
-        <div className="flex items-center justify-between">
-        <div className="flex items-center">
-            <input 
-            id="remember" 
-            name="remember" 
-            type="checkbox" 
-            className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-gray-300 rounded" 
-            />
-            <label 
-            htmlFor="remember" // <-- 'for' menjadi 'htmlFor'
-            className="ml-2 block text-sm text-gray-700"
-            >
-            Remember me
-            </label>
-        </div>
-        <a href="#" className="text-sm text-primary-500 hover:text-primary-600">
-            Forgot password?
-        </a>
-        </div>
-        <button 
-        type="submit" 
-        className="w-full bg-primary-500 hover:bg-primary-600 text-white py-2 px-4 rounded-lg transition"
-        >
-        Login
-        </button>
-    </form>
-
-    <div className="mt-6 text-center">
-        <p className="text-gray-600">Don't have an account? 
-        {/* 6. Link diganti ke komponen React Router */}
-        <Link 
-            to="/register" // <-- Ganti ke <Link>
-            className="text-primary-500 hover:text-primary-600 font-medium ml-1"
-        >
-            Register
-        </Link>
+    <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
+      <div className="text-center mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-brand-700">
+          Masuk
+        </h1>
+        <p className="text-base text-gray-500 mt-2 leading-relaxed">
+          Gunakan kode pribadi keluarga Anda
         </p>
-    </div>
+      </div>
+
+      <div className="mb-6 rounded-xl bg-primary-50 border border-primary-100 px-4 py-3">
+        <div className="flex items-start gap-2.5">
+          <HelpCircle
+            size={18}
+            className="text-primary-600 shrink-0 mt-0.5"
+            aria-hidden
+          />
+          <div className="text-sm text-primary-900 leading-relaxed">
+            <p className="font-semibold mb-1">Cara membuat kode</p>
+            <p>
+              <span className="font-mono font-semibold">Singkatan nama</span>{' '}
+              (panjangnya mengikuti nama) +{' '}
+              <span className="font-mono font-semibold">6 angka</span> tanggal
+              lahir (DDMMYY).
+            </p>
+            <ul className="mt-2 space-y-1 text-primary-800 list-disc list-inside">
+              <li>
+                1 kata: <span className="font-mono font-bold">MIA210399</span>{' '}
+                (Mia, 21 Mar 1999)
+              </li>
+              <li>
+                2 kata: <span className="font-mono font-bold">MR170845</span>{' '}
+                (Mulyono Raka, 17 Agt 1945)
+              </li>
+              <li>
+                Ada panggilan: pakai panggilan + tanggal lahir
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div
+          role="alert"
+          className="mb-5 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700"
+        >
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label
+            htmlFor="login-code"
+            className="block text-sm font-semibold text-gray-700 mb-1.5"
+          >
+            Kode Masuk
+          </label>
+          <div className="relative">
+            <Key
+              size={18}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+              aria-hidden
+            />
+            <input
+              type={showCode ? 'text' : 'password'}
+              id="login-code"
+              name="login-code"
+              required
+              value={code}
+              onChange={(e) => handleCodeChange(e.target.value)}
+              placeholder="MR170845"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              inputMode="text"
+              maxLength={LOGIN_CODE_MAX_LENGTH}
+              className="block w-full pl-11 pr-12 py-3 text-base font-mono tracking-wider rounded-xl border-gray-300 shadow-sm focus:ring-primary-500 focus:border-primary-500 uppercase"
+            />
+            <button
+              type="button"
+              onClick={() => setShowCode((prev) => !prev)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
+              aria-label={showCode ? 'Sembunyikan kode' : 'Tampilkan kode'}
+            >
+              {showCode ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          <p className="mt-1.5 text-xs text-gray-400">
+            Huruf kapital otomatis · diakhiri 6 angka tanggal lahir
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <input
+            id="remember"
+            name="remember"
+            type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+            className="h-5 w-5 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+          />
+          <label htmlFor="remember" className="text-sm text-gray-700 select-none">
+            Ingat saya di perangkat ini
+          </label>
+        </div>
+
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full inline-flex items-center justify-center gap-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-60 disabled:cursor-not-allowed text-white py-3.5 px-4 rounded-xl text-base font-semibold transition-colors shadow-sm"
+        >
+          <LogIn size={18} />
+          {isSubmitting ? 'Memproses…' : 'Masuk'}
+        </button>
+      </form>
+
+      <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+        <p className="text-sm text-gray-600">
+          Belum terdaftar?{' '}
+          <Link
+            to="/register"
+            className="font-semibold text-primary-600 hover:text-primary-700 underline-offset-2 hover:underline"
+          >
+            Hubungi admin keluarga
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

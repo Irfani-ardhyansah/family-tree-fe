@@ -1,10 +1,12 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import type { FamilyData, Person } from '@/types/person';
+import type { PersonImportDraft } from '@/utils/personImport';
 import { MOCK_FAMILY } from '@/data/mockFamilyData';
 import {
   addPersonMutation,
   updatePersonMutation,
   deletePersonMutation,
+  importPersonsMutation,
 } from '@/utils/personMutations';
 
 type FamilyDataContextType = {
@@ -13,6 +15,7 @@ type FamilyDataContextType = {
   addPerson: (person: Omit<Person, 'id'>) => void;
   updatePerson: (person: Person) => void;
   deletePerson: (id: string) => void;
+  importPersons: (drafts: PersonImportDraft[]) => number;
 };
 
 const FamilyDataContext = createContext<FamilyDataContextType | null>(null);
@@ -32,6 +35,12 @@ export function FamilyDataProvider({ children }: { children: ReactNode }) {
     setFamilyData((prev) => deletePersonMutation(prev, id));
   };
 
+  const importPersons = (drafts: PersonImportDraft[]) => {
+    if (drafts.length === 0) return 0;
+    setFamilyData((prev) => importPersonsMutation(prev, drafts));
+    return drafts.length;
+  };
+
   return (
     <FamilyDataContext.Provider
       value={{
@@ -40,6 +49,7 @@ export function FamilyDataProvider({ children }: { children: ReactNode }) {
         addPerson,
         updatePerson,
         deletePerson,
+        importPersons,
       }}
     >
       {children}
