@@ -232,10 +232,10 @@ function isAboveBuyutRuleDepth(
   return depth !== undefined && depth >= BUYUT_ANCESTOR_DEPTH;
 }
 
-function getPersonLineageSide(
+function getPersonLineageSideHeuristic(
   person: Person,
   perspective: TreePerspective,
-): 'paternal' | 'maternal' | 'core' {
+): 'paternal' | 'maternal' | 'core' | null {
   if (person.id === 'me' || person.id === 'me-sp' || person.isSelf) return 'core';
   if (person.generationLabel === 'Kamu' || person.generationLabel === 'Saudara') return 'core';
   if (person.generationLabel === 'Anak') return 'core';
@@ -260,7 +260,7 @@ function getPersonLineageSide(
     ) {
       return 'maternal';
     }
-    return 'core';
+    return null;
   }
 
   if (
@@ -293,19 +293,64 @@ function getPersonLineageSide(
     return 'maternal';
   }
 
+  return null;
+}
+
+/** Graph-based lineage side — works with API numeric ids. */
+function getGraphLineageSide(
+  personId: string,
+  rootId: string,
+  map: Map<string, Person>,
+): 'paternal' | 'maternal' | 'core' {
+  if (personId === rootId) return 'core';
+
+  const paternalBlood = collectBloodLine(rootId, map, 'paternal', Infinity);
+  if (paternalBlood.has(personId)) return 'paternal';
+
+  const maternalBlood = collectBloodLine(rootId, map, 'maternal', Infinity);
+  if (maternalBlood.has(personId)) return 'maternal';
+
+  const person = map.get(personId);
+  if (person) {
+    for (const spouseId of person.spouseIds) {
+      if (paternalBlood.has(spouseId)) return 'paternal';
+      if (maternalBlood.has(spouseId)) return 'maternal';
+    }
+    for (const parentId of [person.fatherId, person.motherId]) {
+      if (!parentId) continue;
+      if (paternalBlood.has(parentId)) return 'paternal';
+      if (maternalBlood.has(parentId)) return 'maternal';
+    }
+  }
+
   return 'core';
 }
 
-/** Orang tua di generasi penghubung — tetap tampil meski filter satu jalur. */
-function isParentBridge(id: string, lineage: TreeLineage, perspective: TreePerspective): boolean {
+function getPersonLineageSide(
+  person: Person,
+  perspective: TreePerspective,
+  rootId: string,
+  map: Map<string, Person>,
+): 'paternal' | 'maternal' | 'core' {
+  const heuristic = getPersonLineageSideHeuristic(person, perspective);
+  if (heuristic != null) return heuristic;
+  return getGraphLineageSide(person.id, rootId, map);
+}
+
+/** Orang tua penghubung di generasi fokus — tetap tampil meski filter satu jalur. */
+function isParentBridge(
+  id: string,
+  lineage: TreeLineage,
+  rootId: string,
+  map: Map<string, Person>,
+): boolean {
   if (lineage === 'both') return false;
-  if (perspective === 'self') {
-    if (lineage === 'paternal' && id === 'mother') return true;
-    if (lineage === 'maternal' && id === 'father') return true;
-  } else {
-    if (lineage === 'paternal' && id === 'sp-mother') return true;
-    if (lineage === 'maternal' && id === 'sp-father') return true;
-  }
+
+  const root = map.get(rootId);
+  if (!root) return false;
+
+  if (lineage === 'paternal') return id === root.motherId;
+  if (lineage === 'maternal') return id === root.fatherId;
   return false;
 }
 
@@ -313,16 +358,17 @@ function applyLineageFilter(
   visible: Set<string>,
   config: TreeViewConfig,
   map: Map<string, Person>,
+  rootId: string,
 ): void {
   if (config.lineage === 'both') return;
 
   for (const id of [...visible]) {
-    if (isParentBridge(id, config.lineage, config.perspective)) continue;
+    if (isParentBridge(id, config.lineage, rootId, map)) continue;
 
     const person = map.get(id);
     if (!person) continue;
 
-    const side = getPersonLineageSide(person, config.perspective);
+    const side = getPersonLineageSide(person, config.perspective, rootId, map);
     if (side === 'core') continue;
 
     if (config.lineage === 'paternal' && side === 'maternal') visible.delete(id);
@@ -355,16 +401,19 @@ function expandVisibleAncestorParents(
   map: Map<string, Person>,
   ancestorDepths: Map<string, number>,
   maxDepth: number,
+  lineage: TreeLineage,
+  rootId: string,
 ) {
   let changed = true;
   while (changed) {
     changed = false;
     for (const id of [...visible]) {
+      if (isParentBridge(id, lineage, rootId, map)) continue;
+
       const person = map.get(id);
       if (!person) continue;
       const depth = getPersonAncestorDepth(person, ancestorDepths);
       if (depth === undefined || depth === 0) continue;
-      // Jangan naik lebih jauh dari batas generasi
       if (depth >= maxDepth) continue;
 
       for (const parentId of [person.fatherId, person.motherId]) {
@@ -406,12 +455,20 @@ function isSpouseOnlyPerson(id: string, bloodLine: Set<string>, map: Map<string,
   return person.spouseIds.some((sid) => bloodLine.has(sid));
 }
 
+/** Resolve logged-in person from family data (works with mock & API ids). */
+export function resolveMePerson(data: FamilyData): Person | undefined {
+  return (
+    data.persons.find((p) => p.isSelf) ??
+    data.persons.find((p) => p.id === data.rootPersonId)
+  );
+}
+
 /** Resolve focus person id from perspective. */
 export function resolveFocusPersonId(
   data: FamilyData,
   perspective: TreeViewConfig['perspective'],
 ): string {
-  const me = data.persons.find((p) => p.isSelf) ?? data.persons.find((p) => p.id === data.rootPersonId);
+  const me = resolveMePerson(data);
   if (!me) return data.rootPersonId;
   if (perspective === 'spouse' && me.spouseIds[0]) return me.spouseIds[0];
   return me.id;
@@ -420,7 +477,7 @@ export function resolveFocusPersonId(
 /** Build visible set from perspective + display filters. */
 export function filterPersons(data: FamilyData, config: TreeViewConfig): Person[] {
   const map = buildPersonMap(data.persons);
-  const me = map.get('me') ?? map.get(data.rootPersonId);
+  const me = resolveMePerson(data);
   if (!me) return data.persons;
 
   const spouse = me.spouseIds[0] ? map.get(me.spouseIds[0]) : undefined;
@@ -440,7 +497,14 @@ export function filterPersons(data: FamilyData, config: TreeViewConfig): Person[
   // Pasangan struktural di garis segaris — selalu pasangan ayah+ibu lengkap per jalur
   addSpousesOf(bloodLine, map, visible);
   ensureParentPairsOnBloodLine(bloodLine, map, visible, ancestorDepths, generationsUp);
-  expandVisibleAncestorParents(visible, map, ancestorDepths, generationsUp);
+  expandVisibleAncestorParents(
+    visible,
+    map,
+    ancestorDepths,
+    generationsUp,
+    config.lineage,
+    rootId,
+  );
 
   // Pasangan di node root (saya ↔ istri/suami)
   addSpousesOf([rootId], map, visible);
@@ -499,14 +563,14 @@ export function filterPersons(data: FamilyData, config: TreeViewConfig): Person[
     addSpousesOf(bloodLine, map, structural);
     addSpousesOf([rootId], map, structural);
     for (const id of [...visible]) {
-      if (isParentBridge(id, config.lineage, config.perspective)) continue;
+      if (isParentBridge(id, config.lineage, rootId, map)) continue;
       if (!structural.has(id) && isSpouseOnlyPerson(id, bloodLine, map)) {
         visible.delete(id);
       }
     }
   }
 
-  applyLineageFilter(visible, config, map);
+  applyLineageFilter(visible, config, map, rootId);
   // Use fullDepths so siblings at ancestor levels are also filtered by generationsUp
   const fullDepths = buildFullDepthMap([...data.persons], ancestorDepths);
   applyGenerationsUpFilter(visible, config, map, fullDepths);

@@ -12,10 +12,13 @@ import {
   Calendar,
   BookOpen,
   LogOut,
+  Server,
+  HardDrive,
 } from 'react-feather';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import { useAuth } from '@/context/AuthContext';
+import { useDataSource } from '@/context/DataSourceContext';
 
 import type { Icon } from 'react-feather';
 
@@ -90,6 +93,41 @@ function PerspectiveSwitcher({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function DataSourceSwitcher({ compact = false }: { compact?: boolean }) {
+  const { source, setSource } = useDataSource();
+
+  return (
+    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-gray-100/80 border border-dashed border-gray-300">
+      <button
+        type="button"
+        onClick={() => setSource('api')}
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+          source === 'api'
+            ? 'bg-emerald-500 text-white shadow-sm'
+            : 'text-gray-500 hover:text-brand-700 hover:bg-white'
+        }`}
+        title="Data dari backend API"
+      >
+        <Server size={13} />
+        {!compact && <span>API</span>}
+      </button>
+      <button
+        type="button"
+        onClick={() => setSource('mock')}
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+          source === 'mock'
+            ? 'bg-violet-500 text-white shadow-sm'
+            : 'text-gray-500 hover:text-brand-700 hover:bg-white'
+        }`}
+        title="Data mock lokal (tanpa backend)"
+      >
+        <HardDrive size={13} />
+        {!compact && <span>Mock</span>}
+      </button>
+    </div>
+  );
+}
+
 function NavItem({
   to,
   label,
@@ -127,9 +165,9 @@ export function Navbar() {
   const { logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
     setMobileOpen(false);
+    await logout();
     navigate('/login', { replace: true });
   };
 
@@ -165,6 +203,9 @@ export function Navbar() {
 
           {/* Right actions */}
           <div className="flex items-center gap-2">
+            <div className="hidden lg:block">
+              <DataSourceSwitcher />
+            </div>
             <div className="hidden md:block">
               <PerspectiveSwitcher />
             </div>
@@ -200,6 +241,13 @@ export function Navbar() {
       {/* Mobile menu */}
       {mobileOpen && (
         <div className="lg:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-4 shadow-lg">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1">
+              Sumber Data (dev)
+            </p>
+            <DataSourceSwitcher compact />
+          </div>
+
           <div className="md:hidden">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1">
               Fokus Keluarga

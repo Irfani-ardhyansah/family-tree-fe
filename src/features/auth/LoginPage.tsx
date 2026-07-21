@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Key, Eye, EyeOff, LogIn, HelpCircle } from 'react-feather';
 import { useAuth } from '@/context/AuthContext';
-import { useFamily } from '@/context/FamilyDataContext';
 import { normalizeLoginCode, LOGIN_CODE_MAX_LENGTH } from '@/utils/loginCode';
 
 export function LoginPage() {
@@ -13,7 +12,6 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { login } = useAuth();
-  const { persons } = useFamily();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,7 +19,7 @@ export function LoginPage() {
     setError('');
     setIsSubmitting(true);
 
-    const result = await login(code, persons, remember);
+    const result = await login(code, remember);
     setIsSubmitting(false);
 
     if (!result.ok) {

@@ -115,7 +115,7 @@ function RelationCombobox({
 }: {
   label: string;
   value: string;
-  onChange: (id: string) => void;
+  onChange: (id: string | null) => void;
   options: Person[];
   placeholder: string;
 }) {
@@ -340,8 +340,9 @@ export type PersonFormModalProps = {
   isOpen: boolean;
   onClose: () => void;
   personToEdit: Person | null;
-  onSave: (data: Omit<Person, 'id'>) => void;
+  onSave: (data: Omit<Person, 'id'>) => void | Promise<void>;
   persons: Person[];
+  isSaving?: boolean;
 };
 
 export function PersonFormModal({
@@ -350,6 +351,7 @@ export function PersonFormModal({
   personToEdit,
   onSave,
   persons,
+  isSaving = false,
 }: PersonFormModalProps) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<FormData>(defaultForm);
@@ -499,7 +501,7 @@ export function PersonFormModal({
 
   const handleBack = () => setStep((s) => Math.max(s - 1, 1));
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateStep1()) {
       setStep(1);
       return;
@@ -535,8 +537,12 @@ export function PersonFormModal({
       isSelf: personToEdit?.isSelf,
       generationLabel: personToEdit?.generationLabel,
     };
-    onSave(data);
-    onClose();
+    try {
+      await onSave(data);
+      onClose();
+    } catch {
+      // parent shows error — keep modal open
+    }
   };
 
   const malePersons = persons.filter((p) => p.gender === 'male');
@@ -1006,7 +1012,7 @@ export function PersonFormModal({
                       <RelationCombobox
                         label="Ayah"
                         value={formData.fatherId}
-                        onChange={(id) => set('fatherId', id)}
+                        onChange={(id) => set('fatherId', id ?? '')}
                         options={malePersons.filter(
                           (p) => p.id !== personToEdit?.id,
                         )}
@@ -1016,7 +1022,7 @@ export function PersonFormModal({
                       <RelationCombobox
                         label="Ibu"
                         value={formData.motherId}
-                        onChange={(id) => set('motherId', id)}
+                        onChange={(id) => set('motherId', id ?? '')}
                         options={femalePersons.filter(
                           (p) => p.id !== personToEdit?.id,
                         )}
@@ -1057,10 +1063,15 @@ export function PersonFormModal({
                       ) : (
                         <button
                           type="button"
-                          onClick={handleSubmit}
-                          className="px-5 py-2.5 rounded-lg bg-primary-500 text-sm font-medium text-white hover:bg-primary-600 transition-colors"
+                          onClick={() => void handleSubmit()}
+                          disabled={isSaving}
+                          className="px-5 py-2.5 rounded-lg bg-primary-500 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                         >
-                          {isEditing ? 'Simpan Perubahan' : 'Tambah Anggota'}
+                          {isSaving
+                            ? 'Menyimpan…'
+                            : isEditing
+                              ? 'Simpan Perubahan'
+                              : 'Tambah Anggota'}
                         </button>
                       )}
                     </div>

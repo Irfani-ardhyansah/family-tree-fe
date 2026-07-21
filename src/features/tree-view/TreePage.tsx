@@ -24,8 +24,9 @@ import {
 import { Link } from 'react-router-dom';
 
 import PersonNode from './components/PersonNode';
-import { useFamily } from '@/context/FamilyDataContext';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
+import { useFocusPersonId } from '@/hooks/useFocusPersonId';
+import { useFamilyTree } from '@/hooks/useFamilyTree';
 import type { Person, TreeDisplayFilters, TreeLineage, TreeViewConfig } from '@/types/person';
 import { DEFAULT_TREE_VIEW, TREE_DISPLAY_OPTIONS, TREE_LINEAGE_OPTIONS, ANCESTOR_GENERATION_NAMES } from '@/types/person';
 import {
@@ -115,22 +116,7 @@ function PersonDetailPanel({ person, onClose }: { person: Person; onClose: () =>
 function TreeCanvas() {
   const { fitView, setCenter } = useReactFlow();
   const { containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen();
-  const { persons, rootPersonId } = useFamily();
-  const familyData = useMemo(
-    () => ({ persons, rootPersonId }),
-    [persons, rootPersonId],
-  );
-  const {
-    perspective,
-    focusShortLabel,
-    spouse,
-    theme,
-  } = useFamilyPerspective();
-
-  const totalStats = useMemo(
-    () => ({ totalMembers: persons.length }),
-    [persons.length],
-  );
+  const focusPersonIdNum = useFocusPersonId();
 
   const [viewConfig, setViewConfig] = useState<Omit<TreeViewConfig, 'perspective'>>({
     lineage: DEFAULT_TREE_VIEW.lineage,
@@ -139,6 +125,45 @@ function TreeCanvas() {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+
+  const {
+    source,
+    familyData,
+    meta,
+    graphWarnings,
+    useServerFilter,
+    serverFilterApplied,
+    isLoading,
+    error,
+  } = useFamilyTree(focusPersonIdNum, viewConfig);
+  const { persons } = familyData;
+  const {
+    perspective,
+    focusShortLabel,
+    spouse: contextSpouse,
+    theme,
+  } = useFamilyPerspective();
+
+  const spouse = useMemo(() => {
+    if (contextSpouse) return contextSpouse;
+    const me = familyData.persons.find((p) => p.isSelf);
+    const spouseId = me?.spouseIds[0];
+    return spouseId
+      ? familyData.persons.find((p) => p.id === spouseId)
+      : undefined;
+  }, [contextSpouse, familyData]);
+
+  const totalStats = useMemo(
+    () => ({
+      totalMembers:
+        meta?.totalFamilyCount ?? meta?.personCount ?? persons.length,
+    }),
+    [meta?.totalFamilyCount, meta?.personCount, persons.length],
+  );
+
+  useEffect(() => {
+    setSelectedPerson(null);
+  }, [focusPersonIdNum, source]);
 
   const fullViewConfig = useMemo(
     (): TreeViewConfig => ({ ...viewConfig, perspective }),
@@ -150,10 +175,12 @@ function TreeCanvas() {
     [familyData, perspective],
   );
 
-  const maxGenerationsUp = useMemo(
-    () => getMaxGenerationsUp(familyData, fullViewConfig),
-    [familyData, fullViewConfig],
-  );
+  const maxGenerationsUp = useMemo(() => {
+    if (source === 'api' && useServerFilter) {
+      return 12;
+    }
+    return getMaxGenerationsUp(familyData, fullViewConfig);
+  }, [source, useServerFilter, familyData, fullViewConfig]);
 
   useEffect(() => {
     if (maxGenerationsUp > 0 && viewConfig.generationsUp > maxGenerationsUp) {
@@ -161,10 +188,12 @@ function TreeCanvas() {
     }
   }, [maxGenerationsUp, viewConfig.generationsUp]);
 
-  const visiblePersons = useMemo(
-    () => filterPersons(familyData, fullViewConfig),
-    [familyData, fullViewConfig],
-  );
+  const visiblePersons = useMemo(() => {
+    if (source === 'api' && serverFilterApplied) {
+      return familyData.persons;
+    }
+    return filterPersons(familyData, fullViewConfig);
+  }, [source, serverFilterApplied, familyData, fullViewConfig]);
 
   const visibleStats = useMemo(
     () => getVisibleStats(visiblePersons, focusPersonId, fullViewConfig.lineage),
@@ -246,8 +275,50 @@ function TreeCanvas() {
             <h1 className="text-2xl font-bold text-brand-700">Pohon Keluarga</h1>
             <p className="text-sm text-gray-500 mt-1">
               {visibleStats.visibleCount} dari {totalStats.totalMembers} anggota
+              <span className="mx-1.5">·</span>
+              <span
+                className={`font-medium ${
+                  source === 'api' ? 'text-emerald-600' : 'text-violet-600'
+                }`}
+              >
+                {source === 'api' ? 'API' : 'Mock'}
+              </span>
+              {source === 'api' && useServerFilter && (
+                <>
+                  <span className="mx-1.5">·</span>
+                  <span className="font-medium text-sky-600">Filter BE</span>
+                </>
+              )}
             </p>
           </div>
+
+          {error && (
+            <div
+              role="alert"
+              className="rounded-xl bg-red-50 border border-red-100 px-3 py-2.5 text-sm text-red-700"
+            >
+              {error}
+            </div>
+          )}
+
+          {graphWarnings.length > 0 && (
+            <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2.5 text-xs text-amber-800">
+              <p className="font-semibold mb-1">Peringatan data pohon</p>
+              <ul className="list-disc list-inside space-y-0.5">
+                {graphWarnings.slice(0, 3).map((warning, index) => (
+                  <li key={`${warning.code}-${index}`}>
+                    {warning.message ?? warning.code}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5 text-sm text-gray-500">
+              Memuat pohon keluarga…
+            </div>
+          )}
 
           {/* Filter 1: Jalur & generasi */}
           <div className={`bg-white rounded-xl border p-3 shadow-sm ${theme.accentBorder}`}>
@@ -392,6 +463,15 @@ function TreeCanvas() {
             } ${theme.accentBorder}`}
             style={{ height: isFullscreen ? undefined : '72vh' }}
           >
+            {isLoading && persons.length === 0 ? (
+              <div className="flex items-center justify-center h-full min-h-[320px] text-gray-400 text-sm">
+                Memuat diagram…
+              </div>
+            ) : persons.length === 0 ? (
+              <div className="flex items-center justify-center h-full min-h-[320px] text-gray-400 text-sm">
+                {error ?? 'Tidak ada data anggota untuk ditampilkan.'}
+              </div>
+            ) : (
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -513,6 +593,7 @@ function TreeCanvas() {
                 </div>
               </Panel>
             </ReactFlow>
+            )}
           </div>
         </div>
       </div>

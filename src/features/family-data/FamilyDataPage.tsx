@@ -1,10 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search, Edit2, Trash2, ChevronLeft, ChevronRight, Users, Filter, X, BookOpen, Eye, Upload } from 'react-feather';
 import type { Gender, LifeStatus, Person } from '@/types/person';
-import { useFamily } from '@/context/FamilyDataContext';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useCanManagePersons } from '@/hooks/useCanManagePersons';
+import { useFocusPersonId } from '@/hooks/useFocusPersonId';
+import { usePersonListPage } from '@/hooks/usePersonListPage';
+import { useDataSource } from '@/context/DataSourceContext';
+import { ApiClientError } from '@/lib/apiClient';
 import { canAccessMemorial, getMemorialEntryPath } from '@/utils/memoriamAccess';
 import { PersonFormModal } from './components/PersonFormModal';
 import { PersonImportModal } from './components/PersonImportModal';
@@ -92,27 +96,52 @@ function StatusBadge({ status }: { status: Person['status'] }) {
 }
 
 export function FamilyDataPage() {
-  const { persons: allPersons, addPerson, updatePerson, deletePerson } = useFamily();
+  const focusPersonId = useFocusPersonId();
+  const canManageFromAuth = useCanManagePersons();
+  const { source } = useDataSource();
+  const canManage = source === 'mock' ? true : canManageFromAuth;
+
   const {
-    visiblePersons,
-    focusPerson,
     focusShortLabel,
     theme,
     me,
+    focusPerson,
   } = useFamilyPerspective();
-  const isAdmin = useIsAdmin();
 
-  const persons = visiblePersons;
+  const [page, setPage] = useState(1);
+  const {
+    persons: listPersons,
+    allPersons,
+    pagination,
+    isLoading,
+    error: listError,
+    selfRole,
+    savePerson,
+    removePerson,
+  } = usePersonListPage({
+    focusPersonId,
+    page,
+    limit: PAGE_SIZE,
+  });
+
+  const isAdmin = useIsAdmin(selfRole);
+
+  useEffect(() => {
+    setPage(1);
+  }, [focusPersonId, source]);
+
+  const persons = listPersons;
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
-  const [page, setPage] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [personToEdit, setPersonToEdit] = useState<Person | null>(null);
   const [detailTarget, setDetailTarget] = useState<Person | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Person | null>(null);
+  const [actionError, setActionError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const generationOptions = useMemo(() => {
     const labels = persons
@@ -150,9 +179,10 @@ export function FamilyDataPage() {
     filters.generationLabel !== '',
   ].filter(Boolean).length;
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const totalPages = pagination?.totalPages ?? 1;
+  const safePage = pagination?.page ?? page;
+  const paginated = filtered;
+  const totalCount = pagination?.total ?? filtered.length;
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -179,16 +209,36 @@ export function FamilyDataPage() {
     setDeleteTarget(person);
   };
 
-  const handleSave = (data: Omit<Person, 'id'>) => {
-    if (personToEdit) {
-      updatePerson({ ...data, id: personToEdit.id });
-    } else {
-      addPerson(data);
+  const handleSave = async (data: Omit<Person, 'id'>) => {
+    setActionError('');
+    setIsSaving(true);
+    try {
+      await savePerson(data, personToEdit?.id);
+    } catch (err) {
+      setActionError(
+        err instanceof ApiClientError
+          ? err.message
+          : 'Gagal menyimpan data anggota.',
+      );
+      throw err;
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleConfirmDelete = () => {
-    if (deleteTarget) deletePerson(deleteTarget.id);
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setActionError('');
+    try {
+      await removePerson(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (err) {
+      setActionError(
+        err instanceof ApiClientError
+          ? err.message
+          : 'Gagal menghapus anggota.',
+      );
+    }
   };
 
   return (
@@ -200,14 +250,22 @@ export function FamilyDataPage() {
             Data Anggota Keluarga
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {persons.length} anggota · fokus{' '}
+            {totalCount} anggota · fokus{' '}
             <span className={`font-medium ${theme.accentText}`}>
               {focusShortLabel}
+            </span>
+            <span className="mx-1.5">·</span>
+            <span
+              className={`font-medium ${
+                source === 'api' ? 'text-emerald-600' : 'text-violet-600'
+              }`}
+            >
+              {source === 'api' ? 'API' : 'Mock'}
             </span>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          {isAdmin && (
+          {canManage && isAdmin && (
             <button
               type="button"
               onClick={() => setIsImportOpen(true)}
@@ -217,15 +275,39 @@ export function FamilyDataPage() {
               Import
             </button>
           )}
-          <button
-            onClick={openAdd}
-            className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm"
-          >
-            <Plus size={18} />
-            Tambah Anggota
-          </button>
+          {canManage && (
+            <button
+              onClick={openAdd}
+              className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm"
+            >
+              <Plus size={18} />
+              Tambah Anggota
+            </button>
+          )}
         </div>
       </div>
+
+      {!canManage && (
+        <div className="mb-4 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-sm text-amber-800">
+          Anda dapat melihat data anggota keluarga. Fitur tambah, edit, dan hapus
+          tersedia untuk anggota berusia 17 tahun ke atas.
+        </div>
+      )}
+
+      {(listError || actionError) && (
+        <div
+          role="alert"
+          className="mb-4 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700"
+        >
+          {listError ?? actionError}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="mb-4 rounded-xl bg-gray-50 border border-gray-100 px-4 py-3 text-sm text-gray-500">
+          Memuat data anggota…
+        </div>
+      )}
 
       {/* ── Search + Filter bar ──────────────────────────── */}
       <div className="flex gap-2 mb-3">
@@ -506,24 +588,28 @@ export function FamilyDataPage() {
                             Kenangan
                           </Link>
                         )}
-                        <button
-                          onClick={() => openEdit(person)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-primary-600 hover:bg-primary-50 transition-colors"
-                          aria-label={`Edit ${person.fullName}`}
-                        >
-                          <Edit2 size={13} />
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => openDelete(person)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
-                          aria-label={`Hapus ${person.fullName}`}
-                          disabled={person.isSelf}
-                          title={person.isSelf ? 'Tidak bisa menghapus diri sendiri' : undefined}
-                        >
-                          <Trash2 size={13} />
-                          Hapus
-                        </button>
+                        {canManage && (
+                          <button
+                            onClick={() => openEdit(person)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-primary-600 hover:bg-primary-50 transition-colors"
+                            aria-label={`Edit ${person.fullName}`}
+                          >
+                            <Edit2 size={13} />
+                            Edit
+                          </button>
+                        )}
+                        {canManage && (
+                          <button
+                            onClick={() => openDelete(person)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+                            aria-label={`Hapus ${person.fullName}`}
+                            disabled={person.isSelf}
+                            title={person.isSelf ? 'Tidak bisa menghapus diri sendiri' : undefined}
+                          >
+                            <Trash2 size={13} />
+                            Hapus
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -538,13 +624,13 @@ export function FamilyDataPage() {
             <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50">
               <p className="text-xs text-gray-500">
                 Menampilkan {(safePage - 1) * PAGE_SIZE + 1}–
-                {Math.min(safePage * PAGE_SIZE, filtered.length)} dari{' '}
-                {filtered.length} anggota
+                {Math.min(safePage * PAGE_SIZE, totalCount)} dari{' '}
+                {totalCount} anggota
               </p>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                  disabled={safePage === 1}
+                  disabled={safePage === 1 || !pagination?.hasPrev}
                   className="p-1.5 rounded-lg text-gray-500 hover:bg-white hover:shadow-sm disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
                   <ChevronLeft size={16} />
@@ -566,7 +652,7 @@ export function FamilyDataPage() {
                 )}
                 <button
                   onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                  disabled={safePage === totalPages}
+                  disabled={safePage === totalPages || !pagination?.hasNext}
                   className="p-1.5 rounded-lg text-gray-500 hover:bg-white hover:shadow-sm disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
                   <ChevronRight size={16} />
@@ -653,21 +739,25 @@ export function FamilyDataPage() {
                     Kenangan
                   </Link>
                 )}
-                <button
-                  onClick={() => openEdit(person)}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors"
-                >
-                  <Edit2 size={13} />
-                  Edit
-                </button>
-                <button
-                  onClick={() => openDelete(person)}
-                  disabled={person.isSelf}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <Trash2 size={13} />
-                  Hapus
-                </button>
+                {canManage && (
+                  <button
+                    onClick={() => openEdit(person)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors"
+                  >
+                    <Edit2 size={13} />
+                    Edit
+                  </button>
+                )}
+                {canManage && (
+                  <button
+                    onClick={() => openDelete(person)}
+                    disabled={person.isSelf}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 size={13} />
+                    Hapus
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -712,10 +802,11 @@ export function FamilyDataPage() {
         onClose={() => setIsFormOpen(false)}
         personToEdit={personToEdit}
         onSave={handleSave}
-        persons={allPersons}
+        persons={allPersons.length > 0 ? allPersons : persons}
+        isSaving={isSaving}
       />
 
-      {isAdmin && (
+      {canManage && isAdmin && (
         <PersonImportModal
           isOpen={isImportOpen}
           onClose={() => setIsImportOpen(false)}

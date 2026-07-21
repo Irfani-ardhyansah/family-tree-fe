@@ -12,6 +12,7 @@ import { FamilyPerspectiveProvider } from '@/context/FamilyPerspectiveContext';
 import { EventProvider } from '@/context/EventContext';
 import { MemoriamProvider } from '@/context/MemoriamContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { DataSourceProvider } from '@/context/DataSourceContext';
 import { EventsPage } from '@/features/events/EventsPage';
 import { EventDetailPage } from '@/features/events/EventDetailPage';
 import { InMemoriamListPage } from '@/features/in-memoriam/InMemoriamListPage';
@@ -41,7 +42,15 @@ function LazyFamilyMapPage() {
 }
 
 const ProtectedRoute = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isInitializing } = useAuth();
+
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500 text-sm">
+        Memuat sesi…
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -55,7 +64,15 @@ const ProtectedRoute = () => {
 };
 
 const PublicRoute = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isInitializing } = useAuth();
+
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500 text-sm">
+        Memuat sesi…
+      </div>
+    );
+  }
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -131,15 +148,17 @@ const router = createBrowserRouter([
 export function AppRouter() {
   return (
     <AuthProvider>
-      <FamilyDataProvider>
-        <FamilyPerspectiveProvider>
-          <EventProvider>
-            <MemoriamProvider>
-              <RouterProvider router={router} />
-            </MemoriamProvider>
-          </EventProvider>
-        </FamilyPerspectiveProvider>
-      </FamilyDataProvider>
+      <DataSourceProvider>
+        <FamilyDataProvider>
+          <FamilyPerspectiveProvider>
+            <EventProvider>
+              <MemoriamProvider>
+                <RouterProvider router={router} />
+              </MemoriamProvider>
+            </EventProvider>
+          </FamilyPerspectiveProvider>
+        </FamilyDataProvider>
+      </DataSourceProvider>
     </AuthProvider>
   );
 }

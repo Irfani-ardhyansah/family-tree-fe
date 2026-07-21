@@ -1,14 +1,12 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useFamily } from '@/context/FamilyDataContext';
+import type { PersonRole } from '@/types/api';
 
-export function useIsAdmin(): boolean {
-  const { userId } = useAuth();
-  const { persons } = useFamily();
+export function useIsAdmin(fallbackRole?: PersonRole): boolean {
+  const { person } = useAuth();
 
   return useMemo(() => {
-    if (!userId) return false;
-    const user = persons.find((p) => p.id === userId);
-    return user?.role === 'admin';
-  }, [userId, persons]);
+    if (person?.role) return person.role === 'admin';
+    return fallbackRole === 'admin';
+  }, [person?.role, fallbackRole]);
 }

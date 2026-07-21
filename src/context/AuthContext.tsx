@@ -2,127 +2,171 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
-import type { Person } from '@/types/person';
+import type { AuthMeResponse, AuthPerson } from '@/types/api';
 import {
-  findPersonByLoginCode,
+  bootstrapSession,
+  fetchMe,
+  loginRequest,
+  logoutRequest,
+  mapLoginError,
+} from '@/lib/apiClient';
+import {
   isValidLoginCodeFormat,
   normalizeLoginCode,
 } from '@/utils/loginCode';
 
-const AUTH_FLAG_KEY = 'familyroots_auth';
-const AUTH_USER_KEY = 'familyroots_auth_user';
+const AUTH_PERSON_KEY = 'familyroots_auth_person';
+
+function persistAuthPerson(person: AuthMeResponse) {
+  try {
+    sessionStorage.setItem(AUTH_PERSON_KEY, JSON.stringify(person));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function readStoredAuthPerson(): AuthMeResponse | null {
+  try {
+    const raw = sessionStorage.getItem(AUTH_PERSON_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as AuthMeResponse;
+  } catch {
+    return null;
+  }
+}
+
+function clearStoredAuthPerson() {
+  try {
+    sessionStorage.removeItem(AUTH_PERSON_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function mergeAuthPerson(
+  base: AuthPerson,
+  me: Partial<AuthMeResponse>,
+): AuthMeResponse {
+  return {
+    id: me.id ?? base.id,
+    fullName: me.fullName ?? base.fullName,
+    nickname: me.nickname ?? base.nickname,
+    gender: me.gender ?? base.gender,
+    birthDate: me.birthDate ?? base.birthDate,
+    status: me.status ?? base.status,
+    photoUrl: me.photoUrl ?? base.photoUrl,
+    isMarried: me.isMarried ?? base.isMarried,
+    isLegal: me.isLegal ?? base.isLegal,
+    spouseIds: me.spouseIds ?? base.spouseIds,
+    role: me.role ?? base.role,
+    familyId: me.familyId ?? 0,
+  };
+}
 
 type AuthContextValue = {
   isAuthenticated: boolean;
-  userId: string | null;
+  isInitializing: boolean;
+  userId: number | null;
+  person: AuthMeResponse | null;
   login: (
     code: string,
-    persons: Person[],
     remember: boolean,
-  ) => Promise<{ ok: true; personId: string } | { ok: false; message: string }>;
-  logout: () => void;
+  ) => Promise<{ ok: true; personId: number } | { ok: false; message: string }>;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function readStoredAuth(): { isAuthenticated: boolean; userId: string | null } {
-  try {
-    const flag =
-      localStorage.getItem(AUTH_FLAG_KEY) === '1' ||
-      sessionStorage.getItem(AUTH_FLAG_KEY) === '1';
-    if (!flag) return { isAuthenticated: false, userId: null };
-
-    const userId =
-      localStorage.getItem(AUTH_USER_KEY) ??
-      sessionStorage.getItem(AUTH_USER_KEY);
-
-    return { isAuthenticated: true, userId };
-  } catch {
-    return { isAuthenticated: false, userId: null };
-  }
-}
-
-function persistAuth(userId: string, remember: boolean) {
-  try {
-    const storage = remember ? localStorage : sessionStorage;
-    const other = remember ? sessionStorage : localStorage;
-
-    storage.setItem(AUTH_FLAG_KEY, '1');
-    storage.setItem(AUTH_USER_KEY, userId);
-    other.removeItem(AUTH_FLAG_KEY);
-    other.removeItem(AUTH_USER_KEY);
-  } catch {
-    // ignore storage errors
-  }
-}
-
-function clearAuth() {
-  try {
-    localStorage.removeItem(AUTH_FLAG_KEY);
-    localStorage.removeItem(AUTH_USER_KEY);
-    sessionStorage.removeItem(AUTH_FLAG_KEY);
-    sessionStorage.removeItem(AUTH_USER_KEY);
-  } catch {
-    // ignore storage errors
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const stored = readStoredAuth();
-  const [isAuthenticated, setIsAuthenticated] = useState(stored.isAuthenticated);
-  const [userId, setUserId] = useState<string | null>(stored.userId);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [person, setPerson] = useState<AuthMeResponse | null>(null);
 
-  const login = useCallback(
-    async (rawCode: string, persons: Person[], remember: boolean) => {
-      const code = normalizeLoginCode(rawCode);
+  useEffect(() => {
+    let cancelled = false;
 
-      if (!code) {
-        return {
-          ok: false as const,
-          message: 'Kode masuk wajib diisi.',
-        };
+    async function bootstrap() {
+      try {
+        const me = await bootstrapSession();
+        if (!cancelled) {
+          const stored = readStoredAuthPerson();
+          setPerson(me && stored ? mergeAuthPerson(stored, me) : me ?? stored);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsInitializing(false);
+        }
+      }
+    }
+
+    void bootstrap();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const login = useCallback(async (rawCode: string, remember: boolean) => {
+    const code = normalizeLoginCode(rawCode);
+
+    if (!code) {
+      return {
+        ok: false as const,
+        message: 'Kode masuk wajib diisi.',
+      };
+    }
+
+    if (!isValidLoginCodeFormat(code)) {
+      return {
+        ok: false as const,
+        message:
+          'Format kode salah. Contoh: MR170845 atau MIA210399 (singkatan nama + DDMMYY).',
+      };
+    }
+
+    try {
+      const data = await loginRequest(code, remember);
+
+      try {
+        const fullMe = await fetchMe();
+        const merged = mergeAuthPerson(data.person, fullMe);
+        setPerson(merged);
+        persistAuthPerson(merged);
+      } catch {
+        const fallback = { ...data.person, familyId: 0 };
+        setPerson(fallback);
+        persistAuthPerson(fallback);
       }
 
-      if (!isValidLoginCodeFormat(code)) {
-        return {
-          ok: false as const,
-          message:
-            'Format kode salah. Contoh: MR170845 atau MIA210399 (singkatan nama + DDMMYY).',
-        };
-      }
+      return { ok: true as const, personId: data.person.id };
+    } catch (error) {
+      return {
+        ok: false as const,
+        message: mapLoginError(error),
+      };
+    }
+  }, []);
 
-      await new Promise((resolve) => window.setTimeout(resolve, 300));
-
-      const person = findPersonByLoginCode(persons, code);
-      if (!person) {
-        return {
-          ok: false as const,
-          message:
-            'Kode tidak ditemukan. Periksa singkatan nama dan tanggal lahir Anda.',
-        };
-      }
-
-      persistAuth(person.id, remember);
-      setUserId(person.id);
-      setIsAuthenticated(true);
-      return { ok: true as const, personId: person.id };
-    },
-    [],
-  );
-
-  const logout = useCallback(() => {
-    clearAuth();
-    setUserId(null);
-    setIsAuthenticated(false);
+  const logout = useCallback(async () => {
+    await logoutRequest();
+    clearStoredAuthPerson();
+    setPerson(null);
   }, []);
 
   const value = useMemo(
-    () => ({ isAuthenticated, userId, login, logout }),
-    [isAuthenticated, userId, login, logout],
+    () => ({
+      isAuthenticated: person != null,
+      isInitializing,
+      userId: person?.id ?? null,
+      person,
+      login,
+      logout,
+    }),
+    [person, isInitializing, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

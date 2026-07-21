@@ -6,7 +6,9 @@ import {
   type ReactNode,
 } from 'react';
 import type { Person, TreePerspective } from '@/types/person';
+import { useAuth } from '@/context/AuthContext';
 import { useFamily } from '@/context/FamilyDataContext';
+import { authPersonToLocal } from '@/utils/personApiMapper';
 import {
   getPersonsForPerspective,
   getVisiblePersonIds,
@@ -61,22 +63,35 @@ const FamilyPerspectiveContext =
   createContext<FamilyPerspectiveContextType | null>(null);
 
 export function FamilyPerspectiveProvider({ children }: { children: ReactNode }) {
+  const { person: authPerson } = useAuth();
   const { persons, rootPersonId } = useFamily();
   const [perspective, setPerspective] = useState<TreePerspective>('self');
 
-  const me = useMemo(
-    () =>
+  const hasSpouse = authPerson?.isMarried === true;
+
+  const me = useMemo(() => {
+    if (authPerson) {
+      return authPersonToLocal(authPerson);
+    }
+    return (
       persons.find((p) => p.isSelf) ??
-      persons.find((p) => p.id === rootPersonId),
-    [persons, rootPersonId],
-  );
+      persons.find((p) => p.id === rootPersonId)
+    );
+  }, [authPerson, persons, rootPersonId]);
 
   const spouse = useMemo(() => {
-    const spouseId = me?.spouseIds[0];
-    return spouseId ? persons.find((p) => p.id === spouseId) : undefined;
-  }, [me, persons]);
-
-  const hasSpouse = !!spouse;
+    const spouseId = authPerson?.spouseIds[0];
+    if (spouseId == null) {
+      const fallbackId = me?.spouseIds[0];
+      return fallbackId ? persons.find((p) => p.id === fallbackId) : undefined;
+    }
+    return (
+      persons.find((p) => p.id === String(spouseId)) ??
+      (me?.spouseIds.includes(String(spouseId))
+        ? persons.find((p) => p.id === String(spouseId))
+        : undefined)
+    );
+  }, [authPerson, me, persons]);
 
   const focusPerson = perspective === 'spouse' && spouse ? spouse : me;
   const focusLabel = focusPerson?.fullName ?? 'Saya';
