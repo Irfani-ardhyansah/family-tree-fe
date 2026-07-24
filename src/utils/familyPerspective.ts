@@ -1,5 +1,5 @@
 import type { FamilyData, Person, TreePerspective, TreeLineage, TreeViewConfig } from '@/types/person';
-import { filterPersons, getMaxGenerationsUp } from '@/utils/treeLayout';
+import { filterPersons, getMaxGenerationsDown, getMaxGenerationsUp } from '@/utils/treeLayout';
 
 /** Broad view config to include all related members for a perspective. */
 export function buildPerspectiveViewConfig(
@@ -10,14 +10,19 @@ export function buildPerspectiveViewConfig(
     perspective,
     lineage: 'both',
     generationsUp: 4,
+    generationsDown: 2,
     display: {
       showSpouses: true,
       showSiblings: true,
-      showChildren: true,
     },
   };
   const maxUp = getMaxGenerationsUp(data, base);
-  return { ...base, generationsUp: Math.max(maxUp, 4) };
+  const maxDown = getMaxGenerationsDown(data, base);
+  return {
+    ...base,
+    generationsUp: Math.max(maxUp, 4),
+    generationsDown: Math.max(maxDown, 2),
+  };
 }
 
 export function getPersonsForPerspective(

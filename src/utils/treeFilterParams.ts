@@ -5,12 +5,14 @@ import type { TreeViewConfig } from '@/types/person';
 export function viewConfigToTreeFilter(
   config: Omit<TreeViewConfig, 'perspective'>,
 ): TreeFilterParams {
+  const generationsDown = config.generationsDown;
   return {
     lineage: config.lineage,
     generationsUp: config.generationsUp,
+    generationsDown,
     showSpouses: config.display.showSpouses,
     showSiblings: config.display.showSiblings,
-    showChildren: config.display.showChildren,
+    showChildren: generationsDown > 0,
   };
 }
 
@@ -22,6 +24,7 @@ export function hasActiveTreeFilter(
   return (
     filter.lineage !== 'both' ||
     filter.generationsUp !== 4 ||
+    filter.generationsDown > 0 ||
     filter.showSpouses ||
     filter.showSiblings ||
     filter.showChildren

@@ -66,8 +66,10 @@ export type TreeMeta = {
 export type TreeFilterParams = {
   lineage: 'both' | 'paternal' | 'maternal';
   generationsUp: number;
+  generationsDown: number;
   showSpouses: boolean;
   showSiblings: boolean;
+  /** Derived: generationsDown > 0 — kept for BE compatibility */
   showChildren: boolean;
 };
 
@@ -145,4 +147,158 @@ export type RefreshResponse = {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+};
+
+export type EventType =
+  | 'wedding'
+  | 'birth'
+  | 'death'
+  | 'birthday'
+  | 'reunion'
+  | 'other';
+
+export type MapMeta = {
+  totalVisible: number;
+  withAddress: number;
+  withExactCoords: number;
+  withCityOnly: number;
+};
+
+export type PersonMapResponse = {
+  focusPersonId: number;
+  selfPersonId: number;
+  allowedFocusPersonIds: number[];
+  persons: Person[];
+  meta: MapMeta;
+};
+
+export type ApiEventContribution = {
+  id: number;
+  photoUrl: string;
+  contributorId: number;
+  contributorName?: string;
+  caption: string | null;
+  createdAt: string;
+};
+
+export type ApiEvent = {
+  id: number;
+  title: string;
+  type: EventType;
+  date: string;
+  endDate: string | null;
+  location: string | null;
+  description: string | null;
+  personIds: number[];
+  photoUrls: string[];
+  attendeeIds: number[];
+  contributions?: ApiEventContribution[];
+  isRestricted: boolean;
+  canAccess: boolean;
+  contributionCount?: number;
+};
+
+export type EventListResponse = {
+  focusPersonId: number;
+  selfPersonId: number;
+  allowedFocusPersonIds?: number[];
+  events: ApiEvent[];
+  pagination?: PaginationMeta;
+};
+
+export type EventDetailResponse = {
+  focusPersonId: number;
+  selfPersonId: number;
+  allowedFocusPersonIds?: number[];
+  event: ApiEvent;
+};
+
+export type EventWritePayload = {
+  title: string;
+  type: EventType;
+  date: string;
+  endDate?: string | null;
+  location?: string | null;
+  description?: string | null;
+  personIds?: number[];
+  photoUrls?: string[];
+  attendeeIds?: number[];
+};
+
+export type ContributionWritePayload = {
+  photoUrl: string;
+  caption?: string | null;
+};
+
+export type MemoriamDeceasedItem = {
+  id: number;
+  fullName: string;
+  nickname: string | null;
+  gender: Gender;
+  birthDate: string;
+  deathDate: string | null;
+  status?: PersonStatus;
+  photoUrl: string | null;
+  generationLabel: string;
+  religion?: 'islam' | 'other' | null;
+  tributeCount: number;
+  prayerCount: number;
+  canAccess?: boolean;
+};
+
+export type MemoriamDeceasedListResponse = {
+  focusPersonId: number;
+  selfPersonId: number;
+  allowedFocusPersonIds?: number[];
+  deceased: MemoriamDeceasedItem[];
+};
+
+export type MemoriamDetailResponse = {
+  focusPersonId: number;
+  selfPersonId: number;
+  allowedFocusPersonIds?: number[];
+  deceased: MemoriamDeceasedItem;
+};
+
+export type MemoriamTributesResponse = {
+  focusPersonId: number;
+  selfPersonId: number;
+  allowedFocusPersonIds?: number[];
+  tributes: ApiMemoriamTribute[];
+};
+
+export type MemoriamPrayersResponse = {
+  focusPersonId: number;
+  selfPersonId: number;
+  allowedFocusPersonIds?: number[];
+  prayers: ApiPrayerRecord[];
+};
+
+export type MemoriamMyPrayerResponse = {
+  focusPersonId: number;
+  selfPersonId: number;
+  allowedFocusPersonIds?: number[];
+  hasPrayed: boolean;
+  prayer?: ApiPrayerRecord | null;
+};
+
+export type ApiMemoriamTribute = {
+  id: number;
+  deceasedId: number;
+  authorId: number;
+  content: string;
+  photoUrls: string[];
+  createdAt: string;
+};
+
+export type ApiPrayerRecord = {
+  id: number;
+  deceasedId: number;
+  authorId: number;
+  createdAt: string;
+};
+
+export type TributeWritePayload = {
+  content: string;
+  photoUrls?: string[];
 };

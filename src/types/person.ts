@@ -54,8 +54,6 @@ export type TreeDisplayFilters = {
   showSpouses: boolean;
   /** Saudara di garis atas (ayah, ibu, kakek, nenek, buyut) + saudara kandung */
   showSiblings: boolean;
-  /** 1 generasi di bawah garis segaris (anak / sepupu) */
-  showChildren: boolean;
 };
 
 /** Kedalaman ke atas di mana saudara tidak lagi ditampilkan — hanya pasangan ayah/ibu per jalur. */
@@ -70,22 +68,33 @@ export const ANCESTOR_GENERATION_NAMES: Record<number, string> = {
   5: 'Leluhur',
 };
 
+/** Nama generasi ke bawah dari fokus (index = jumlah generasi). */
+export const DESCENDANT_GENERATION_NAMES: Record<number, string> = {
+  1: 'Anak',
+  2: 'Cucu',
+  3: 'Cicit',
+  4: 'Piut',
+  5: 'Keturunan jauh',
+};
+
 export type TreeViewConfig = {
   perspective: TreePerspective;
   lineage: TreeLineage;
-  /** Berapa generasi ke atas dari fokus (1 = orang tua, 2 = kakek/nenek, …) */
+  /** Berapa generasi ke atas dari fokus (0 = tidak ada, 1 = orang tua, 2 = kakek/nenek, …) */
   generationsUp: number;
+  /** Berapa generasi ke bawah dari fokus (0 = tidak ada, 1 = anak, 2 = cucu, …) */
+  generationsDown: number;
   display: TreeDisplayFilters;
 };
 
 export const DEFAULT_TREE_VIEW: TreeViewConfig = {
   perspective: 'self',
   lineage: 'both',
-  generationsUp: 4,
+  generationsUp: 1,
+  generationsDown: 0,
   display: {
     showSpouses: false,
     showSiblings: false,
-    showChildren: false,
   },
 };
 
@@ -113,10 +122,5 @@ export const TREE_DISPLAY_OPTIONS: {
     key: 'showSpouses',
     label: 'Pasangan',
     desc: 'Pasangan orang segaris beserta pasangan saudara',
-  },
-  {
-    key: 'showChildren',
-    label: 'Anak',
-    desc: '1 generasi di bawah (anak & sepupu jika saudara aktif)',
   },
 ];

@@ -29,10 +29,10 @@ export function apiPersonToLocal(person: ApiPerson): LocalPerson {
       : undefined,
     fatherId: person.fatherId != null ? String(person.fatherId) : undefined,
     motherId: person.motherId != null ? String(person.motherId) : undefined,
-    spouseIds: person.spouseIds.map(String),
-    generationLabel: person.generationLabel,
-    isSelf: person.isSelf,
-    role: person.role,
+    spouseIds: (person.spouseIds ?? []).map(String),
+    generationLabel: person.generationLabel ?? '',
+    isSelf: person.isSelf ?? false,
+    role: person.role ?? 'member',
   };
 }
 

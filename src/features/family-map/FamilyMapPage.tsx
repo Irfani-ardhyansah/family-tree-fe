@@ -1,9 +1,9 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Map as MapIcon, List, Search, X, Plus, MapPin } from 'react-feather';
-import { useFamily } from '@/context/FamilyDataContext';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
-import { getPersonsForPerspectiveLineage } from '@/utils/familyPerspective';
+import { useFocusPersonId } from '@/hooks/useFocusPersonId';
+import { useFamilyMapPage } from '@/hooks/useFamilyMapPage';
 import { buildMapMemberEntries } from '@/utils/mapGeocoding';
 import type { Person, TreeLineage } from '@/types/person';
 import { TREE_LINEAGE_OPTIONS } from '@/types/person';
@@ -15,13 +15,12 @@ import { PersonFormModal } from '@/features/family-data/components/PersonFormMod
 type MobileTab = 'map' | 'list';
 
 export function FamilyMapPage() {
-  const { persons: allPersons, rootPersonId, updatePerson } = useFamily();
   const {
     focusShortLabel,
     theme,
     me,
-    perspective,
   } = useFamilyPerspective();
+  const focusPersonId = useFocusPersonId();
 
   const [searchParams] = useSearchParams();
 
@@ -36,15 +35,22 @@ export function FamilyMapPage() {
   const [personToEdit, setPersonToEdit] = useState<Person | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
-  const mapPersons = useMemo(
-    () =>
-      getPersonsForPerspectiveLineage(
-        { persons: allPersons, rootPersonId },
-        perspective,
-        lineageFilter,
-      ),
-    [allPersons, rootPersonId, perspective, lineageFilter],
-  );
+  const {
+    source,
+    persons: mapPersons,
+    allPersons,
+    meta,
+    isLoading,
+    error,
+    saveAddress,
+  } = useFamilyMapPage({
+    focusPersonId,
+    lineage: lineageFilter,
+    status: aliveOnly ? 'alive' : 'all',
+    city: cityFilter,
+    province: provinceFilter,
+    search,
+  });
 
   const allEntries = useMemo(
     () => buildMapMemberEntries(mapPersons),
@@ -65,24 +71,7 @@ export function FamilyMapPage() {
     return [...new Set(provinces)].sort((a, b) => a.localeCompare(b, 'id'));
   }, [allEntries]);
 
-  const filteredEntries = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return allEntries.filter((entry) => {
-      const p = entry.person;
-      if (aliveOnly && p.status !== 'alive') return false;
-      if (cityFilter && p.address?.city !== cityFilter) return false;
-      if (provinceFilter && p.address?.province !== provinceFilter) return false;
-      if (
-        q &&
-        !p.fullName.toLowerCase().includes(q) &&
-        !(p.nickname ?? '').toLowerCase().includes(q) &&
-        !entry.addressLine.toLowerCase().includes(q)
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [allEntries, search, cityFilter, provinceFilter, aliveOnly]);
+  const filteredEntries = useMemo(() => allEntries, [allEntries]);
 
   const pins = useMemo(
     () =>
@@ -94,11 +83,11 @@ export function FamilyMapPage() {
 
   const stats = useMemo(
     () => ({
-      total: mapPersons.length,
-      withAddress: allEntries.length,
-      onMap: pins.length,
+      total: meta?.totalVisible ?? mapPersons.length,
+      withAddress: meta?.withAddress ?? allEntries.length,
+      onMap: meta?.withExactCoords ?? pins.length,
     }),
-    [mapPersons.length, allEntries.length, pins.length],
+    [meta, mapPersons.length, allEntries.length, pins.length],
   );
 
   const filtersActive =
@@ -154,6 +143,9 @@ export function FamilyMapPage() {
           </p>
           <p className="text-xs text-gray-400 mt-1">
             {stats.withAddress} dengan alamat · {stats.onMap} di peta
+            {source === 'api' && (
+              <span className="ml-2 text-primary-500">· API</span>
+            )}
           </p>
         </div>
         <Link
@@ -164,6 +156,16 @@ export function FamilyMapPage() {
           Kelola Alamat
         </Link>
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="mb-4 text-sm text-gray-500">Memuat peta keluarga…</div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4 space-y-3">
@@ -396,9 +398,9 @@ export function FamilyMapPage() {
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         personToEdit={personToEdit}
-        onSave={(data) => {
+        onSave={async (data) => {
           if (personToEdit) {
-            updatePerson({ ...data, id: personToEdit.id });
+            await saveAddress(personToEdit, data.address);
           }
         }}
         persons={allPersons}

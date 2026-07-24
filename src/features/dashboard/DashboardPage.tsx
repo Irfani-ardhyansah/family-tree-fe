@@ -13,10 +13,12 @@ import {
   Map as MapIcon,
 } from 'react-feather';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
-import { useEvents } from '@/context/EventContext';
 import { useFamily } from '@/context/FamilyDataContext';
+import { useDataSource } from '@/context/DataSourceContext';
 import { useMemoriam } from '@/context/MemoriamContext';
-import { eventMatchesPerspective } from '@/utils/familyPerspective';
+import { useFocusPersonId } from '@/hooks/useFocusPersonId';
+import { useEventsPage } from '@/hooks/useEventsPage';
+import { useMemoriamList } from '@/hooks/useMemoriamList';
 import { canAccessMemorial, getMemorialEntryPath } from '@/utils/memoriamAccess';
 import { getRichTextPlainText } from '@/utils/richText';
 import { EVENT_TYPE_CONFIG } from '@/types/event';
@@ -110,7 +112,6 @@ function EventMiniCard({ event }: { event: FamilyEvent }) {
 export function DashboardPage() {
   const {
     visiblePersons,
-    visiblePersonIds,
     focusPerson,
     focusLabel,
     focusShortLabel,
@@ -118,13 +119,15 @@ export function DashboardPage() {
     perspective,
     me,
   } = useFamilyPerspective();
-  const { events } = useEvents();
+  const focusPersonId = useFocusPersonId();
+  const { source } = useDataSource();
+  const { events: perspectiveEvents } = useEventsPage(focusPersonId);
   const { persons: allPersons } = useFamily();
   const { tributes } = useMemoriam();
-
-  const perspectiveEvents = useMemo(
-    () => events.filter((e) => eventMatchesPerspective(e.personIds, visiblePersonIds)),
-    [events, visiblePersonIds],
+  const { deceased: memoriamDeceased, getCounts } = useMemoriamList(
+    focusPersonId,
+    '',
+    '',
   );
 
   const upcomingEvents = useMemo(
@@ -149,20 +152,39 @@ export function DashboardPage() {
   );
 
   const recentTributes = useMemo(() => {
-    return [...tributes]
-      .filter((t) => {
-        const deceased = personMap.get(t.deceasedId);
-        return (
-          deceased?.status === 'deceased' &&
-          canAccessMemorial(me?.id, t.deceasedId, allPersons)
-        );
-      })
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )
-      .slice(0, 4);
-  }, [tributes, personMap, me?.id, allPersons]);
+    if (source === 'mock') {
+      return [...tributes]
+        .filter((t) => {
+          const deceased = personMap.get(t.deceasedId);
+          return (
+            deceased?.status === 'deceased' &&
+            canAccessMemorial(me?.id, t.deceasedId, allPersons)
+          );
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )
+        .slice(0, 4);
+    }
+
+    return memoriamDeceased
+      .filter((d) => getCounts(d.id).tributes > 0)
+      .slice(0, 4)
+      .map((deceased) => ({
+        kind: 'deceased' as const,
+        deceased,
+        tributeCount: getCounts(deceased.id).tributes,
+      }));
+  }, [
+    source,
+    tributes,
+    personMap,
+    me?.id,
+    allPersons,
+    memoriamDeceased,
+    getCounts,
+  ]);
 
   const stats = useMemo(() => {
     const photoCount =
@@ -371,7 +393,29 @@ export function DashboardPage() {
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {recentTributes.map((tribute) => {
+            {recentTributes.map((item) => {
+              if ('kind' in item && item.kind === 'deceased') {
+                const { deceased, tributeCount } = item;
+                return (
+                  <Link
+                    key={deceased.id}
+                    to={getMemorialEntryPath(deceased)}
+                    className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition bg-[#fafaf8] block"
+                  >
+                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">
+                      Kenangan
+                    </p>
+                    <p className="text-sm font-semibold text-slate-800 mt-2">
+                      {deceased.fullName}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-3">
+                      {tributeCount} cerita kenangan
+                    </p>
+                  </Link>
+                );
+              }
+
+              const tribute = item as (typeof tributes)[number];
               const deceased = personMap.get(tribute.deceasedId);
               const author = personMap.get(tribute.authorId);
               if (!deceased) return null;

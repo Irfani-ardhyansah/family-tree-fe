@@ -1,11 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, BookOpen, Heart, ChevronRight, Calendar, X } from 'react-feather';
-import { useFamily } from '@/context/FamilyDataContext';
-import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
-import { useMemoriam } from '@/context/MemoriamContext';
+import { useFocusPersonId } from '@/hooks/useFocusPersonId';
+import { useMemoriamList } from '@/hooks/useMemoriamList';
 import {
-  canAccessMemorial,
   formatLifeSpan,
   getAlmarhumLabel,
   getMemorialEntryPath,
@@ -28,54 +26,34 @@ function getDeathYear(deathDate?: string): number | null {
 }
 
 export function InMemoriamListPage() {
-  const { persons } = useFamily();
-  const { me } = useFamilyPerspective();
-  const { getTributesFor, getPrayersFor } = useMemoriam();
+  const focusPersonId = useFocusPersonId();
   const [search, setSearch] = useState('');
   const [yearFilter, setYearFilter] = useState('');
 
-  const baseDeceased = useMemo(() => {
-    return persons
-      .filter((p) => p.status === 'deceased')
-      .filter((p) => canAccessMemorial(me?.id, p.id, persons))
-      .sort((a, b) => {
-        const da = a.deathDate ? new Date(a.deathDate).getTime() : 0;
-        const db = b.deathDate ? new Date(b.deathDate).getTime() : 0;
-        return db - da;
-      });
-  }, [persons, me?.id]);
+  const {
+    source,
+    deceased: accessibleDeceased,
+    deceasedAll,
+    isLoading,
+    error,
+    getCounts,
+  } = useMemoriamList(focusPersonId, search, yearFilter);
 
   const yearOptions = useMemo(() => {
-    const years = baseDeceased
+    const years = deceasedAll
       .map((p) => getDeathYear(p.deathDate))
       .filter((y): y is number => y !== null);
     return [...new Set(years)].sort((a, b) => b - a);
-  }, [baseDeceased]);
+  }, [deceasedAll]);
 
   const yearCounts = useMemo(() => {
     const counts = new Map<number, number>();
-    for (const p of baseDeceased) {
+    for (const p of deceasedAll) {
       const y = getDeathYear(p.deathDate);
       if (y !== null) counts.set(y, (counts.get(y) ?? 0) + 1);
     }
     return counts;
-  }, [baseDeceased]);
-
-  const accessibleDeceased = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return baseDeceased.filter((p) => {
-      if (yearFilter) {
-        const y = getDeathYear(p.deathDate);
-        if (y?.toString() !== yearFilter) return false;
-      }
-      if (!q) return true;
-      return (
-        p.fullName.toLowerCase().includes(q) ||
-        (p.nickname?.toLowerCase().includes(q) ?? false) ||
-        (p.generationLabel?.toLowerCase().includes(q) ?? false)
-      );
-    });
-  }, [baseDeceased, search, yearFilter]);
+  }, [deceasedAll]);
 
   const hasActiveFilters = yearFilter !== '' || search.trim() !== '';
 
@@ -99,8 +77,21 @@ export function InMemoriamListPage() {
                 {yearFilter ? ` pada tahun ${yearFilter}` : ''}
               </span>
             )}
+            {source === 'api' && (
+              <span className="block mt-1 text-primary-500 text-xs">Sumber: API</span>
+            )}
           </p>
         </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {isLoading && (
+          <div className="mb-4 text-sm text-slate-500">Memuat daftar almarhum…</div>
+        )}
 
         {/* Search */}
         <div className="relative mb-4">
@@ -148,7 +139,7 @@ export function InMemoriamListPage() {
               >
                 Semua tahun
                 <span className={yearFilter === '' ? 'text-white/70' : 'text-slate-400'}>
-                  {baseDeceased.length}
+                  {deceasedAll.length}
                 </span>
               </button>
               {yearOptions.map((year) => (
@@ -245,8 +236,8 @@ export function InMemoriamListPage() {
               const label = getAlmarhumLabel(person.gender);
               const years = getYearsSinceDeath(person.deathDate);
               const deathYear = getDeathYear(person.deathDate);
-              const tributeCount = getTributesFor(person.id).length;
-              const prayerCount = getPrayersFor(person.id).length;
+              const { tributes: tributeCount, prayers: prayerCount } =
+                getCounts(person.id);
               const entryPath = getMemorialEntryPath(person);
 
               return (

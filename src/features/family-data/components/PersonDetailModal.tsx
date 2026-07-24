@@ -77,7 +77,7 @@ type PersonDetailModalProps = {
   person: Person | null;
   allPersons: Person[];
   currentUserId?: string;
-  onEdit: (person: Person) => void;
+  onEdit?: (person: Person) => void;
 };
 
 export function PersonDetailModal({
@@ -297,17 +297,19 @@ export function PersonDetailModal({
                   >
                     Tutup
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onEdit(person);
-                      onClose();
-                    }}
-                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-sm font-semibold text-white transition-colors"
-                  >
-                    <Edit2 size={16} />
-                    Edit Data
-                  </button>
+                  {onEdit && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onEdit(person);
+                        onClose();
+                      }}
+                      className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-sm font-semibold text-white transition-colors"
+                    >
+                      <Edit2 size={16} />
+                      Edit Data
+                    </button>
+                  )}
                 </div>
               </DialogPanel>
             </TransitionChild>

@@ -20,20 +20,29 @@ import {
   Maximize2,
   Minimize2,
   BookOpen,
+  User,
 } from 'react-feather';
 import { Link } from 'react-router-dom';
 
 import PersonNode from './components/PersonNode';
+import { PersonDetailModal } from '@/features/family-data/components/PersonDetailModal';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import { useFocusPersonId } from '@/hooks/useFocusPersonId';
 import { useFamilyTree } from '@/hooks/useFamilyTree';
 import type { Person, TreeDisplayFilters, TreeLineage, TreeViewConfig } from '@/types/person';
-import { DEFAULT_TREE_VIEW, TREE_DISPLAY_OPTIONS, TREE_LINEAGE_OPTIONS, ANCESTOR_GENERATION_NAMES } from '@/types/person';
+import {
+  DEFAULT_TREE_VIEW,
+  TREE_DISPLAY_OPTIONS,
+  TREE_LINEAGE_OPTIONS,
+  ANCESTOR_GENERATION_NAMES,
+  DESCENDANT_GENERATION_NAMES,
+} from '@/types/person';
 import {
   filterPersons,
   layoutFamilyTree,
   getVisibleStats,
   getMaxGenerationsUp,
+  getMaxGenerationsDown,
   resolveFocusPersonId,
   NODE_WIDTH,
   NODE_HEIGHT,
@@ -66,7 +75,15 @@ function useFullscreen() {
   return { containerRef, isFullscreen, toggle };
 }
 
-function PersonDetailPanel({ person, onClose }: { person: Person; onClose: () => void }) {
+function PersonDetailPanel({
+  person,
+  onClose,
+  onViewDetail,
+}: {
+  person: Person;
+  onClose: () => void;
+  onViewDetail: () => void;
+}) {
   const age = new Date().getFullYear() - new Date(person.birthDate).getFullYear();
 
   return (
@@ -99,6 +116,14 @@ function PersonDetailPanel({ person, onClose }: { person: Person; onClose: () =>
           </div>
         )}
         <PersonContactInfo person={person} />
+        <button
+          type="button"
+          onClick={onViewDetail}
+          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-xs font-semibold transition-colors"
+        >
+          <User size={14} />
+          Lihat Detail
+        </button>
         {person.status === 'deceased' && (
           <Link
             to={getMemorialEntryPath(person)}
@@ -121,10 +146,13 @@ function TreeCanvas() {
   const [viewConfig, setViewConfig] = useState<Omit<TreeViewConfig, 'perspective'>>({
     lineage: DEFAULT_TREE_VIEW.lineage,
     generationsUp: DEFAULT_TREE_VIEW.generationsUp,
+    generationsDown: DEFAULT_TREE_VIEW.generationsDown,
     display: DEFAULT_TREE_VIEW.display,
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const [detailTarget, setDetailTarget] = useState<Person | null>(null);
+  const generationsUpInitialized = useRef(false);
 
   const {
     source,
@@ -142,6 +170,7 @@ function TreeCanvas() {
     focusShortLabel,
     spouse: contextSpouse,
     theme,
+    me,
   } = useFamilyPerspective();
 
   const spouse = useMemo(() => {
@@ -163,6 +192,7 @@ function TreeCanvas() {
 
   useEffect(() => {
     setSelectedPerson(null);
+    generationsUpInitialized.current = false;
   }, [focusPersonIdNum, source]);
 
   const fullViewConfig = useMemo(
@@ -182,11 +212,36 @@ function TreeCanvas() {
     return getMaxGenerationsUp(familyData, fullViewConfig);
   }, [source, useServerFilter, familyData, fullViewConfig]);
 
-  useEffect(() => {
-    if (maxGenerationsUp > 0 && viewConfig.generationsUp > maxGenerationsUp) {
-      setViewConfig((prev) => ({ ...prev, generationsUp: maxGenerationsUp }));
+  const maxGenerationsDown = useMemo(() => {
+    if (source === 'api' && useServerFilter) {
+      return 8;
     }
-  }, [maxGenerationsUp, viewConfig.generationsUp]);
+    return getMaxGenerationsDown(familyData, fullViewConfig);
+  }, [source, useServerFilter, familyData, fullViewConfig]);
+
+  useEffect(() => {
+    // Jangan clamp ke 0 saat data belum siap — itu yang bikin default jadi 0
+    if (maxGenerationsUp <= 0) return;
+
+    setViewConfig((prev) => {
+      if (!generationsUpInitialized.current) {
+        generationsUpInitialized.current = true;
+        const next = Math.min(DEFAULT_TREE_VIEW.generationsUp, maxGenerationsUp);
+        return prev.generationsUp === next ? prev : { ...prev, generationsUp: next };
+      }
+      if (prev.generationsUp > maxGenerationsUp) {
+        return { ...prev, generationsUp: maxGenerationsUp };
+      }
+      return prev;
+    });
+  }, [maxGenerationsUp]);
+
+  useEffect(() => {
+    if (maxGenerationsDown <= 0) return;
+    if (viewConfig.generationsDown > maxGenerationsDown) {
+      setViewConfig((prev) => ({ ...prev, generationsDown: maxGenerationsDown }));
+    }
+  }, [maxGenerationsDown, viewConfig.generationsDown]);
 
   const visiblePersons = useMemo(() => {
     if (source === 'api' && serverFilterApplied) {
@@ -220,7 +275,31 @@ function TreeCanvas() {
     ],
   );
 
-  const activeDisplayCount = Object.values(viewConfig.display).filter(Boolean).length;
+  // Signature layout (id + posisi) — abaikan highlight/seleksi supaya klik node tidak reset zoom
+  const treeLayoutSignature = useMemo(
+    () =>
+      nodes
+        .map((n) => `${n.id}:${Math.round(n.position.x)}:${Math.round(n.position.y)}`)
+        .join('|'),
+    [nodes],
+  );
+
+  useEffect(() => {
+    if (nodes.length === 0) return;
+    const timer = window.setTimeout(() => {
+      fitView({
+        padding: 0.14,
+        duration: 450,
+        minZoom: 0.05,
+        maxZoom: 1.35,
+      });
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [treeLayoutSignature, fitView, nodes.length, isFullscreen]);
+
+  const activeDisplayCount =
+    Object.values(viewConfig.display).filter(Boolean).length +
+    (viewConfig.generationsDown > 0 ? 1 : 0);
 
   const setLineage = (lineage: TreeLineage) => {
     setViewConfig((prev) => ({ ...prev, lineage }));
@@ -228,6 +307,10 @@ function TreeCanvas() {
 
   const setGenerationsUp = (generationsUp: number) => {
     setViewConfig((prev) => ({ ...prev, generationsUp }));
+  };
+
+  const setGenerationsDown = (generationsDown: number) => {
+    setViewConfig((prev) => ({ ...prev, generationsDown }));
   };
 
   const toggleDisplay = (key: keyof TreeDisplayFilters) => {
@@ -240,10 +323,10 @@ function TreeCanvas() {
   const applyPreset = (preset: 'core' | 'full') => {
     setViewConfig((prev) => ({
       ...prev,
+      generationsDown: preset === 'full' ? Math.min(2, maxGenerationsDown) : 0,
       display: {
         showSpouses: preset === 'full',
         showSiblings: preset === 'full',
-        showChildren: preset === 'full',
       },
     }));
   };
@@ -363,27 +446,64 @@ function TreeCanvas() {
             {maxGenerationsUp > 0 ? (
               <>
                 <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
-                  <span>Sampai {ANCESTOR_GENERATION_NAMES[viewConfig.generationsUp] ?? `Gen ${viewConfig.generationsUp}`}</span>
+                  <span>
+                    {viewConfig.generationsUp === 0
+                      ? 'Tidak ditampilkan'
+                      : `Sampai ${ANCESTOR_GENERATION_NAMES[viewConfig.generationsUp] ?? `Gen ${viewConfig.generationsUp}`}`}
+                  </span>
                   <span>{viewConfig.generationsUp} / {maxGenerationsUp}</span>
                 </div>
                 <input
                   type="range"
-                  min={1}
+                  min={0}
                   max={maxGenerationsUp}
                   value={Math.min(viewConfig.generationsUp, maxGenerationsUp)}
                   onChange={(e) => setGenerationsUp(Number(e.target.value))}
                   className="w-full h-1.5 accent-primary-500 cursor-pointer"
                 />
                 <div className="flex justify-between text-[9px] text-gray-400 mt-1">
-                  <span>Orang tua</span>
+                  <span>Sembunyikan</span>
                   <span>{ANCESTOR_GENERATION_NAMES[maxGenerationsUp] ?? 'Leluhur'}</span>
                 </div>
                 <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">
-                  Buyut ke atas: hanya pasangan ayah–ibu per jalur (tanpa saudara). Orang tua Kakek/Nenek dan Orang tua Buyut ditampilkan di baris terpisah.
+                  Batasi kedalaman ke atas dari fokus. Buyut ke atas: hanya pasangan ayah–ibu per jalur (tanpa saudara).
                 </p>
               </>
             ) : (
               <p className="text-[10px] text-gray-500">Data leluhur belum tersedia.</p>
+            )}
+
+            <p className="text-xs font-semibold text-brand-700 mt-3 mb-2 uppercase tracking-wide">
+              Keturunan
+            </p>
+            {maxGenerationsDown > 0 ? (
+              <>
+                <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
+                  <span>
+                    {viewConfig.generationsDown === 0
+                      ? 'Tidak ditampilkan'
+                      : `Sampai ${DESCENDANT_GENERATION_NAMES[viewConfig.generationsDown] ?? `Gen ${viewConfig.generationsDown}`}`}
+                  </span>
+                  <span>{viewConfig.generationsDown} / {maxGenerationsDown}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={maxGenerationsDown}
+                  value={Math.min(viewConfig.generationsDown, maxGenerationsDown)}
+                  onChange={(e) => setGenerationsDown(Number(e.target.value))}
+                  className="w-full h-1.5 accent-primary-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] text-gray-400 mt-1">
+                  <span>Sembunyikan</span>
+                  <span>{DESCENDANT_GENERATION_NAMES[maxGenerationsDown] ?? 'Keturunan jauh'}</span>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">
+                  Batasi kedalaman ke bawah dari fokus (anak, cucu, cicit, …). Sepupu muncul jika Saudara aktif.
+                </p>
+              </>
+            ) : (
+              <p className="text-[10px] text-gray-500">Data keturunan belum tersedia.</p>
             )}
           </div>
 
@@ -543,7 +663,11 @@ function TreeCanvas() {
 
               {selectedPerson && (
                 <Panel position="top-right" className="!m-3">
-                  <PersonDetailPanel person={selectedPerson} onClose={() => setSelectedPerson(null)} />
+                  <PersonDetailPanel
+                    person={selectedPerson}
+                    onClose={() => setSelectedPerson(null)}
+                    onViewDetail={() => setDetailTarget(selectedPerson)}
+                  />
                 </Panel>
               )}
 
@@ -597,6 +721,14 @@ function TreeCanvas() {
           </div>
         </div>
       </div>
+
+      <PersonDetailModal
+        isOpen={detailTarget !== null}
+        onClose={() => setDetailTarget(null)}
+        person={detailTarget}
+        allPersons={persons}
+        currentUserId={me?.id}
+      />
     </>
   );
 }

@@ -10,13 +10,15 @@ import {
   Filter,
   X,
   Calendar,
+  Lock,
 } from 'react-feather';
 import type { FamilyEvent, EventType } from '@/types/event';
 import { EVENT_TYPE_CONFIG } from '@/types/event';
-import { useEvents } from '@/context/EventContext';
 import { useFamily } from '@/context/FamilyDataContext';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
-import { eventMatchesPerspective } from '@/utils/familyPerspective';
+import { useFocusPersonId } from '@/hooks/useFocusPersonId';
+import { useEventsPage } from '@/hooks/useEventsPage';
+import { isRestrictedEvent } from '@/utils/eventAccess';
 import { EventFormModal } from './components/EventFormModal';
 import { DeleteConfirmDialog } from '../family-data/components/DeleteConfirmDialog';
 
@@ -113,6 +115,11 @@ function EventCard({
             {upcoming && (
               <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
                 Mendatang
+              </span>
+            )}
+            {isRestrictedEvent(event) && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+                <Lock size={11} /> Terbatas
               </span>
             )}
           </div>
@@ -258,14 +265,13 @@ const TYPE_OPTIONS = [
 ];
 
 export function EventsPage() {
-  const { events, addEvent, updateEvent, deleteEvent } = useEvents();
-  const { persons } = useFamily();
+  const { persons: mockPersons } = useFamily();
   const {
-    visiblePersonIds,
     focusShortLabel,
     theme,
     perspective,
   } = useFamilyPerspective();
+  const focusPersonId = useFocusPersonId();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
@@ -273,6 +279,30 @@ export function EventsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<FamilyEvent | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FamilyEvent | null>(null);
+
+  const apiQuery = useMemo(
+    () => ({
+      type: filters.type !== 'all' ? filters.type : undefined,
+      year: filters.year || undefined,
+      month: filters.month || undefined,
+      dateFrom: filters.dateFrom || undefined,
+      dateTo: filters.dateTo || undefined,
+      q: search.trim() || undefined,
+    }),
+    [filters, search],
+  );
+
+  const {
+    source,
+    events,
+    allPersons: apiPersons,
+    isLoading,
+    error,
+    saveEvent,
+    removeEvent,
+  } = useEventsPage(focusPersonId, apiQuery);
+
+  const persons = source === 'api' ? apiPersons : mockPersons;
 
   const personMap = useMemo(
     () => new Map(persons.map((p) => [p.id, p.fullName])),
@@ -309,10 +339,11 @@ export function EventsPage() {
   ].filter(Boolean).length;
 
   const filtered = useMemo(() => {
+    if (source === 'api') return events;
+
     const q = search.toLowerCase().trim();
     return events
       .filter((e) => {
-        if (!eventMatchesPerspective(e.personIds, visiblePersonIds)) return false;
         if (
           q &&
           !e.title.toLowerCase().includes(q) &&
@@ -346,7 +377,7 @@ export function EventsPage() {
           ? new Date(a.date).getTime() - new Date(b.date).getTime()
           : new Date(b.date).getTime() - new Date(a.date).getTime();
       });
-  }, [events, search, filters, visiblePersonIds]);
+  }, [source, events, search, filters]);
 
   // Cascading setters — child resets when parent changes
   const setFilterType = (type: FilterState['type']) =>
@@ -381,16 +412,8 @@ export function EventsPage() {
   const openAdd = () => { setEventToEdit(null); setIsFormOpen(true); };
   const openEdit = (e: FamilyEvent) => { setEventToEdit(e); setIsFormOpen(true); };
 
-  const handleSave = (data: Omit<FamilyEvent, 'id'>) => {
-    if (eventToEdit) {
-      updateEvent({
-        ...data,
-        id: eventToEdit.id,
-        contributions: eventToEdit.contributions,
-      });
-    } else {
-      addEvent({ ...data, contributions: [] });
-    }
+  const handleSave = async (data: Omit<FamilyEvent, 'id'>) => {
+    await saveEvent(data, eventToEdit?.id);
   };
 
   const upcomingCount = events.filter((e) => isUpcoming(e.date)).length;
@@ -411,6 +434,9 @@ export function EventsPage() {
                 {upcomingCount} mendatang
               </span>
             )}
+            {source === 'api' && (
+              <span className="ml-2 text-primary-500">· API</span>
+            )}
           </p>
         </div>
         <button
@@ -421,6 +447,16 @@ export function EventsPage() {
           Tambah Acara
         </button>
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="mb-4 text-sm text-gray-500">Memuat acara keluarga…</div>
+      )}
 
       {/* ── Search + Filter bar ──────────────────────────── */}
       <div className="flex gap-2 mb-3">
@@ -687,7 +723,9 @@ export function EventsPage() {
       <DeleteConfirmDialog
         isOpen={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={() => { if (deleteTarget) deleteEvent(deleteTarget.id); }}
+        onConfirm={async () => {
+          if (deleteTarget) await removeEvent(deleteTarget.id);
+        }}
         personName={deleteTarget?.title ?? ''}
       />
     </>

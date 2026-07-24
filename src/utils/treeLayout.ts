@@ -112,21 +112,21 @@ export function buildAncestorDepthMap(
 }
 
 /**
- * Extends ancestorDepths to include siblings of ancestors (same parents → depth D-1)
- * and their spouses, so visual tier can be computed correctly for all visible persons.
+ * Extends ancestorDepths with siblings/spouses, plus descendants di bawah fokus.
+ * Depth positif = leluhur; 0 = fokus; negatif = anak (-1), cucu (-2), dst.
  */
 export function buildFullDepthMap(
   persons: Person[],
   ancestorDepths: Map<string, number>,
 ): Map<string, number> {
   const full = new Map(ancestorDepths);
+  const byId = new Map(persons.map((p) => [p.id, p]));
 
   let changed = true;
   while (changed) {
     changed = false;
     for (const person of persons) {
       if (full.has(person.id)) continue;
-      if (person.generationLabel === 'Anak') continue;
 
       // Propagate from spouse that already has a depth
       for (const spouseId of person.spouseIds) {
@@ -138,16 +138,27 @@ export function buildFullDepthMap(
       }
       if (full.has(person.id)) continue;
 
-      // Sibling inference: parent at depth D → child at depth D-1
+      // Anak dari parent berkedalaman D → D-1 (berlaku untuk leluhur, fokus, anak, cucu, …)
       for (const parentId of [person.fatherId, person.motherId]) {
-        if (parentId && full.has(parentId)) {
-          const pd = full.get(parentId)!;
-          if (pd > 0) {
-            full.set(person.id, pd - 1);
-            changed = true;
-            break;
-          }
+        if (!parentId || !full.has(parentId)) continue;
+        full.set(person.id, full.get(parentId)! - 1);
+        changed = true;
+        break;
+      }
+      if (full.has(person.id)) continue;
+
+      // Orangtua adalah pasangan orang yang sudah punya depth
+      for (const parentId of [person.fatherId, person.motherId]) {
+        if (!parentId) continue;
+        const parent = byId.get(parentId);
+        if (!parent) continue;
+        for (const sid of parent.spouseIds) {
+          if (!full.has(sid)) continue;
+          full.set(person.id, full.get(sid)! - 1);
+          changed = true;
+          break;
         }
+        if (full.has(person.id)) break;
       }
     }
   }
@@ -186,6 +197,19 @@ export function getMaxGenerationsUp(data: FamilyData, config: TreeViewConfig): n
   return values.length > 0 ? Math.max(...values) : 0;
 }
 
+/** Maks generasi ke bawah (keturunan) yang tersedia dari fokus. */
+export function getMaxGenerationsDown(data: FamilyData, config: TreeViewConfig): number {
+  const map = buildPersonMap(data.persons);
+  const rootId = resolveFocusPersonId(data, config.perspective);
+  const ancestorDepths = buildAncestorDepthMap(rootId, map, config.lineage);
+  const fullDepths = buildFullDepthMap(data.persons, ancestorDepths);
+  let minDepth = 0;
+  for (const depth of fullDepths.values()) {
+    if (depth < minDepth) minDepth = depth;
+  }
+  return -minDepth;
+}
+
 function getPersonAncestorDepth(
   person: Person,
   ancestorDepths: Map<string, number>,
@@ -217,6 +241,21 @@ function applyGenerationsUpFilter(
     if (depth === undefined || depth === 0) continue;
 
     if (depth > limit) visible.delete(id);
+  }
+}
+
+/** Hapus keturunan lebih dalam dari generationsDown (depth −1 = anak, −2 = cucu, …). */
+function applyGenerationsDownFilter(
+  visible: Set<string>,
+  config: TreeViewConfig,
+  fullDepths: Map<string, number>,
+): void {
+  const limit = config.generationsDown;
+
+  for (const id of [...visible]) {
+    const depth = fullDepths.get(id);
+    if (depth === undefined || depth >= 0) continue;
+    if (-depth > limit) visible.delete(id);
   }
 }
 
@@ -448,6 +487,40 @@ function addChildrenOf(parentIds: string[], all: Person[], set: Set<string>) {
   }
 }
 
+/**
+ * Hapus orang yang punya parent di dataset tapi tidak satu pun parent-nya terlihat.
+ * Melindungi blood line, pasangan struktural, dan siapa pun yang merupakan pasangan
+ * dari orang yang masih terlihat (supaya in-law tanpa leluhur di pohon tidak ikut hilang).
+ */
+function pruneOrphansWithoutVisibleParents(
+  visible: Set<string>,
+  map: Map<string, Person>,
+  keepIds: Set<string>,
+) {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const id of [...visible]) {
+      if (keepIds.has(id)) continue;
+      const person = map.get(id);
+      if (!person) continue;
+
+      // Pasangan orang yang terlihat: tetap tampil meski orang tua mereka tidak di pohon
+      if (person.spouseIds.some((sid) => visible.has(sid))) continue;
+
+      const knownParents = [person.fatherId, person.motherId].filter(
+        (pid): pid is string => !!pid && map.has(pid),
+      );
+      if (knownParents.length === 0) continue;
+
+      if (!knownParents.some((pid) => visible.has(pid))) {
+        visible.delete(id);
+        changed = true;
+      }
+    }
+  }
+}
+
 function isSpouseOnlyPerson(id: string, bloodLine: Set<string>, map: Map<string, Person>): boolean {
   if (bloodLine.has(id)) return false;
   const person = map.get(id);
@@ -530,31 +603,52 @@ export function filterPersons(data: FamilyData, config: TreeViewConfig): Person[
     }
   }
 
-  if (config.display.showChildren) {
-    if (config.perspective === 'self') {
-      const genIds = [me.id, ...mySiblings.map((s) => s.id)];
-      for (const id of genIds) {
+  if (config.generationsDown > 0) {
+    const beforeDescendants = new Set(visible);
+
+    let frontier: string[] =
+      config.perspective === 'self'
+        ? config.display.showSiblings
+          ? [me.id, ...mySiblings.map((s) => s.id)]
+          : [me.id]
+        : [rootId, me.id];
+
+    for (let gen = 1; gen <= config.generationsDown; gen += 1) {
+      const parentIds: string[] = [];
+      for (const id of frontier) {
         const person = map.get(id);
         if (!person) continue;
+        parentIds.push(id, ...person.spouseIds.filter((sid) => visible.has(sid)));
+      }
+      const before = new Set(visible);
+      addChildrenOf(parentIds, data.persons, visible);
+      frontier = [...visible].filter((id) => !before.has(id));
+      if (frontier.length === 0) break;
+    }
+
+    // Sepupu: anak saudara leluhur (bukan keturunan fokus) — jika saudara aktif
+    if (config.display.showSiblings && config.perspective === 'self') {
+      const focusGenIds = new Set([me.id, ...mySiblings.map((s) => s.id)]);
+      for (const id of [...visible]) {
+        if (bloodLine.has(id) || focusGenIds.has(id)) continue;
+        if (isAboveBuyutRuleDepth(id, ancestorDepths, map)) continue;
+        const person = map.get(id);
+        if (!person) continue;
+        // Skip orang yang sudah keturunan fokus — anak mereka diatur generationsDown
+        const parentIsFocusGen =
+          (person.fatherId != null && focusGenIds.has(person.fatherId)) ||
+          (person.motherId != null && focusGenIds.has(person.motherId));
+        if (parentIsFocusGen) continue;
         const parentIds = [id, ...person.spouseIds.filter((sid) => visible.has(sid))];
         addChildrenOf(parentIds, data.persons, visible);
       }
+    }
 
-      if (config.display.showSiblings) {
-        for (const id of [...visible]) {
-          if (bloodLine.has(id) || id === me.id || mySiblings.some((s) => s.id === id)) {
-            continue;
-          }
-          if (isAboveBuyutRuleDepth(id, ancestorDepths, map)) continue;
-          const person = map.get(id);
-          if (!person) continue;
-          const parentIds = [id, ...person.spouseIds.filter((sid) => visible.has(sid))];
-          addChildrenOf(parentIds, data.persons, visible);
-        }
+    if (config.display.showSpouses) {
+      for (const id of [...visible]) {
+        if (beforeDescendants.has(id)) continue;
+        addSpousesOf([id], map, visible);
       }
-    } else {
-      const parentIds = [rootId, me.id];
-      addChildrenOf(parentIds, data.persons, visible);
     }
   }
 
@@ -574,6 +668,13 @@ export function filterPersons(data: FamilyData, config: TreeViewConfig): Person[
   // Use fullDepths so siblings at ancestor levels are also filtered by generationsUp
   const fullDepths = buildFullDepthMap([...data.persons], ancestorDepths);
   applyGenerationsUpFilter(visible, config, map, fullDepths);
+  applyGenerationsDownFilter(visible, config, fullDepths);
+
+  const keepIds = new Set(bloodLine);
+  keepIds.add(rootId);
+  addSpousesOf(bloodLine, map, keepIds);
+  addSpousesOf([rootId], map, keepIds);
+  pruneOrphansWithoutVisibleParents(visible, map, keepIds);
 
   return data.persons.filter((p) => visible.has(p.id));
 }
@@ -611,10 +712,15 @@ function getVisualTier(
   if (visiting.has(person.id)) return ROOT_VISUAL_TIER;
   visiting.add(person.id);
 
-  if (person.generationLabel === 'Anak') return CHILD_VISUAL_TIER;
-
+  // Depth aktual (termasuk negatif untuk anak/cucu) menentukan baris
   const depth = getPersonAncestorDepth(person, ancestorDepths);
   if (depth !== undefined) return ROOT_VISUAL_TIER - depth;
+
+  // Fallback struktural bila depth belum terisi
+  if (isDescendingFromFocusGeneration(person, map, ancestorDepths)) {
+    return CHILD_VISUAL_TIER;
+  }
+  if (person.generationLabel === 'Anak') return CHILD_VISUAL_TIER;
 
   for (const spouseId of person.spouseIds) {
     const spouse = map.get(spouseId);
@@ -625,6 +731,30 @@ function getVisualTier(
   }
 
   return ROOT_VISUAL_TIER;
+}
+
+/** True jika orang ini keturunan generasi fokus (anak depth -1, cucu -2, …). */
+function isDescendingFromFocusGeneration(
+  person: Person,
+  map: Map<string, Person>,
+  depths: Map<string, number>,
+): boolean {
+  const own = depths.get(person.id);
+  if (own !== undefined && own < 0) return true;
+
+  for (const parentId of [person.fatherId, person.motherId]) {
+    if (!parentId || !map.has(parentId)) continue;
+    const pd = depths.get(parentId);
+    if (pd !== undefined && pd <= 0) return true;
+    const parent = map.get(parentId)!;
+    if (parent.spouseIds.some((sid) => {
+      const sd = depths.get(sid);
+      return sd !== undefined && sd <= 0;
+    })) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function unitWidth(unit: CoupleUnit): number {
@@ -939,6 +1069,138 @@ function placeCoupleUnit(
   }
 }
 
+/**
+ * Tempatkan anak (−1), cucu (−2), dst. di bawah ortunya — dari generasi terdekat ke bawah.
+ * Pasangan di depth yang sama ditaruh di samping.
+ */
+function placeDescendantGenerations(
+  persons: Person[],
+  map: Map<string, Person>,
+  fullDepths: Map<string, number>,
+  positions: Map<string, { x: number; y: number }>,
+) {
+  const personSet = new Set(persons.map((p) => p.id));
+  const descendantDepths = [...fullDepths.values()].filter((d) => d < 0);
+  if (descendantDepths.length === 0) {
+    // Fallback: label Anak tanpa depth terisi
+    for (const person of persons) {
+      if (person.generationLabel !== 'Anak') continue;
+      if (positions.has(person.id)) continue;
+      if (person.spouseIds.some((sid) => fullDepths.get(sid) === 0)) continue;
+      const parentPositions = [person.fatherId, person.motherId]
+        .filter(Boolean)
+        .map((id) => positions.get(id!))
+        .filter((pos): pos is { x: number; y: number } => !!pos);
+      if (parentPositions.length === 0) continue;
+      const parentCenterX =
+        parentPositions.reduce((sum, pos) => sum + pos.x + NODE_WIDTH / 2, 0) /
+        parentPositions.length;
+      const parentY = Math.max(...parentPositions.map((pos) => pos.y));
+      positions.set(person.id, {
+        x: parentCenterX - NODE_WIDTH / 2,
+        y: parentY + ROW_HEIGHT,
+      });
+    }
+    return;
+  }
+
+  const minDepth = Math.min(...descendantDepths);
+
+  for (let depth = -1; depth >= minDepth; depth -= 1) {
+    const atDepth = persons.filter((p) => fullDepths.get(p.id) === depth);
+    if (atDepth.length === 0) continue;
+
+    const groups = new Map<string, Person[]>();
+    const placed = new Set<string>();
+
+    for (const person of atDepth) {
+      if (placed.has(person.id)) continue;
+      // Pasangan fokus (depth 0) jangan dipindah ke baris anak
+      if (person.spouseIds.some((sid) => fullDepths.get(sid) === 0)) continue;
+
+      const key = `${person.fatherId ?? ''}|${person.motherId ?? ''}`;
+      // Orang yang hanya "nempel" sebagai pasangan (tanpa parent di set / parent beda depth)
+      // akan ditempatkan di samping spouse setelah group darah dipasang.
+      const hasVisibleParent =
+        (person.fatherId && personSet.has(person.fatherId) && positions.has(person.fatherId)) ||
+        (person.motherId && personSet.has(person.motherId) && positions.has(person.motherId));
+
+      if (!hasVisibleParent) continue;
+
+      const group = groups.get(key) ?? [];
+      group.push(person);
+      groups.set(key, group);
+    }
+
+    for (const children of groups.values()) {
+      children.sort((a, b) => a.birthDate.localeCompare(b.birthDate));
+      const first = children[0];
+      const parentPositions = [first.fatherId, first.motherId]
+        .filter(Boolean)
+        .map((id) => positions.get(id!))
+        .filter((pos): pos is { x: number; y: number } => !!pos);
+      if (parentPositions.length === 0) continue;
+
+      const parentCenterX =
+        parentPositions.reduce((sum, pos) => sum + pos.x + NODE_WIDTH / 2, 0) /
+        parentPositions.length;
+      const parentY = Math.max(...parentPositions.map((pos) => pos.y));
+      const rowY = parentY + ROW_HEIGHT;
+
+      // Hitung lebar: tiap anak + pasangan di depth yang sama (jika ada)
+      const units: { blood: Person; spouse?: Person }[] = children.map((child) => {
+        const spouseId = child.spouseIds.find(
+          (sid) =>
+            personSet.has(sid) &&
+            fullDepths.get(sid) === depth &&
+            !children.some((c) => c.id === sid),
+        );
+        return { blood: child, spouse: spouseId ? map.get(spouseId) : undefined };
+      });
+
+      const totalWidth = units.reduce((sum, u, i) => {
+        const w = u.spouse ? NODE_WIDTH * 2 + COUPLE_GAP : NODE_WIDTH;
+        return sum + w + (i > 0 ? UNIT_GAP : 0);
+      }, 0);
+      let x = parentCenterX - totalWidth / 2;
+
+      for (const unit of units) {
+        positions.set(unit.blood.id, { x, y: rowY });
+        placed.add(unit.blood.id);
+        if (unit.spouse) {
+          positions.set(unit.spouse.id, {
+            x: x + NODE_WIDTH + COUPLE_GAP,
+            y: rowY,
+          });
+          placed.add(unit.spouse.id);
+          x += NODE_WIDTH * 2 + COUPLE_GAP + UNIT_GAP;
+        } else {
+          x += NODE_WIDTH + UNIT_GAP;
+        }
+      }
+    }
+
+    // Pasangan tersisa di depth ini yang spouse-nya sudah diposisikan
+    for (const person of atDepth) {
+      if (positions.has(person.id)) continue;
+      const spouseId = person.spouseIds.find((sid) => positions.has(sid));
+      if (!spouseId) continue;
+      const spousePos = positions.get(spouseId)!;
+      const spouse = map.get(spouseId);
+      const onRight =
+        !spouse ||
+        spouse.gender === 'male' ||
+        (spouse.gender === 'female' && person.gender === 'male');
+      positions.set(person.id, {
+        x: onRight
+          ? spousePos.x + NODE_WIDTH + COUPLE_GAP
+          : spousePos.x - NODE_WIDTH - COUPLE_GAP,
+        y: spousePos.y,
+      });
+    }
+  }
+}
+
 export function layoutFamilyTree(
   persons: Person[],
   options: {
@@ -979,43 +1241,7 @@ export function layoutFamilyTree(
 
   alignParentCouplesAboveChildren(persons, map, ancestorDepths, fullDepths, allPositions, tierToY);
 
-  const rootRowY = tierToY(ROOT_VISUAL_TIER);
-  const childRowY = rootRowY + ROW_HEIGHT;
-
-  const childrenByParents = new Map<string, Person[]>();
-  for (const person of persons) {
-    if (person.generationLabel !== 'Anak') continue;
-    const key = `${person.fatherId ?? ''}|${person.motherId ?? ''}`;
-    const group = childrenByParents.get(key) ?? [];
-    group.push(person);
-    childrenByParents.set(key, group);
-  }
-
-  for (const children of childrenByParents.values()) {
-    children.sort((a, b) => a.birthDate.localeCompare(b.birthDate));
-    const first = children[0];
-    const parentCenters = [first.fatherId, first.motherId]
-      .filter(Boolean)
-      .map((id) => {
-        const pos = allPositions.get(id!);
-        return pos ? pos.x + NODE_WIDTH / 2 : null;
-      })
-      .filter((v): v is number => v !== null);
-
-    if (parentCenters.length === 0) continue;
-
-    const parentCenterX = parentCenters.reduce((sum, x) => sum + x, 0) / parentCenters.length;
-    const count = children.length;
-    const groupWidth = count * NODE_WIDTH + (count - 1) * UNIT_GAP;
-    const startX = parentCenterX - groupWidth / 2;
-
-    children.forEach((child, index) => {
-      allPositions.set(child.id, {
-        x: startX + index * (NODE_WIDTH + UNIT_GAP),
-        y: childRowY,
-      });
-    });
-  }
+  placeDescendantGenerations(persons, map, fullDepths, allPositions);
 
   const searchLower = options.searchQuery?.trim().toLowerCase() ?? '';
   const matchIds = new Set<string>();

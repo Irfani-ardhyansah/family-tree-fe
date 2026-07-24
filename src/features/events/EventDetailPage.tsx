@@ -11,9 +11,10 @@ import {
   Globe,
   Image as ImageIcon,
 } from 'react-feather';
-import { useEvents } from '@/context/EventContext';
 import { useFamily } from '@/context/FamilyDataContext';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
+import { useFocusPersonId } from '@/hooks/useFocusPersonId';
+import { useEventDetail } from '@/hooks/useEventDetail';
 import { EVENT_TYPE_CONFIG } from '@/types/event';
 import {
   buildGalleryItems,
@@ -73,11 +74,21 @@ function ContributorAvatar({
 export function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { getEventById, addContribution } = useEvents();
-  const { persons } = useFamily();
+  const { persons: mockPersons } = useFamily();
   const { me, theme } = useFamilyPerspective();
+  const focusPersonId = useFocusPersonId();
 
-  const event = getEventById(eventId ?? '');
+  const {
+    source,
+    event,
+    allPersons: apiPersons,
+    isLoading,
+    error,
+    accessForbidden,
+    addContribution,
+  } = useEventDetail(eventId, focusPersonId);
+
+  const persons = source === 'api' ? apiPersons : mockPersons;
   const currentUserId = me?.id;
 
   const personMap = useMemo(
@@ -111,6 +122,51 @@ export function EventDetailPage() {
     );
   }, [galleryItems, contributorFilter]);
 
+  if (isLoading) {
+    return (
+      <div className="text-center py-20 text-gray-500">
+        Memuat detail acara…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-red-600 font-medium">{error}</p>
+        <Link
+          to="/events"
+          className="mt-4 inline-flex items-center gap-2 text-primary-600 text-sm font-medium hover:underline"
+        >
+          <ArrowLeft size={16} /> Kembali ke daftar acara
+        </Link>
+      </div>
+    );
+  }
+
+  if (accessForbidden) {
+    return (
+      <div className="max-w-lg mx-auto text-center py-20">
+        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+          <Lock className="text-gray-400" size={28} />
+        </div>
+        <h2 className="text-lg font-bold text-brand-700 mb-2">
+          Acara Ini Terbatas
+        </h2>
+        <p className="text-sm text-gray-500 leading-relaxed">
+          Hanya peserta terpilih yang dapat melihat galeri acara ini.
+          Hubungi penyelenggara jika Anda perlu akses.
+        </p>
+        <Link
+          to="/events"
+          className="mt-6 inline-flex items-center gap-2 text-primary-600 text-sm font-medium hover:underline"
+        >
+          <ArrowLeft size={16} /> Kembali
+        </Link>
+      </div>
+    );
+  }
+
   if (!event) {
     return (
       <div className="text-center py-20">
@@ -138,17 +194,11 @@ export function EventDetailPage() {
     .map((id) => personMap.get(id)?.fullName)
     .filter(Boolean) as string[];
 
-  const handleContribute = (
+  const handleContribute = async (
     photos: { photoUrl: string; caption?: string }[],
   ) => {
     if (!currentUserId) return;
-    for (const photo of photos) {
-      addContribution(event.id, {
-        photoUrl: photo.photoUrl,
-        contributorId: currentUserId,
-        caption: photo.caption,
-      });
-    }
+    await addContribution(currentUserId, photos);
   };
 
   if (!canAccess) {

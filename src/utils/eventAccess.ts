@@ -9,6 +9,8 @@ export function canAccessEvent(
   event: FamilyEvent,
   currentUserId: string | undefined,
 ): boolean {
+  if (event.canAccess != null) return event.canAccess;
+
   const attendees = event.attendeeIds ?? [];
   if (attendees.length === 0) return true;
   if (!currentUserId) return false;
@@ -16,6 +18,7 @@ export function canAccessEvent(
 }
 
 export function isRestrictedEvent(event: FamilyEvent): boolean {
+  if (event.isRestricted != null) return event.isRestricted;
   return (event.attendeeIds ?? []).length > 0;
 }
 

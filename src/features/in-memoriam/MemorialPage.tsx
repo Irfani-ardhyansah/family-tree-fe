@@ -6,13 +6,13 @@ import {
   Plus,
   Image as ImageIcon,
   Calendar,
+  Lock,
 } from 'react-feather';
-import { useFamily } from '@/context/FamilyDataContext';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
-import { useMemoriam } from '@/context/MemoriamContext';
+import { useFocusPersonId } from '@/hooks/useFocusPersonId';
+import { useMemorialDetail } from '@/hooks/useMemorialDetail';
 import {
   buildMemorialGallery,
-  canAccessMemorial,
   formatLifeSpan,
   getAgeAtDeath,
   getAlmarhumLabel,
@@ -61,17 +61,22 @@ type MemorialTab = 'stories' | 'gallery';
 export function MemorialPage() {
   const { personId } = useParams<{ personId: string }>();
   const navigate = useNavigate();
-  const { persons } = useFamily();
   const { me } = useFamilyPerspective();
+  const focusPersonId = useFocusPersonId();
+
   const {
-    getTributesFor,
-    getPrayersFor,
+    deceased,
+    allPersons: persons,
+    tributes,
+    prayers,
+    hasPrayed,
+    isLoading,
+    error,
+    accessForbidden,
     addTribute,
     addPrayer,
-    hasPrayed,
-  } = useMemoriam();
+  } = useMemorialDetail(personId, focusPersonId);
 
-  const deceased = persons.find((p) => p.id === personId);
   const currentUserId = me?.id;
 
   const personMap = useMemo(
@@ -86,18 +91,18 @@ export function MemorialPage() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [showAddTribute, setShowAddTribute] = useState(false);
 
-  const tributes = deceased ? getTributesFor(deceased.id) : [];
-  const prayers = deceased ? getPrayersFor(deceased.id) : [];
+  const tributesList = deceased ? tributes : [];
+  const prayersList = deceased ? prayers : [];
 
   const photoCount = useMemo(
-    () => tributes.reduce((sum, t) => sum + t.photoUrls.length, 0),
-    [tributes],
+    () => tributesList.reduce((sum, t) => sum + t.photoUrls.length, 0),
+    [tributesList],
   );
 
   const galleryPhotos = useMemo(() => {
     if (activeTab !== 'gallery' || !deceased) return [];
-    return buildMemorialGallery(tributes, getPersonName);
-  }, [activeTab, deceased, tributes, personMap]);
+    return buildMemorialGallery(tributesList, getPersonName);
+  }, [activeTab, deceased, tributesList, personMap]);
 
   const galleryAuthors = useMemo(
     () => groupGalleryByAuthor(galleryPhotos),
@@ -111,7 +116,7 @@ export function MemorialPage() {
 
   const lightboxItems: GalleryItem[] = useMemo(() => {
     if (lightboxIndex === null || !deceased) return [];
-    return buildMemorialGallery(tributes, getPersonName).map((p) => ({
+    return buildMemorialGallery(tributesList, getPersonName).map((p) => ({
       id: p.id,
       photoUrl: p.photoUrl,
       contributorId: p.authorId,
@@ -119,14 +124,10 @@ export function MemorialPage() {
       caption: p.caption,
       createdAt: p.createdAt,
     }));
-  }, [lightboxIndex, deceased, tributes, personMap]);
-
-  const canAccess =
-    deceased &&
-    currentUserId &&
-    canAccessMemorial(currentUserId, deceased.id, persons);
+  }, [lightboxIndex, deceased, tributesList, personMap]);
 
   useEffect(() => {
+    if (isLoading || error || accessForbidden) return;
     if (!deceased || deceased.status !== 'deceased') {
       navigate('/in-memoriam', { replace: true });
       return;
@@ -137,14 +138,42 @@ export function MemorialPage() {
     ) {
       navigate(`/in-memoriam/${deceased.id}/doa`, { replace: true });
     }
-  }, [deceased, navigate]);
+  }, [deceased, navigate, isLoading, error, accessForbidden]);
 
-  if (!deceased || deceased.status !== 'deceased') return null;
+  if (isLoading) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4] flex items-center justify-center text-slate-500">
+        Memuat halaman kenangan…
+      </div>
+    );
+  }
 
-  if (!canAccess) {
+  if (error) {
     return (
       <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4] flex items-center justify-center px-6">
         <div className="text-center max-w-md">
+          <p className="text-red-600 font-medium">{error}</p>
+          <Link
+            to="/in-memoriam"
+            className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-800"
+          >
+            <ArrowLeft size={16} />
+            Kembali ke daftar
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!deceased || deceased.status !== 'deceased') return null;
+
+  if (accessForbidden) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4] flex items-center justify-center px-6">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+            <Lock className="text-slate-400" size={28} />
+          </div>
           <p className="text-slate-600 font-medium">
             Anda tidak memiliki akses ke kenangan ini
           </p>
@@ -168,26 +197,24 @@ export function MemorialPage() {
   const years = getYearsSinceDeath(deceased.deathDate);
   const age = getAgeAtDeath(deceased.birthDate, deceased.deathDate);
   const userHasPrayed = currentUserId
-    ? hasPrayed(deceased.id, currentUserId)
+    ? hasPrayed
     : false;
 
-  const handleAddTribute = (data: { content: string; photoUrls: string[] }) => {
+  const handleAddTribute = async (data: {
+    content: string;
+    photoUrls: string[];
+  }) => {
     if (!currentUserId) return;
-    addTribute({
-      deceasedId: deceased.id,
-      authorId: currentUserId,
-      content: data.content,
-      photoUrls: data.photoUrls,
-    });
+    await addTribute(currentUserId, data);
   };
 
-  const handlePray = () => {
+  const handlePray = async () => {
     if (!currentUserId) return;
-    addPrayer(deceased.id, currentUserId);
+    await addPrayer(currentUserId);
   };
 
   const openLightbox = (photoUrl: string) => {
-    const photos = buildMemorialGallery(tributes, getPersonName);
+    const photos = buildMemorialGallery(tributesList, getPersonName);
     const idx = photos.findIndex((p) => p.photoUrl === photoUrl);
     if (idx >= 0) setLightboxIndex(idx);
   };
@@ -265,7 +292,7 @@ export function MemorialPage() {
                   deceasedId={deceased.id}
                   authorId={currentUserId}
                   authorName={me?.fullName ?? 'Saya'}
-                  prayerCount={prayers.length}
+                  prayerCount={prayersList.length}
                   hasPrayed={userHasPrayed}
                   onPray={handlePray}
                 />
@@ -294,7 +321,7 @@ export function MemorialPage() {
                   : 'bg-slate-100 text-slate-500'
               }`}
             >
-              {tributes.length}
+              {tributesList.length}
             </span>
           </button>
           <button
@@ -386,7 +413,7 @@ export function MemorialPage() {
                   key={photo.id}
                   type="button"
                   onClick={() => {
-                    const allPhotos = buildMemorialGallery(tributes, getPersonName);
+                    const allPhotos = buildMemorialGallery(tributesList, getPersonName);
                     const idx = allPhotos.findIndex((p) => p.id === photo.id);
                     if (idx >= 0) setLightboxIndex(idx);
                   }}
@@ -414,7 +441,7 @@ export function MemorialPage() {
               <BookOpen size={20} className="text-slate-500" />
               Kenangan & Ucapan
               <span className="text-sm font-normal text-slate-400">
-                ({tributes.length})
+                ({tributesList.length})
               </span>
             </h2>
             {currentUserId && (
@@ -429,7 +456,7 @@ export function MemorialPage() {
             )}
           </div>
 
-          {tributes.length === 0 ? (
+          {tributesList.length === 0 ? (
             <div className="text-center py-16 bg-white rounded-2xl border border-slate-100">
               <BookOpen size={36} className="mx-auto text-slate-300 mb-3" />
               <p className="text-slate-600 font-medium">Belum ada kenangan</p>
@@ -450,7 +477,7 @@ export function MemorialPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {tributes.map((tribute) => (
+              {tributesList.map((tribute) => (
                 <TributeCard
                   key={tribute.id}
                   tribute={tribute}

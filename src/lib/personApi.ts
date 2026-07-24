@@ -25,6 +25,7 @@ function appendTreeFilter(params: URLSearchParams, filter?: TreeFilterParams) {
   if (!filter) return;
   params.set('lineage', filter.lineage);
   params.set('generationsUp', String(filter.generationsUp));
+  params.set('generationsDown', String(filter.generationsDown));
   params.set('showSpouses', String(filter.showSpouses));
   params.set('showSiblings', String(filter.showSiblings));
   params.set('showChildren', String(filter.showChildren));

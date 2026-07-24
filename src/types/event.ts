@@ -33,6 +33,10 @@ export type FamilyEvent = {
   attendeeIds: string[];
   /** Foto kontribusi dari anggota keluarga */
   contributions: EventContribution[];
+  /** Dari API list — acara terbatas (attendeeIds tidak kosong) */
+  isRestricted?: boolean;
+  /** Dari API — viewer boleh lihat detail & kontribusi */
+  canAccess?: boolean;
 };
 
 export const EVENT_TYPE_CONFIG: Record<
