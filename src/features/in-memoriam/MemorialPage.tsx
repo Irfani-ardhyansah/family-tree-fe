@@ -128,7 +128,10 @@ export function MemorialPage() {
 
   useEffect(() => {
     if (isLoading || error || accessForbidden) return;
-    if (!deceased || deceased.status !== 'deceased') {
+    // Tunggu data selesai — jangan bounce ke list saat fetch masih jalan
+    if (!deceased) return;
+
+    if (deceased.status !== 'deceased') {
       navigate('/in-memoriam', { replace: true });
       return;
     }

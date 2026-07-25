@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useFamily } from '@/context/FamilyDataContext';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft } from 'react-feather';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
+import { useFocusPersonId } from '@/hooks/useFocusPersonId';
+import { useMemorialDetail } from '@/hooks/useMemorialDetail';
 import {
   canAccessMemorial,
   getAlmarhumLabel,
@@ -26,9 +28,16 @@ const PRAYERS = [
 export function PrayerGatePage() {
   const { personId } = useParams<{ personId: string }>();
   const navigate = useNavigate();
-  const { persons } = useFamily();
   const { me } = useFamilyPerspective();
-  const deceased = persons.find((p) => p.id === personId);
+  const focusPersonId = useFocusPersonId();
+  const {
+    source,
+    deceased,
+    allPersons: persons,
+    isLoading,
+    error,
+    accessForbidden,
+  } = useMemorialDetail(personId, focusPersonId);
 
   const [visibleStep, setVisibleStep] = useState(0);
 
@@ -44,11 +53,61 @@ export function PrayerGatePage() {
   }, [deceased]);
 
   useEffect(() => {
-    if (!deceased) navigate('/in-memoriam', { replace: true });
-    else if (deceased.status !== 'deceased') navigate('/in-memoriam', { replace: true });
-    else if (!canAccessMemorial(me?.id, deceased.id, persons))
+    if (isLoading || error || accessForbidden) return;
+    // Jangan redirect saat deceased masih null tanpa error — fetch mungkin belum selesai
+    if (!deceased) return;
+
+    if (deceased.status !== 'deceased') {
       navigate('/in-memoriam', { replace: true });
-  }, [deceased, me?.id, persons, navigate]);
+      return;
+    }
+
+    // Mode mock: cek koneksi di graph lokal. Mode API: detail yang sukses = sudah boleh akses.
+    if (
+      source === 'mock' &&
+      !canAccessMemorial(me?.id, deceased.id, persons)
+    ) {
+      navigate('/in-memoriam', { replace: true });
+    }
+  }, [
+    source,
+    deceased,
+    me?.id,
+    persons,
+    navigate,
+    isLoading,
+    error,
+    accessForbidden,
+  ]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4] flex items-center justify-center text-slate-500">
+        Memuat…
+      </div>
+    );
+  }
+
+  if (error || accessForbidden) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4] flex items-center justify-center px-6">
+        <div className="text-center max-w-md">
+          <p className="text-red-600 font-medium">
+            {accessForbidden
+              ? 'Anda tidak memiliki akses ke kenangan ini'
+              : error}
+          </p>
+          <Link
+            to="/in-memoriam"
+            className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-800"
+          >
+            <ArrowLeft size={16} />
+            Kembali ke daftar
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (!deceased) return null;
 
@@ -60,7 +119,7 @@ export function PrayerGatePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f7f4] flex flex-col items-center justify-center px-6 py-12">
+    <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4] flex flex-col items-center justify-center px-6 py-12">
       <div className="max-w-lg w-full text-center space-y-8">
         {/* Fade-in intro */}
         <p

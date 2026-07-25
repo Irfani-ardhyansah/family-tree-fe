@@ -120,14 +120,14 @@ const router = createBrowserRouter([
           element: <InMemoriamListPage />,
       },
       {
+          path: '/in-memoriam/:personId/doa',
+          element: <PrayerGatePage />,
+      },
+      {
           path: '/in-memoriam/:personId',
           element: <MemorialPage />,
       },
     ],
-  },
-  {
-    path: '/in-memoriam/:personId/doa',
-    element: <PrayerGatePage />,
   },
     {
         path: '/',

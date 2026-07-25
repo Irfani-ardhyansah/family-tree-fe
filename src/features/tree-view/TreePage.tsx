@@ -6,9 +6,10 @@ import ReactFlow, {
   MiniMap,
   Panel,
   ReactFlowProvider,
+  applyNodeChanges,
   useReactFlow,
 } from 'reactflow';
-import type { Node, NodeMouseHandler } from 'reactflow';
+import type { Node, NodeChange, NodeMouseHandler } from 'reactflow';
 import 'reactflow/dist/style.css';
 import {
   Search,
@@ -21,10 +22,13 @@ import {
   Minimize2,
   BookOpen,
   User,
+  Lock,
+  Move,
 } from 'react-feather';
 import { Link } from 'react-router-dom';
 
 import PersonNode from './components/PersonNode';
+import FamilyBranchEdge from './components/FamilyBranchEdge';
 import { PersonDetailModal } from '@/features/family-data/components/PersonDetailModal';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import { useFocusPersonId } from '@/hooks/useFocusPersonId';
@@ -51,7 +55,13 @@ import {
 import { getMemorialEntryPath } from '@/utils/memoriamAccess';
 import { PersonContactInfo } from '@/components/ui/PersonContactInfo';
 
-const nodeTypes = { personNode: PersonNode };
+const nodeTypes = {
+  personNode: PersonNode,
+};
+
+const edgeTypes = {
+  familyBranch: FamilyBranchEdge,
+};
 
 function useFullscreen() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -152,6 +162,8 @@ function TreeCanvas() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [detailTarget, setDetailTarget] = useState<Person | null>(null);
+  const [nodesLocked, setNodesLocked] = useState(true);
+  const [rfNodes, setRfNodes] = useState<Node[]>([]);
   const generationsUpInitialized = useRef(false);
 
   const {
@@ -275,13 +287,43 @@ function TreeCanvas() {
     ],
   );
 
-  // Signature layout (id + posisi) — abaikan highlight/seleksi supaya klik node tidak reset zoom
+  // Signature layout (id + posisi) — abaikan highlight/seleksi supaya klik node tidak reset zoom/drag
   const treeLayoutSignature = useMemo(
     () =>
       nodes
         .map((n) => `${n.id}:${Math.round(n.position.x)}:${Math.round(n.position.y)}`)
         .join('|'),
     [nodes],
+  );
+
+  const layoutNodesRef = useRef(nodes);
+  layoutNodesRef.current = nodes;
+
+  // Reset ke layout otomatis hanya saat geometri pohon berubah (filter/generasi)
+  useEffect(() => {
+    setRfNodes(layoutNodesRef.current);
+  }, [treeLayoutSignature]);
+
+  // Update data highlight/seleksi tanpa menimpa posisi drag manual
+  useEffect(() => {
+    setRfNodes((current) => {
+      if (current.length === 0) return nodes;
+      const byId = new Map(nodes.map((n) => [n.id, n]));
+      return current
+        .filter((n) => byId.has(n.id))
+        .map((n) => {
+          const fresh = byId.get(n.id)!;
+          return fresh.data === n.data ? n : { ...n, data: fresh.data };
+        });
+    });
+  }, [nodes]);
+
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      if (nodesLocked) return;
+      setRfNodes((current) => applyNodeChanges(changes, current));
+    },
+    [nodesLocked],
   );
 
   useEffect(() => {
@@ -296,6 +338,13 @@ function TreeCanvas() {
     }, 50);
     return () => window.clearTimeout(timer);
   }, [treeLayoutSignature, fitView, nodes.length, isFullscreen]);
+
+  const resetNodePositions = useCallback(() => {
+    setRfNodes(layoutNodesRef.current);
+    window.setTimeout(() => {
+      fitView({ padding: 0.14, duration: 400, minZoom: 0.05, maxZoom: 1.35 });
+    }, 40);
+  }, [fitView]);
 
   const activeDisplayCount =
     Object.values(viewConfig.display).filter(Boolean).length +
@@ -331,19 +380,22 @@ function TreeCanvas() {
     }));
   };
 
-  const onNodeClick: NodeMouseHandler = useCallback((_event, node: Node<PersonNodeData>) => {
-    setSelectedPerson(node.data.person);
+  const onNodeClick: NodeMouseHandler = useCallback((_event, node: Node) => {
+    const data = node.data as PersonNodeData;
+    if (!data?.person) return;
+    setSelectedPerson(data.person);
   }, []);
 
   const centerOnFocus = useCallback(() => {
-    const focusNode = nodes.find((n) => n.data.isFocus);
+    const focusNode = nodes.find((n) => (n.data as PersonNodeData).isFocus);
     if (focusNode) {
       setCenter(
         focusNode.position.x + NODE_WIDTH / 2,
         focusNode.position.y + NODE_HEIGHT / 2,
         { zoom: 1.1, duration: 600 },
       );
-      setSelectedPerson(focusNode.data.person);
+      const data = focusNode.data as PersonNodeData;
+      if (data.person) setSelectedPerson(data.person);
     }
   }, [nodes, setCenter]);
 
@@ -593,10 +645,15 @@ function TreeCanvas() {
               </div>
             ) : (
             <ReactFlow
-              nodes={nodes}
+              nodes={rfNodes}
               edges={edges}
               nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
               onNodeClick={onNodeClick}
+              onNodesChange={onNodesChange}
+              nodesDraggable={!nodesLocked}
+              nodesConnectable={false}
+              elementsSelectable
               fitView
               fitViewOptions={{ padding: 0.12 }}
               minZoom={0.05}
@@ -608,7 +665,11 @@ function TreeCanvas() {
               <MiniMap
                 nodeColor={(node) => {
                   const data = node.data as PersonNodeData;
+                  if (!data?.person) return '#e5e7eb';
                   if (data.isFocus) return '#2563EB';
+                  if (data.isSelected) return '#F59E0B';
+                  if (data.isAncestorPath) return '#8B5CF6';
+                  if (data.isDescendantPath) return '#14B8A6';
                   if (data.person.status === 'deceased') return '#aeb8c2';
                   return data.person.gender === 'male' ? '#93C5FD' : '#F9A8D4';
                 }}
@@ -650,6 +711,33 @@ function TreeCanvas() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => setNodesLocked((v) => !v)}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border shadow-sm ${
+                        nodesLocked
+                          ? 'bg-white text-brand-600 border-gray-200 hover:bg-gray-50'
+                          : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                      }`}
+                      title={
+                        nodesLocked
+                          ? 'Kartu terkunci — aktifkan untuk menggeser'
+                          : 'Mode geser aktif — klik untuk mengunci'
+                      }
+                    >
+                      {nodesLocked ? <Lock size={11} /> : <Move size={11} />}
+                      {nodesLocked ? 'Terkunci' : 'Bisa digeser'}
+                    </button>
+                    {!nodesLocked && (
+                      <button
+                        type="button"
+                        onClick={resetNodePositions}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium bg-white text-brand-600 border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm"
+                        title="Kembalikan posisi kartu ke layout otomatis"
+                      >
+                        Reset posisi
+                      </button>
+                    )}
+                    <button
+                      type="button"
                       onClick={toggleFullscreen}
                       className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium bg-white text-brand-600 border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm"
                       title={isFullscreen ? 'Keluar fullscreen' : 'Fullscreen'}
@@ -689,6 +777,15 @@ function TreeCanvas() {
                         <line x1="0" y1="2" x2="24" y2="2" stroke="#94A3B8" strokeWidth="2" strokeDasharray="5 3" />
                       </svg>
                       Pasangan
+                    </span>
+                    <span className="border-t border-gray-100 my-0.5" />
+                    <span className="flex items-center gap-2">
+                      <span className="w-3.5 h-3.5 rounded-sm bg-violet-500 flex-shrink-0" />
+                      Leluhur (saat dipilih)
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="w-3.5 h-3.5 rounded-sm bg-teal-500 flex-shrink-0" />
+                      Keturunan (saat dipilih)
                     </span>
                     {/* Divider */}
                     <span className="border-t border-gray-100 my-0.5" />

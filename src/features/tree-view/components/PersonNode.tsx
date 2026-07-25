@@ -29,7 +29,15 @@ function FemaleIcon() {
 }
 
 function PersonNode({ data }: { data: PersonNodeData }) {
-  const { person, isFocus, isHighlighted, isSelected, isDimmed, isAncestorPath } = data;
+  const {
+    person,
+    isFocus,
+    isHighlighted,
+    isSelected,
+    isDimmed,
+    isAncestorPath,
+    isDescendantPath,
+  } = data;
   const isDeceased = person.status === 'deceased';
   const showBadge = isFocus;
 
@@ -37,13 +45,17 @@ function PersonNode({ data }: { data: PersonNodeData }) {
     ? 'border-primary-500 ring-2 ring-primary-200'
     : isSelected
       ? 'border-amber-500 ring-2 ring-amber-200 shadow-amber-100'
-      : isAncestorPath
+      : isAncestorPath && !isSelected
         ? 'border-violet-400 ring-2 ring-violet-100'
-        : isHighlighted
-          ? 'border-yellow-400 ring-2 ring-yellow-100'
-          : 'border-gray-200';
+        : isDescendantPath
+          ? 'border-teal-400 ring-2 ring-teal-100'
+          : isHighlighted
+            ? 'border-yellow-400 ring-2 ring-yellow-100'
+            : 'border-gray-200';
 
   const opacityClass = isDimmed ? 'opacity-30' : 'opacity-100';
+  const hasHeaderBadge =
+    showBadge || isSelected || (isAncestorPath && !isSelected) || isDescendantPath;
 
   return (
     <>
@@ -83,8 +95,13 @@ function PersonNode({ data }: { data: PersonNodeData }) {
             Leluhur
           </div>
         )}
+        {!showBadge && !isSelected && !isAncestorPath && isDescendantPath && (
+          <div className="bg-teal-500 text-white text-[10px] font-semibold text-center py-0.5 rounded-t-[10px]">
+            Keturunan
+          </div>
+        )}
 
-        <div className={`px-3 py-2.5 ${!showBadge && !isSelected && !isAncestorPath ? 'rounded-t-[10px]' : ''}`}>
+        <div className={`px-3 py-2.5 ${!hasHeaderBadge ? 'rounded-t-[10px]' : ''}`}>
           <div className="flex items-start gap-2">
             <div
               className={`

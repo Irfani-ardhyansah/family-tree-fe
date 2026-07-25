@@ -37,7 +37,8 @@ export function useMemorialDetail(
   const [tributes, setTributes] = useState<MemoriamTribute[]>([]);
   const [prayers, setPrayers] = useState<PrayerRecord[]>([]);
   const [hasPrayed, setHasPrayed] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  // Mulai true supaya halaman detail/doa tidak redirect sebelum fetch jalan
+  const [isLoading, setIsLoading] = useState(Boolean(deceasedId));
   const [error, setError] = useState<string | null>(null);
   const [accessForbidden, setAccessForbidden] = useState(false);
 
@@ -109,6 +110,7 @@ export function useMemorialDetail(
   useEffect(() => {
     if (!deceasedId) {
       setDeceased(null);
+      setIsLoading(false);
       return;
     }
 
@@ -118,8 +120,13 @@ export function useMemorialDetail(
       return;
     }
 
+    if (focusPersonId == null) {
+      setIsLoading(true);
+      return;
+    }
+
     void loadApi();
-  }, [source, deceasedId, loadMock, loadApi]);
+  }, [source, deceasedId, focusPersonId, loadMock, loadApi]);
 
   const addTribute = useCallback(
     async (authorId: string, data: { content: string; photoUrls: string[] }) => {

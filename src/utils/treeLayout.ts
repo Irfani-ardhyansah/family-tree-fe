@@ -15,6 +15,8 @@ export type PersonNodeData = {
   isSelected?: boolean;
   isDimmed?: boolean;
   isAncestorPath?: boolean;
+  /** Keturunan di bawah node yang dipilih (beda gaya dari leluhur). */
+  isDescendantPath?: boolean;
 };
 
 export const NODE_WIDTH = 176;
@@ -183,6 +185,38 @@ function collectAncestorPath(
     if (!person) return;
     if (person.fatherId) walk(person.fatherId);
     if (person.motherId) walk(person.motherId);
+  };
+  walk(personId);
+  return path;
+}
+
+/**
+ * Kumpulkan keturunan di bawah orang yang dipilih (anak, cucu, …) yang terlihat.
+ * Tidak termasuk orang itu sendiri.
+ */
+function collectDescendantPath(
+  personId: string,
+  persons: Person[],
+  visibleSet: Set<string>,
+): Set<string> {
+  const childrenOf = new Map<string, string[]>();
+  for (const person of persons) {
+    if (!visibleSet.has(person.id)) continue;
+    for (const parentId of [person.fatherId, person.motherId]) {
+      if (!parentId || !visibleSet.has(parentId)) continue;
+      const list = childrenOf.get(parentId) ?? [];
+      list.push(person.id);
+      childrenOf.set(parentId, list);
+    }
+  }
+
+  const path = new Set<string>();
+  const walk = (id: string) => {
+    for (const childId of childrenOf.get(id) ?? []) {
+      if (!visibleSet.has(childId) || path.has(childId)) continue;
+      path.add(childId);
+      walk(childId);
+    }
   };
   walk(personId);
   return path;
@@ -1211,7 +1245,7 @@ export function layoutFamilyTree(
     selectedId?: string;
     searchQuery?: string;
   } = {},
-): { nodes: Node<PersonNodeData>[]; edges: Edge[] } {
+): { nodes: Node[]; edges: Edge[] } {
   const perspective = options.perspective ?? 'self';
   const lineage = options.lineage ?? 'both';
   const rootId = options.rootPersonId ?? options.focusPersonId ?? 'me';
@@ -1256,14 +1290,18 @@ export function layoutFamilyTree(
   }
   const hasSearch = searchLower.length > 0;
 
-  // Ancestor path: semua leluhur dari orang yang dipilih (inklusif)
+  // Path seleksi: leluhur (inkl. diri) + keturunan di bawah
   const visibleSet = new Set(persons.map((p) => p.id));
   const ancestorPath = options.selectedId
     ? collectAncestorPath(options.selectedId, map, visibleSet)
     : new Set<string>();
+  const descendantPath = options.selectedId
+    ? collectDescendantPath(options.selectedId, persons, visibleSet)
+    : new Set<string>();
   const hasSelection = ancestorPath.size > 0;
+  const selectionGlow = new Set([...ancestorPath, ...descendantPath]);
 
-  const nodes: Node<PersonNodeData>[] = persons
+  const personNodes: Node<PersonNodeData>[] = persons
     .filter((p) => allPositions.has(p.id))
     .map((person) => {
       const pos = allPositions.get(person.id)!;
@@ -1271,80 +1309,61 @@ export function layoutFamilyTree(
       const isHighlighted = matchIds.has(person.id);
       const isSelected = options.selectedId === person.id;
       const isAncestorPath = hasSelection && ancestorPath.has(person.id);
-      // Redup: saat ada pencarian ATAU ada pilihan (yang bukan bagian dari ancestor path)
+      const isDescendantPath =
+        hasSelection && !isSelected && descendantPath.has(person.id);
       const isDimmed =
         (hasSearch && !isHighlighted && !isFocus) ||
-        (hasSelection && !isAncestorPath);
+        (hasSelection && !selectionGlow.has(person.id));
 
       return {
         id: person.id,
         type: 'personNode',
         position: pos,
-        data: { person, isFocus, isHighlighted, isSelected, isDimmed, isAncestorPath },
-        zIndex: isFocus ? 10 : isSelected ? 9 : isAncestorPath ? 8 : 1,
+        data: {
+          person,
+          isFocus,
+          isHighlighted,
+          isSelected,
+          isDimmed,
+          isAncestorPath,
+          isDescendantPath,
+        },
+        zIndex: isFocus
+          ? 10
+          : isSelected
+            ? 9
+            : isAncestorPath
+              ? 8
+              : isDescendantPath
+                ? 7
+                : 1,
       };
     });
 
-  const edges: Edge[] = [];
-  const edgeIds = new Set<string>();
+  const parentEdges = buildFamilyBranchEdges({
+    persons,
+    positions: allPositions,
+    ancestorPath,
+    descendantPath,
+    hasSelection,
+  });
+
+  const edges: Edge[] = [...parentEdges];
+  const edgeIds = new Set(parentEdges.map((e) => e.id));
 
   for (const person of persons) {
     if (!allPositions.has(person.id)) continue;
 
-    if (person.fatherId && allPositions.has(person.fatherId)) {
-      const id = `parent-f-${person.fatherId}-${person.id}`;
-      if (!edgeIds.has(id)) {
-        edgeIds.add(id);
-        // Garis ke atas disorot jika keduanya berada di ancestor path
-        const onPath = hasSelection && ancestorPath.has(person.id) && ancestorPath.has(person.fatherId);
-        const dimmed = hasSelection && !onPath;
-        edges.push({
-          id,
-          source: person.fatherId,
-          target: person.id,
-          sourceHandle: 'bottom',
-          targetHandle: 'top',
-          type: 'smoothstep',
-          style: {
-            stroke: onPath ? '#1D4ED8' : dimmed ? '#BFDBFE' : '#2563EB',
-            strokeWidth: onPath ? 3 : 2,
-            opacity: dimmed ? 0.3 : 1,
-          },
-          animated: onPath,
-          zIndex: onPath ? 10 : 1,
-        });
-      }
-    }
-
-    if (person.motherId && allPositions.has(person.motherId)) {
-      const id = `parent-m-${person.motherId}-${person.id}`;
-      if (!edgeIds.has(id)) {
-        edgeIds.add(id);
-        const onPath = hasSelection && ancestorPath.has(person.id) && ancestorPath.has(person.motherId);
-        const dimmed = hasSelection && !onPath;
-        edges.push({
-          id,
-          source: person.motherId,
-          target: person.id,
-          sourceHandle: 'bottom',
-          targetHandle: 'top',
-          type: 'smoothstep',
-          style: {
-            stroke: onPath ? '#BE185D' : dimmed ? '#FBCFE8' : '#DB2777',
-            strokeWidth: onPath ? 3 : 2,
-            opacity: dimmed ? 0.3 : 1,
-          },
-          animated: onPath,
-          zIndex: onPath ? 10 : 1,
-        });
-      }
-    }
-
     for (const spouseId of person.spouseIds) {
       if (person.id >= spouseId || !allPositions.has(spouseId)) continue;
-      const dimmed = hasSelection && !ancestorPath.has(person.id) && !ancestorPath.has(spouseId);
+      const id = `spouse-${person.id}-${spouseId}`;
+      if (edgeIds.has(id)) continue;
+      edgeIds.add(id);
+      const onGlow =
+        selectionGlow.has(person.id) && selectionGlow.has(spouseId);
+      const dimmed = hasSelection && !onGlow;
       edges.push({
-        id: `spouse-${person.id}-${spouseId}`,
+        id,
         source: person.id,
         target: spouseId,
         sourceHandle: 'right',
@@ -1360,7 +1379,90 @@ export function layoutFamilyTree(
     }
   }
 
-  return { nodes, edges };
+  return { nodes: personNodes, edges };
+}
+
+/** Satu edge per pasangan orang tua → semua anak (digambar custom pedigree). */
+function buildFamilyBranchEdges({
+  persons,
+  positions,
+  ancestorPath,
+  descendantPath,
+  hasSelection,
+}: {
+  persons: Person[];
+  positions: Map<string, { x: number; y: number }>;
+  ancestorPath: Set<string>;
+  descendantPath: Set<string>;
+  hasSelection: boolean;
+}): Edge[] {
+  const groups = new Map<string, Person[]>();
+
+  for (const person of persons) {
+    if (!positions.has(person.id)) continue;
+    const fatherId =
+      person.fatherId && positions.has(person.fatherId) ? person.fatherId : '';
+    const motherId =
+      person.motherId && positions.has(person.motherId) ? person.motherId : '';
+    if (!fatherId && !motherId) continue;
+    const key = `${fatherId}|${motherId}`;
+    const group = groups.get(key) ?? [];
+    group.push(person);
+    groups.set(key, group);
+  }
+
+  const edges: Edge[] = [];
+  const glow = new Set([...ancestorPath, ...descendantPath]);
+
+  for (const [key, children] of groups) {
+    const [fatherId, motherId] = key.split('|');
+    const source = fatherId || motherId;
+    const target = children[0]?.id;
+    if (!source || !target) continue;
+
+    children.sort((a, b) => a.birthDate.localeCompare(b.birthDate));
+
+    const childOnAncestor = children.some((c) => ancestorPath.has(c.id));
+    const fatherOnAncestor = !!(fatherId && ancestorPath.has(fatherId));
+    const motherOnAncestor = !!(motherId && ancestorPath.has(motherId));
+
+    // Leluhur: cabang di jalur ke atas (ungu)
+    const highlighted =
+      hasSelection &&
+      childOnAncestor &&
+      (fatherOnAncestor || motherOnAncestor || (!fatherId && !motherId));
+
+    // Keturunan: parent di glow (terpilih/leluhur/keturunan) dan anak di jalur turun (teal)
+    const descHighlight =
+      hasSelection &&
+      !highlighted &&
+      children.some((c) => descendantPath.has(c.id)) &&
+      ((!!fatherId && glow.has(fatherId)) || (!!motherId && glow.has(motherId)));
+
+    const dimmed = hasSelection && !highlighted && !descHighlight;
+
+    edges.push({
+      id: `family-${key.replace('|', '_')}`,
+      source,
+      target,
+      sourceHandle: 'bottom',
+      targetHandle: 'top',
+      type: 'familyBranch',
+      data: {
+        fatherId: fatherId || undefined,
+        motherId: motherId || undefined,
+        childIds: children.map((c) => c.id),
+        dimmed,
+        highlighted,
+        descendantHighlighted: descHighlight,
+      },
+      zIndex: highlighted ? 10 : descHighlight ? 8 : 1,
+      focusable: false,
+      interactionWidth: 0,
+    });
+  }
+
+  return edges;
 }
 
 export function getVisibleStats(
