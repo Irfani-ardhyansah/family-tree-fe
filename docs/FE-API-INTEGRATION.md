@@ -161,7 +161,29 @@ Content-Type: application/json
       "gender": "male",
       "birthDate": "1999-03-21",
       "status": "alive",
-      "photoUrl": null
+      "photoUrl": null,
+      "isMarried": true,
+      "isLegal": true,
+      "spouseIds": [84],
+      "allowedFocusPersonIds": [83, 84],
+      "allowedFocusPersons": [
+        {
+          "id": 83,
+          "fullName": "Mochamad Irfani Ardhyansah",
+          "nickname": "Kamu",
+          "gender": "male",
+          "photoUrl": null,
+          "relation": "self"
+        },
+        {
+          "id": 84,
+          "fullName": "Siti Aminah",
+          "nickname": "Aminah",
+          "gender": "female",
+          "photoUrl": null,
+          "relation": "spouse"
+        }
+      ]
     }
   }
 }
@@ -172,6 +194,7 @@ Content-Type: application/json
 | `expiresIn` | Detik — access token TTL (default 3600) |
 | `remember` | `true` → refresh TTL 30 hari; `false` → 1 hari |
 | `person.id` | Simpan sebagai `userId` / `personId` |
+| `allowedFocusPersons` | Self dulu, lalu pasangan — cukup untuk label switcher navbar (`nickname \|\| fullName`) tanpa `GET /persons`. Belum menikah → hanya `[{ relation: "self" }]` |
 
 ### Penyimpanan token (rekomendasi)
 
@@ -196,12 +219,37 @@ Ganti session mock (`familyroots_auth`, `familyroots_auth_user`) dengan pasangan
     "birthDate": "1999-03-21",
     "status": "alive",
     "photoUrl": null,
-    "familyId": 1
+    "isMarried": true,
+    "isLegal": true,
+    "spouseIds": [84],
+    "role": "admin",
+    "familyId": 1,
+    "readFocusPersonId": 83,
+    "allowedFocusPersonIds": [83, 84],
+    "allowedFocusPersons": [
+      {
+        "id": 83,
+        "fullName": "Mochamad Irfani Ardhyansah",
+        "nickname": "Kamu",
+        "gender": "male",
+        "photoUrl": null,
+        "relation": "self"
+      },
+      {
+        "id": 84,
+        "fullName": "Siti Aminah",
+        "nickname": "Aminah",
+        "gender": "female",
+        "photoUrl": null,
+        "relation": "spouse"
+      }
+    ]
   }
 }
 ```
 
-Pakai saat app boot / refresh halaman untuk restore session.
+Pakai saat app boot / refresh halaman untuk restore session.  
+`allowedFocusPersons` sinkron dengan `allowedFocusPersonIds` — FE map ke label switcher fokus tanpa menunggu list persons.
 
 ### `POST /api/v1/auth/refresh`
 
@@ -622,17 +670,38 @@ export type PersonListResponse =
       };
     };
 
+export type AllowedFocusPerson = {
+  id: number;
+  fullName: string;
+  nickname: string | null;
+  gender: Gender;
+  photoUrl: string | null;
+  relation: 'self' | 'spouse';
+};
+
+export type AuthPerson = Pick<
+  Person,
+  'id' | 'fullName' | 'nickname' | 'gender' | 'birthDate' | 'status' | 'photoUrl'
+> & {
+  isMarried: boolean;
+  isLegal: boolean;
+  spouseIds: number[];
+  role?: PersonRole;
+  allowedFocusPersons?: AllowedFocusPerson[];
+};
+
 export type LoginResponse = {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
-  person: Pick<
-    Person,
-    'id' | 'fullName' | 'nickname' | 'gender' | 'birthDate' | 'status' | 'photoUrl'
-  >;
+  person: AuthPerson;
 };
 
-export type AuthMeResponse = LoginResponse['person'] & { familyId: number };
+export type AuthMeResponse = AuthPerson & {
+  familyId: number;
+  readFocusPersonId?: number;
+  allowedFocusPersonIds?: number[];
+};
 
 export type RefreshResponse = {
   accessToken: string;

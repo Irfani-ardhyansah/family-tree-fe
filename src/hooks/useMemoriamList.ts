@@ -96,9 +96,9 @@ export function useMemoriamList(
 
     try {
       const [data, allData] = await Promise.all([
-        fetchMemoriamDeceased(focusPersonId, apiQuery),
+        fetchMemoriamDeceased(apiQuery),
         apiQuery.q || apiQuery.deathYear
-          ? fetchMemoriamDeceased(focusPersonId, {})
+          ? fetchMemoriamDeceased({})
           : Promise.resolve(null),
       ]);
 

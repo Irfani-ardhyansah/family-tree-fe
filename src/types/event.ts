@@ -37,6 +37,10 @@ export type FamilyEvent = {
   isRestricted?: boolean;
   /** Dari API — viewer boleh lihat detail & kontribusi */
   canAccess?: boolean;
+  /** Person id pembuat acara */
+  createdById?: string;
+  /** Dari API — viewer boleh edit/hapus (hanya creator) */
+  canManage?: boolean;
 };
 
 export const EVENT_TYPE_CONFIG: Record<

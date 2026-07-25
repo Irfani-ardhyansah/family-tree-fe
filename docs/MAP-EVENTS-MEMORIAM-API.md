@@ -77,8 +77,11 @@ Body: `{ "address": { ... } }`
 | Topik | Keputusan |
 |-------|-----------|
 | List restricted event | **Tampil** di list dengan `isRestricted: true`, `canAccess: false`; detail → `403 EVENT_ACCESS_FORBIDDEN` |
-| CRUD event | **Semua member login** (tanpa gate `isLegal`) |
+| Create event | **Semua member login** (tanpa gate `isLegal`) |
+| Update / Delete event | **Hanya creator** (`createdById === selfPersonId`) → `403 EVENT_MANAGE_FORBIDDEN` |
 | Kontribusi | Hanya jika `canAccessEvent` |
+
+Lihat juga: `docs/EVENTS-MEMORIAM-OWNER-CRUD-API.md`.
 
 ### Akses
 
@@ -111,6 +114,7 @@ Filter list: `type`, `year`, `month`, `dateFrom`, `dateTo`, `q`, `page`, `limit`
 |------|------|
 | `EVENT_NOT_FOUND` | 404 |
 | `EVENT_ACCESS_FORBIDDEN` | 403 |
+| `EVENT_MANAGE_FORBIDDEN` | 403 |
 | `EVENT_VALIDATION_FAILED` | 400 |
 | `CONTRIBUTION_VALIDATION_FAILED` | 400 |
 
@@ -143,11 +147,15 @@ Prayer: idempotent `UNIQUE(deceased_person_id, author_person_id)` — `POST` →
 | GET | `/api/v1/memoriam/:deceasedId?focusPersonId={id}` |
 | GET | `/api/v1/memoriam/:deceasedId/tributes?focusPersonId={id}` |
 | POST | `/api/v1/memoriam/:deceasedId/tributes?focusPersonId={id}` |
+| PATCH | `/api/v1/memoriam/:deceasedId/tributes/:tributeId?focusPersonId={id}` |
+| DELETE | `/api/v1/memoriam/:deceasedId/tributes/:tributeId?focusPersonId={id}` |
 | GET | `/api/v1/memoriam/:deceasedId/prayers?focusPersonId={id}` |
 | POST | `/api/v1/memoriam/:deceasedId/prayers?focusPersonId={id}` |
 | GET | `/api/v1/memoriam/:deceasedId/prayers/me?focusPersonId={id}` |
 
 Filter list deceased: `q`, `deathYear`.
+
+Update/Delete tribute: hanya author (`canManage`). PATCH media = replace-all. POST tribute return single `{ tribute }`.
 
 ### Error codes
 
@@ -156,6 +164,8 @@ Filter list deceased: `q`, `deathYear`.
 | `MEMORIAL_ACCESS_FORBIDDEN` | 403 |
 | `MEMORIAL_NOT_DECEASED` | 400 |
 | `TRIBUTE_VALIDATION_FAILED` | 400 |
+| `TRIBUTE_NOT_FOUND` | 404 |
+| `TRIBUTE_MANAGE_FORBIDDEN` | 403 |
 
 ---
 

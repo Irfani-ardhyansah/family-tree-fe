@@ -51,12 +51,14 @@ function EventCard({
   onEdit,
   onDelete,
   accentBarClass,
+  canManage,
 }: {
   event: FamilyEvent;
   personNames: string[];
   onEdit: () => void;
   onDelete: () => void;
   accentBarClass: string;
+  canManage: boolean;
 }) {
   const cfg = EVENT_TYPE_CONFIG[event.type];
   const upcoming = isUpcoming(event.date);
@@ -123,23 +125,24 @@ function EventCard({
               </span>
             )}
           </div>
-          {/* Action buttons — visible on hover/always on mobile */}
-          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-              aria-label={`Edit ${event.title}`}
-            >
-              <Edit2 size={15} />
-            </button>
-            <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-              aria-label={`Hapus ${event.title}`}
-            >
-              <Trash2 size={15} />
-            </button>
-          </div>
+          {canManage && (
+            <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                aria-label={`Edit ${event.title}`}
+              >
+                <Edit2 size={15} />
+              </button>
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                aria-label={`Hapus ${event.title}`}
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Title */}
@@ -183,21 +186,22 @@ function EventCard({
           </p>
         )}
 
-        {/* Mobile action buttons */}
-        <div className="flex gap-2 mt-4 pt-3 border-t border-gray-50 sm:hidden">
-          <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors"
-          >
-            <Edit2 size={13} /> Edit
-          </button>
-          <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
-          >
-            <Trash2 size={13} /> Hapus
-          </button>
-        </div>
+        {canManage && (
+          <div className="flex gap-2 mt-4 pt-3 border-t border-gray-50 sm:hidden">
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors"
+            >
+              <Edit2 size={13} /> Edit
+            </button>
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
+            >
+              <Trash2 size={13} /> Hapus
+            </button>
+          </div>
+        )}
       </div>
     </Link>
   );
@@ -412,8 +416,11 @@ export function EventsPage() {
   const openAdd = () => { setEventToEdit(null); setIsFormOpen(true); };
   const openEdit = (e: FamilyEvent) => { setEventToEdit(e); setIsFormOpen(true); };
 
-  const handleSave = async (data: Omit<FamilyEvent, 'id'>) => {
-    await saveEvent(data, eventToEdit?.id);
+  const handleSave = async (
+    data: Omit<FamilyEvent, 'id'>,
+    mediaIds?: string[],
+  ) => {
+    await saveEvent(data, eventToEdit?.id, mediaIds);
   };
 
   const upcomingCount = events.filter((e) => isUpcoming(e.date)).length;
@@ -706,6 +713,7 @@ export function EventsPage() {
               onEdit={() => openEdit(event)}
               onDelete={() => setDeleteTarget(event)}
               accentBarClass={perspective === 'self' ? 'bg-primary-400' : 'bg-secondary-500'}
+              canManage={source === 'mock' ? true : Boolean(event.canManage)}
             />
           ))}
         </div>

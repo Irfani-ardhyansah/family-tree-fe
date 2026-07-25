@@ -8,6 +8,11 @@ type MemoriamContextType = {
   getTributesFor: (deceasedId: string) => MemoriamTribute[];
   getPrayersFor: (deceasedId: string) => PrayerRecord[];
   addTribute: (data: Omit<MemoriamTribute, 'id' | 'createdAt'>) => void;
+  updateTribute: (
+    id: string,
+    data: Pick<MemoriamTribute, 'content' | 'photoUrls'>,
+  ) => void;
+  deleteTribute: (id: string) => void;
   addPrayer: (deceasedId: string, authorId: string) => void;
   hasPrayed: (deceasedId: string, authorId: string) => boolean;
 };
@@ -34,15 +39,40 @@ export function MemoriamProvider({ children }: { children: ReactNode }) {
     prayers.filter((p) => p.deceasedId === deceasedId);
 
   const addTribute = (data: Omit<MemoriamTribute, 'id' | 'createdAt'>) => {
+    const now = new Date().toISOString();
     setTributes((prev) => [
       {
         ...data,
         id: generateId('trib'),
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
         photoUrls: data.photoUrls ?? [],
+        canManage: true,
       },
       ...prev,
     ]);
+  };
+
+  const updateTribute = (
+    id: string,
+    data: Pick<MemoriamTribute, 'content' | 'photoUrls'>,
+  ) => {
+    setTributes((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              content: data.content,
+              photoUrls: data.photoUrls ?? [],
+              updatedAt: new Date().toISOString(),
+            }
+          : t,
+      ),
+    );
+  };
+
+  const deleteTribute = (id: string) => {
+    setTributes((prev) => prev.filter((t) => t.id !== id));
   };
 
   const addPrayer = (deceasedId: string, authorId: string) => {
@@ -73,6 +103,8 @@ export function MemoriamProvider({ children }: { children: ReactNode }) {
         getTributesFor,
         getPrayersFor,
         addTribute,
+        updateTribute,
+        deleteTribute,
         addPrayer,
         hasPrayed,
       }}

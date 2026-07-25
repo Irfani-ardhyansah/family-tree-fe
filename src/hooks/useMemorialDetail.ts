@@ -7,10 +7,12 @@ import { ApiClientError } from '@/lib/apiClient';
 import {
   addMemorialPrayer,
   createMemorialTribute,
+  deleteMemorialTribute,
   fetchMemorialDetail,
   fetchMemorialPrayers,
   fetchMemorialTributes,
   fetchMyMemorialPrayer,
+  updateMemorialTribute,
 } from '@/lib/memoriamApi';
 import { fetchPersonTree } from '@/lib/personApi';
 import type { MemoriamTribute, PrayerRecord } from '@/types/memoriam';
@@ -73,15 +75,15 @@ export function useMemorialDetail(
     try {
       const [detail, tributeData, prayerData, myPrayer, treeData] =
         await Promise.all([
-          fetchMemorialDetail(Number(deceasedId), focusPersonId),
-          fetchMemorialTributes(Number(deceasedId), focusPersonId),
-          fetchMemorialPrayers(Number(deceasedId), focusPersonId),
-          fetchMyMemorialPrayer(Number(deceasedId), focusPersonId),
-          fetchPersonTree(focusPersonId).catch(() => null),
+          fetchMemorialDetail(Number(deceasedId)),
+          fetchMemorialTributes(Number(deceasedId)),
+          fetchMemorialPrayers(Number(deceasedId)),
+          fetchMyMemorialPrayer(Number(deceasedId)),
+          fetchPersonTree().catch(() => null),
         ]);
 
       setDeceased(memoriamDeceasedToLocal(detail.deceased));
-      setTributes(tributeData.tributes.map(apiTributeToLocal));
+      setTributes(tributeData.tributes.map((t) => apiTributeToLocal(t, deceasedId)));
       setPrayers(prayerData.prayers.map(apiPrayerToLocal));
       setHasPrayed(myPrayer.hasPrayed);
       if (treeData) {
@@ -129,7 +131,10 @@ export function useMemorialDetail(
   }, [source, deceasedId, focusPersonId, loadMock, loadApi]);
 
   const addTribute = useCallback(
-    async (authorId: string, data: { content: string; photoUrls: string[] }) => {
+    async (
+      authorId: string,
+      data: { content: string; mediaIds?: string[]; photoUrls?: string[] },
+    ) => {
       if (!deceasedId || !authorId) return;
 
       if (source === 'mock') {
@@ -137,7 +142,8 @@ export function useMemorialDetail(
           deceasedId,
           authorId,
           content: data.content,
-          photoUrls: data.photoUrls,
+          photoUrls: data.photoUrls ?? [],
+          canManage: true,
         });
         loadMock();
         return;
@@ -149,11 +155,68 @@ export function useMemorialDetail(
 
       const created = await createMemorialTribute(
         Number(deceasedId),
-        focusPersonId,
         localTributeToApiPayload(data),
       );
 
-      setTributes((prev) => [apiTributeToLocal(created), ...prev]);
+      setTributes((prev) => [
+        apiTributeToLocal(created, deceasedId),
+        ...prev,
+      ]);
+    },
+    [source, deceasedId, focusPersonId, mockCtx, loadMock],
+  );
+
+  const saveTribute = useCallback(
+    async (
+      tributeId: string,
+      data: { content: string; mediaIds?: string[]; photoUrls?: string[] },
+    ) => {
+      if (!deceasedId) return;
+
+      if (source === 'mock') {
+        mockCtx.updateTribute(tributeId, {
+          content: data.content,
+          photoUrls: data.photoUrls ?? [],
+        });
+        loadMock();
+        return;
+      }
+
+      if (focusPersonId == null) {
+        throw new Error('Sesi tidak valid.');
+      }
+
+      const updated = await updateMemorialTribute(
+        Number(deceasedId),
+        Number(tributeId),
+        localTributeToApiPayload(data, { replaceMedia: true }),
+      );
+
+      setTributes((prev) =>
+        prev.map((t) =>
+          t.id === tributeId ? apiTributeToLocal(updated, deceasedId) : t,
+        ),
+      );
+    },
+    [source, deceasedId, focusPersonId, mockCtx, loadMock],
+  );
+
+  const removeTribute = useCallback(
+    async (tributeId: string) => {
+      if (!deceasedId) return;
+
+      if (source === 'mock') {
+        mockCtx.deleteTribute(tributeId);
+        loadMock();
+        return;
+      }
+
+      if (focusPersonId == null) {
+        throw new Error('Sesi tidak valid.');
+      }
+
+      await deleteMemorialTribute(Number(deceasedId), Number(tributeId));
+      setTributes((prev) => prev.filter((t) => t.id !== tributeId));
     },
     [source, deceasedId, focusPersonId, mockCtx, loadMock],
   );
@@ -172,10 +235,7 @@ export function useMemorialDetail(
         throw new Error('Sesi tidak valid.');
       }
 
-      const created = await addMemorialPrayer(
-        Number(deceasedId),
-        focusPersonId,
-      );
+      const created = await addMemorialPrayer(Number(deceasedId));
       setPrayers((prev) => [...prev, apiPrayerToLocal(created)]);
       setHasPrayed(true);
     },
@@ -185,7 +245,12 @@ export function useMemorialDetail(
   const displayDeceased = source === 'mock' ? mockDeceased : deceased;
   const displayTributes =
     source === 'mock' && deceasedId
-      ? mockCtx.getTributesFor(deceasedId)
+      ? mockCtx.getTributesFor(deceasedId).map((t) => ({
+          ...t,
+          canManage:
+            t.canManage ??
+            (person != null && t.authorId === String(person.id)),
+        }))
       : tributes;
   const displayPrayers =
     source === 'mock' && deceasedId
@@ -208,6 +273,8 @@ export function useMemorialDetail(
     accessForbidden,
     reload: source === 'mock' ? loadMock : loadApi,
     addTribute,
+    saveTribute,
+    removeTribute,
     addPrayer,
   };
 }

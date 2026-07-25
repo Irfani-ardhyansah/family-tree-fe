@@ -15,6 +15,7 @@ import {
   logoutRequest,
   mapLoginError,
 } from '@/lib/apiClient';
+import { patchMeOption, fetchMeOptions } from '@/lib/authOptionsApi';
 import {
   isValidLoginCodeFormat,
   normalizeLoginCode,
@@ -52,6 +53,14 @@ function mergeAuthPerson(
   base: AuthPerson,
   me: Partial<AuthMeResponse>,
 ): AuthMeResponse {
+  const baseMe = base as AuthMeResponse;
+  const readFocusRaw =
+    me.readFocusPersonId ??
+    baseMe.readFocusPersonId ??
+    base.id;
+  const readFocusPersonId =
+    typeof readFocusRaw === 'string' ? Number(readFocusRaw) : readFocusRaw;
+
   return {
     id: me.id ?? base.id,
     fullName: me.fullName ?? base.fullName,
@@ -64,7 +73,14 @@ function mergeAuthPerson(
     isLegal: me.isLegal ?? base.isLegal,
     spouseIds: me.spouseIds ?? base.spouseIds,
     role: me.role ?? base.role,
-    familyId: me.familyId ?? 0,
+    familyId: me.familyId ?? baseMe.familyId ?? 0,
+    readFocusPersonId: Number.isNaN(readFocusPersonId) ? base.id : readFocusPersonId,
+    allowedFocusPersonIds:
+      me.allowedFocusPersonIds ??
+      baseMe.allowedFocusPersonIds ??
+      [base.id, ...(base.spouseIds ?? [])],
+    allowedFocusPersons:
+      me.allowedFocusPersons ?? base.allowedFocusPersons ?? baseMe.allowedFocusPersons,
   };
 }
 
@@ -73,11 +89,13 @@ type AuthContextValue = {
   isInitializing: boolean;
   userId: number | null;
   person: AuthMeResponse | null;
+  readFocusPersonId: number | null;
   login: (
     code: string,
     remember: boolean,
   ) => Promise<{ ok: true; personId: number } | { ok: false; message: string }>;
   logout: () => Promise<void>;
+  setReadFocusPersonId: (personId: number) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -157,16 +175,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPerson(null);
   }, []);
 
+  const setReadFocusPersonId = useCallback(async (personId: number) => {
+    const patchResult = await patchMeOption(
+      'readFocusPersonId',
+      String(personId),
+    );
+
+    let nextFocusId = personId;
+    const fromPatch = patchResult.options?.readFocusPersonId;
+    if (fromPatch != null) {
+      const parsed = Number(fromPatch);
+      if (!Number.isNaN(parsed)) nextFocusId = parsed;
+    }
+
+    setPerson((prev) => {
+      if (!prev) return prev;
+      const merged: AuthMeResponse = { ...prev, readFocusPersonId: nextFocusId };
+      persistAuthPerson(merged);
+      return merged;
+    });
+
+    try {
+      const [me, options] = await Promise.all([fetchMe(), fetchMeOptions()]);
+      const fromOptions = options.options?.readFocusPersonId;
+      const resolvedFocusId =
+        me.readFocusPersonId ??
+        (fromOptions != null ? Number(fromOptions) : undefined) ??
+        nextFocusId;
+
+      setPerson((prev) => {
+        if (!prev) {
+          const merged = mergeAuthPerson(me, {
+            ...me,
+            readFocusPersonId: resolvedFocusId,
+          });
+          persistAuthPerson(merged);
+          return merged;
+        }
+        const merged = mergeAuthPerson(prev, {
+          ...me,
+          readFocusPersonId: resolvedFocusId,
+        });
+        persistAuthPerson(merged);
+        return merged;
+      });
+    } catch {
+      // optimistic update from PATCH already applied
+    }
+  }, []);
+
+  const readFocusPersonId = person?.readFocusPersonId ?? person?.id ?? null;
+
   const value = useMemo(
     () => ({
       isAuthenticated: person != null,
       isInitializing,
       userId: person?.id ?? null,
       person,
+      readFocusPersonId,
       login,
       logout,
+      setReadFocusPersonId,
     }),
-    [person, isInitializing, login, logout],
+    [person, isInitializing, readFocusPersonId, login, logout, setReadFocusPersonId],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

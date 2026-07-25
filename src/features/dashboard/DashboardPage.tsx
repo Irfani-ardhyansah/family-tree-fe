@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Heart,
@@ -13,14 +12,9 @@ import {
   Map as MapIcon,
 } from 'react-feather';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
-import { useFamily } from '@/context/FamilyDataContext';
-import { useDataSource } from '@/context/DataSourceContext';
-import { useMemoriam } from '@/context/MemoriamContext';
 import { useFocusPersonId } from '@/hooks/useFocusPersonId';
-import { useEventsPage } from '@/hooks/useEventsPage';
-import { useMemoriamList } from '@/hooks/useMemoriamList';
-import { canAccessMemorial, getMemorialEntryPath } from '@/utils/memoriamAccess';
-import { getRichTextPlainText } from '@/utils/richText';
+import { useDashboard } from '@/hooks/useDashboard';
+import { getMemorialEntryPath } from '@/utils/memoriamAccess';
 import { EVENT_TYPE_CONFIG } from '@/types/event';
 import type { FamilyEvent } from '@/types/event';
 
@@ -34,28 +28,6 @@ function formatDate(dateStr: string): string {
   } catch {
     return dateStr;
   }
-}
-
-function isUpcoming(dateStr: string): boolean {
-  return new Date(dateStr) >= new Date(new Date().toDateString());
-}
-
-function countGenerations(personIds: string[], persons: { id: string; fatherId?: string; motherId?: string }[]): number {
-  const map = new Map(persons.map((p) => [p.id, p]));
-  const depths = new Set<number>();
-
-  function getDepth(id: string): number {
-    const person = map.get(id);
-    if (!person?.fatherId && !person?.motherId) return 0;
-    const fatherDepth = person.fatherId ? getDepth(person.fatherId) : -1;
-    const motherDepth = person.motherId ? getDepth(person.motherId) : -1;
-    return Math.max(fatherDepth, motherDepth) + 1;
-  }
-
-  for (const id of personIds) {
-    depths.add(getDepth(id));
-  }
-  return depths.size || 1;
 }
 
 function StatCard({
@@ -111,97 +83,22 @@ function EventMiniCard({ event }: { event: FamilyEvent }) {
 
 export function DashboardPage() {
   const {
-    visiblePersons,
     focusPerson,
     focusLabel,
     focusShortLabel,
     theme,
     perspective,
-    me,
   } = useFamilyPerspective();
   const focusPersonId = useFocusPersonId();
-  const { source } = useDataSource();
-  const { events: perspectiveEvents } = useEventsPage(focusPersonId);
-  const { persons: allPersons } = useFamily();
-  const { tributes } = useMemoriam();
-  const { deceased: memoriamDeceased, getCounts } = useMemoriamList(
-    focusPersonId,
-    '',
-    '',
-  );
-
-  const upcomingEvents = useMemo(
-    () =>
-      perspectiveEvents
-        .filter((e) => isUpcoming(e.date))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
-    [perspectiveEvents],
-  );
-
-  const recentEvents = useMemo(
-    () =>
-      [...perspectiveEvents]
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 5),
-    [perspectiveEvents],
-  );
-
-  const personMap = useMemo(
-    () => new Map(allPersons.map((p) => [p.id, p])),
-    [allPersons],
-  );
-
-  const recentTributes = useMemo(() => {
-    if (source === 'mock') {
-      return [...tributes]
-        .filter((t) => {
-          const deceased = personMap.get(t.deceasedId);
-          return (
-            deceased?.status === 'deceased' &&
-            canAccessMemorial(me?.id, t.deceasedId, allPersons)
-          );
-        })
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        )
-        .slice(0, 4);
-    }
-
-    return memoriamDeceased
-      .filter((d) => getCounts(d.id).tributes > 0)
-      .slice(0, 4)
-      .map((deceased) => ({
-        kind: 'deceased' as const,
-        deceased,
-        tributeCount: getCounts(deceased.id).tributes,
-      }));
-  }, [
-    source,
-    tributes,
+  const {
+    stats,
+    recentEvents,
+    upcomingEvents,
+    recentTributes,
     personMap,
-    me?.id,
-    allPersons,
-    memoriamDeceased,
-    getCounts,
-  ]);
-
-  const stats = useMemo(() => {
-    const photoCount =
-      visiblePersons.filter((p) => p.photoUrl).length +
-      perspectiveEvents.reduce((sum, e) => sum + e.photoUrls.length, 0);
-    const generations = countGenerations(
-      visiblePersons.map((p) => p.id),
-      visiblePersons,
-    );
-
-    return {
-      members: visiblePersons.length,
-      generations,
-      photos: photoCount,
-      upcoming: upcomingEvents.length,
-    };
-  }, [visiblePersons, perspectiveEvents, upcomingEvents.length]);
+    isLoading,
+    error,
+  } = useDashboard(focusPersonId);
 
   const accentBtn =
     perspective === 'self'
@@ -249,11 +146,17 @@ export function DashboardPage() {
         </div>
       )}
 
+      {error && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           label="Total Anggota"
-          value={stats.members}
+          value={isLoading ? '—' : stats.members}
           icon={Users}
           iconBg={theme.accentBg}
           iconColor={theme.accentText}
@@ -261,21 +164,21 @@ export function DashboardPage() {
         />
         <StatCard
           label="Generasi"
-          value={stats.generations}
+          value={isLoading ? '—' : stats.generations}
           icon={GitBranch}
           iconBg={perspective === 'self' ? 'bg-secondary-100' : 'bg-primary-100'}
           iconColor={perspective === 'self' ? 'text-secondary-500' : 'text-primary-500'}
         />
         <StatCard
           label="Foto Keluarga"
-          value={stats.photos}
+          value={isLoading ? '—' : stats.photos}
           icon={Camera}
           iconBg={theme.accentBg}
           iconColor={theme.accentText}
         />
         <StatCard
           label="Acara Mendatang"
-          value={stats.upcoming}
+          value={isLoading ? '—' : stats.upcoming}
           icon={Calendar}
           iconBg={perspective === 'self' ? 'bg-secondary-100' : 'bg-primary-100'}
           iconColor={perspective === 'self' ? 'text-secondary-500' : 'text-primary-500'}
@@ -293,7 +196,9 @@ export function DashboardPage() {
           </div>
           {recentEvents.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8">
-              Belum ada acara untuk keluarga {focusShortLabel}
+              {isLoading
+                ? 'Memuat aktivitas…'
+                : `Belum ada acara untuk keluarga ${focusShortLabel}`}
             </p>
           ) : (
             <div className="space-y-3">
@@ -389,12 +294,12 @@ export function DashboardPage() {
         </div>
         {recentTributes.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-8">
-            Belum ada kenangan yang ditulis
+            {isLoading ? 'Memuat kenangan…' : 'Belum ada kenangan yang ditulis'}
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {recentTributes.map((item) => {
-              if ('kind' in item && item.kind === 'deceased') {
+              if (item.kind === 'deceased') {
                 const { deceased, tributeCount } = item;
                 return (
                   <Link
@@ -415,13 +320,12 @@ export function DashboardPage() {
                 );
               }
 
-              const tribute = item as (typeof tributes)[number];
-              const deceased = personMap.get(tribute.deceasedId);
-              const author = personMap.get(tribute.authorId);
+              const deceased = personMap.get(item.deceasedId);
+              const author = personMap.get(item.authorId);
               if (!deceased) return null;
               return (
                 <Link
-                  key={tribute.id}
+                  key={item.id}
                   to={getMemorialEntryPath(deceased)}
                   className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition bg-[#fafaf8] block"
                 >
@@ -429,11 +333,11 @@ export function DashboardPage() {
                     Untuk {deceased.fullName}
                   </p>
                   <p className="text-sm text-slate-700 mt-2 line-clamp-2 leading-relaxed">
-                    {getRichTextPlainText(tribute.content)}
+                    {item.content}
                   </p>
                   <p className="text-xs text-slate-400 mt-3">
                     {author?.fullName ?? 'Anggota'} ·{' '}
-                    {formatDate(tribute.createdAt)}
+                    {formatDate(item.createdAt)}
                   </p>
                 </Link>
               );
@@ -452,7 +356,9 @@ export function DashboardPage() {
         </div>
         {upcomingEvents.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-8">
-            Tidak ada acara mendatang untuk keluarga {focusShortLabel}
+            {isLoading
+              ? 'Memuat acara…'
+              : `Tidak ada acara mendatang untuk keluarga ${focusShortLabel}`}
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

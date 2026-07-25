@@ -76,7 +76,7 @@ export function usePersonListPage({
     if (source === 'mock' || focusPersonId == null) return;
 
     try {
-      const data = await fetchPersonTree(focusPersonId);
+      const data = await fetchPersonTree();
       setAllPersons(data.persons.map(apiPersonToLocal));
     } catch {
       // tree fetch is supplementary — list still works
@@ -96,7 +96,7 @@ export function usePersonListPage({
     setError(null);
 
     try {
-      const data = await fetchPersonList(focusPersonId, page, limit);
+      const data = await fetchPersonList(page, limit);
       setPersons(data.persons.map(apiPersonToLocal));
       setPagination(data.pagination);
       setRootPersonId(data.rootPersonId);
@@ -120,7 +120,11 @@ export function usePersonListPage({
   }, [loadList]);
 
   const savePerson = useCallback(
-    async (formData: Omit<LocalPerson, 'id'>, editingId?: string) => {
+    async (
+      formData: Omit<LocalPerson, 'id'>,
+      editingId?: string,
+      mediaId?: string | null,
+    ) => {
       if (source === 'mock') {
         if (editingId) {
           updateMockPerson({ ...formData, id: editingId });
@@ -135,12 +139,12 @@ export function usePersonListPage({
         throw new Error('Sesi tidak valid.');
       }
 
-      const payload = localFormToApiPayload(formData);
+      const payload = localFormToApiPayload(formData, { mediaId });
 
       if (editingId) {
-        await updatePersonApi(Number(editingId), focusPersonId, payload);
+        await updatePersonApi(Number(editingId), payload);
       } else {
-        await createPerson(focusPersonId, payload);
+        await createPerson(payload);
       }
 
       await Promise.all([loadList(), loadTree()]);
@@ -168,7 +172,7 @@ export function usePersonListPage({
         throw new Error('Sesi tidak valid.');
       }
 
-      await deletePersonById(Number(id), focusPersonId);
+      await deletePersonById(Number(id));
       await Promise.all([loadList(), loadTree()]);
     },
     [source, focusPersonId, deletePerson, loadMockList, loadList, loadTree],

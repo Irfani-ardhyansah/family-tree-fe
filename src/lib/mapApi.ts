@@ -1,4 +1,5 @@
 import { apiFetch } from '@/lib/apiClient';
+import { buildQuery } from '@/lib/apiQuery';
 import type { Person, PersonAddress, PersonMapResponse } from '@/types/api';
 
 export type MapQueryParams = {
@@ -9,39 +10,30 @@ export type MapQueryParams = {
   q?: string;
 };
 
-function buildMapQuery(focusPersonId: number, params?: MapQueryParams): string {
-  const search = new URLSearchParams({
-    focusPersonId: String(focusPersonId),
-  });
-
-  if (params?.lineage && params.lineage !== 'both') {
-    search.set('lineage', params.lineage);
-  }
-  if (params?.status && params.status !== 'all') {
-    search.set('status', params.status);
-  }
-  if (params?.city) search.set('city', params.city);
-  if (params?.province) search.set('province', params.province);
-  if (params?.q) search.set('q', params.q);
-
-  return search.toString();
+function mapParamsToQuery(params?: MapQueryParams): Record<string, string | undefined> {
+  if (!params) return {};
+  return {
+    lineage: params.lineage && params.lineage !== 'both' ? params.lineage : undefined,
+    status: params.status && params.status !== 'all' ? params.status : undefined,
+    city: params.city || undefined,
+    province: params.province || undefined,
+    q: params.q || undefined,
+  };
 }
 
 export async function fetchPersonMap(
-  focusPersonId: number,
   params?: MapQueryParams,
 ): Promise<PersonMapResponse> {
-  const qs = buildMapQuery(focusPersonId, params);
-  return apiFetch<PersonMapResponse>(`/persons/map?${qs}`);
+  return apiFetch<PersonMapResponse>(
+    `/persons/map${buildQuery(mapParamsToQuery(params))}`,
+  );
 }
 
 export async function patchPersonAddress(
   id: number,
-  focusPersonId: number,
   address: PersonAddress,
 ): Promise<Person> {
-  const qs = new URLSearchParams({ focusPersonId: String(focusPersonId) });
-  return apiFetch<Person>(`/persons/${id}?${qs.toString()}`, {
+  return apiFetch<Person>(`/persons/${id}`, {
     method: 'PATCH',
     body: JSON.stringify({ address }),
   });

@@ -23,6 +23,8 @@ import {
 } from '@/utils/memoriamAccess';
 import type { GalleryItem } from '@/utils/eventAccess';
 import { GalleryLightbox } from '@/features/events/components/GalleryLightbox';
+import type { MemoriamTribute } from '@/types/memoriam';
+import { DeleteConfirmDialog } from '@/features/family-data/components/DeleteConfirmDialog';
 import { TributeCard } from './components/TributeCard';
 import { AddTributeModal } from './components/AddTributeModal';
 import { PrayerButton } from './components/PrayerButton';
@@ -74,6 +76,8 @@ export function MemorialPage() {
     error,
     accessForbidden,
     addTribute,
+    saveTribute,
+    removeTribute,
     addPrayer,
   } = useMemorialDetail(personId, focusPersonId);
 
@@ -89,7 +93,13 @@ export function MemorialPage() {
   const [authorFilter, setAuthorFilter] = useState<string | 'all'>('all');
   const [activeTab, setActiveTab] = useState<MemorialTab>('stories');
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [showAddTribute, setShowAddTribute] = useState(false);
+  const [showTributeModal, setShowTributeModal] = useState(false);
+  const [tributeToEdit, setTributeToEdit] = useState<MemoriamTribute | null>(
+    null,
+  );
+  const [deleteTarget, setDeleteTarget] = useState<MemoriamTribute | null>(
+    null,
+  );
 
   const tributesList = deceased ? tributes : [];
   const prayersList = deceased ? prayers : [];
@@ -203,10 +213,25 @@ export function MemorialPage() {
     ? hasPrayed
     : false;
 
-  const handleAddTribute = async (data: {
+  const openAddTribute = () => {
+    setTributeToEdit(null);
+    setShowTributeModal(true);
+  };
+
+  const openEditTribute = (tribute: MemoriamTribute) => {
+    setTributeToEdit(tribute);
+    setShowTributeModal(true);
+  };
+
+  const handleSaveTribute = async (data: {
     content: string;
-    photoUrls: string[];
+    mediaIds?: string[];
+    photoUrls?: string[];
   }) => {
+    if (tributeToEdit) {
+      await saveTribute(tributeToEdit.id, data);
+      return;
+    }
     if (!currentUserId) return;
     await addTribute(currentUserId, data);
   };
@@ -450,7 +475,7 @@ export function MemorialPage() {
             {currentUserId && (
               <button
                 type="button"
-                onClick={() => setShowAddTribute(true)}
+                onClick={openAddTribute}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold shadow-sm transition-colors"
               >
                 <Plus size={16} />
@@ -470,7 +495,7 @@ export function MemorialPage() {
               {currentUserId && (
                 <button
                   type="button"
-                  onClick={() => setShowAddTribute(true)}
+                  onClick={openAddTribute}
                   className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold"
                 >
                   <Plus size={16} />
@@ -486,6 +511,16 @@ export function MemorialPage() {
                   tribute={tribute}
                   authorName={getPersonName(tribute.authorId)}
                   onPhotoClick={openLightbox}
+                  onEdit={
+                    tribute.canManage
+                      ? () => openEditTribute(tribute)
+                      : undefined
+                  }
+                  onDelete={
+                    tribute.canManage
+                      ? () => setDeleteTarget(tribute)
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -504,11 +539,25 @@ export function MemorialPage() {
       )}
 
       <AddTributeModal
-        isOpen={showAddTribute}
-        onClose={() => setShowAddTribute(false)}
-        onSubmit={handleAddTribute}
+        isOpen={showTributeModal}
+        onClose={() => {
+          setShowTributeModal(false);
+          setTributeToEdit(null);
+        }}
+        onSubmit={handleSaveTribute}
         deceasedName={deceased.fullName}
         authorName={me?.fullName ?? 'Saya'}
+        deceasedId={personId}
+        tributeToEdit={tributeToEdit}
+      />
+
+      <DeleteConfirmDialog
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={async () => {
+          if (deleteTarget) await removeTribute(deleteTarget.id);
+        }}
+        personName="kenangan ini"
       />
     </div>
   );

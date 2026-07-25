@@ -105,6 +105,15 @@ export type PersonListResponse =
       graphWarnings?: GraphWarning[];
     };
 
+export type AllowedFocusPerson = {
+  id: number;
+  fullName: string;
+  nickname: string | null;
+  gender: Gender;
+  photoUrl: string | null;
+  relation: 'self' | 'spouse';
+};
+
 export type AuthPerson = Pick<
   Person,
   'id' | 'fullName' | 'nickname' | 'gender' | 'birthDate' | 'status' | 'photoUrl'
@@ -113,6 +122,8 @@ export type AuthPerson = Pick<
   isLegal: boolean;
   spouseIds: number[];
   role?: PersonRole;
+  /** Self first, then spouses — synced with allowedFocusPersonIds */
+  allowedFocusPersons?: AllowedFocusPerson[];
 };
 
 export type LoginResponse = {
@@ -122,7 +133,20 @@ export type LoginResponse = {
   person: AuthPerson;
 };
 
-export type AuthMeResponse = AuthPerson & { familyId: number };
+export type AuthMeResponse = AuthPerson & {
+  familyId: number;
+  readFocusPersonId?: number;
+  allowedFocusPersonIds?: number[];
+};
+
+export type PersonOptionsResponse = {
+  options: Record<string, string>;
+};
+
+export type PatchPersonOptionPayload = {
+  setting: string;
+  value: string;
+};
 
 export type PersonWritePayload = {
   fullName: string;
@@ -133,6 +157,7 @@ export type PersonWritePayload = {
   status: PersonStatus;
   religion?: 'islam' | 'other' | null;
   photoUrl?: string | null;
+  mediaId?: string | null;
   occupation?: string | null;
   phone?: string | null;
   phoneAlt?: string | null;
@@ -196,6 +221,10 @@ export type ApiEvent = {
   isRestricted: boolean;
   canAccess: boolean;
   contributionCount?: number;
+  /** Person id pembuat acara */
+  createdById?: number;
+  /** true jika viewer (selfPersonId) === createdById */
+  canManage?: boolean;
 };
 
 export type EventListResponse = {
@@ -207,7 +236,15 @@ export type EventListResponse = {
 };
 
 export type EventDetailResponse = {
-  focusPersonId: number;
+  focusPersonId?: number;
+  selfPersonId: number;
+  allowedFocusPersonIds?: number[];
+  event: ApiEvent;
+};
+
+/** POST/PATCH /events — data wrap */
+export type EventWriteResponse = {
+  focusPersonId?: number;
   selfPersonId: number;
   allowedFocusPersonIds?: number[];
   event: ApiEvent;
@@ -222,12 +259,14 @@ export type EventWritePayload = {
   description?: string | null;
   personIds?: number[];
   photoUrls?: string[];
+  mediaIds?: string[];
   attendeeIds?: number[];
 };
 
 export type ContributionWritePayload = {
-  photoUrl: string;
+  photoUrl?: string | null;
   caption?: string | null;
+  mediaIds?: string[];
 };
 
 export type MemoriamDeceasedItem = {
@@ -267,6 +306,14 @@ export type MemoriamTributesResponse = {
   tributes: ApiMemoriamTribute[];
 };
 
+/** POST/PATCH tribute — single object */
+export type MemoriamTributeWriteResponse = {
+  focusPersonId?: number;
+  selfPersonId: number;
+  allowedFocusPersonIds?: number[];
+  tribute: ApiMemoriamTribute;
+};
+
 export type MemoriamPrayersResponse = {
   focusPersonId: number;
   selfPersonId: number;
@@ -284,11 +331,15 @@ export type MemoriamMyPrayerResponse = {
 
 export type ApiMemoriamTribute = {
   id: number;
-  deceasedId: number;
+  deceasedId?: number;
   authorId: number;
+  authorName?: string;
   content: string;
   photoUrls: string[];
   createdAt: string;
+  updatedAt?: string;
+  /** true jika viewer (selfPersonId) === authorId */
+  canManage?: boolean;
 };
 
 export type ApiPrayerRecord = {
@@ -301,4 +352,35 @@ export type ApiPrayerRecord = {
 export type TributeWritePayload = {
   content: string;
   photoUrls?: string[];
+  mediaIds?: string[];
+};
+
+export type DashboardFocusPerson = {
+  id: number;
+  fullName: string;
+  nickname: string | null;
+  photoUrl: string | null;
+  gender: Gender;
+};
+
+export type DashboardStats = {
+  memberCount: number;
+  generationCount: number;
+  photoCount: number;
+  upcomingEventCount: number;
+};
+
+export type DashboardMemoriamItem = MemoriamDeceasedItem & {
+  latestTributeAt?: string | null;
+};
+
+export type DashboardResponse = {
+  focusPersonId: number;
+  selfPersonId: number;
+  allowedFocusPersonIds?: number[];
+  focusPerson: DashboardFocusPerson;
+  stats: DashboardStats;
+  recentEvents: ApiEvent[];
+  upcomingEvents: ApiEvent[];
+  recentMemoriam: DashboardMemoriamItem[];
 };

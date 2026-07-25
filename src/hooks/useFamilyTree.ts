@@ -68,7 +68,7 @@ export function useFamilyTree(
     setError(null);
 
     try {
-      const probe = await fetchPersonTree(focusPersonId);
+      const probe = await fetchPersonTree();
       if (token !== probeTokenRef.current) return;
 
       const recommendServer = shouldRecommendServerFilter(
@@ -79,7 +79,7 @@ export function useFamilyTree(
       setUseServerFilter(recommendServer);
 
       if (recommendServer) {
-        const filtered = await fetchPersonTree(focusPersonId, filterParams);
+        const filtered = await fetchPersonTree(filterParams);
         if (token !== probeTokenRef.current) return;
         applyTreeResponse(filtered);
       } else {
@@ -121,7 +121,7 @@ export function useFamilyTree(
 
     void (async () => {
       try {
-        const data = await fetchPersonTree(focusPersonId, filterParams);
+        const data = await fetchPersonTree(filterParams);
         if (token !== probeTokenRef.current) return;
         applyTreeResponse(data);
       } catch (err) {

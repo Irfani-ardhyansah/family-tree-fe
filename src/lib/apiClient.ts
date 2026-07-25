@@ -185,6 +185,33 @@ export async function apiFetch<T>(
   return parseResponse<T>(res);
 }
 
+/** Multipart upload — do not set Content-Type (browser sets boundary). */
+export async function apiFormFetch<T>(
+  path: string,
+  body: FormData,
+  retry = true,
+): Promise<T> {
+  const headers = new Headers();
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+
+  const res = await fetch(`${BASE}${path}`, { method: 'POST', headers, body });
+
+  if (res.status === 401 && retry && refreshToken) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      return apiFormFetch<T>(path, body, false);
+    }
+  }
+
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
+  return parseResponse<T>(res);
+}
+
 export async function loginRequest(
   code: string,
   remember: boolean,

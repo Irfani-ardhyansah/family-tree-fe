@@ -5,15 +5,22 @@ import {
   Transition,
   TransitionChild,
 } from '@headlessui/react';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { X, Upload } from 'react-feather';
 import { ImageDropzone } from '@/components/ui/ImageDropzone';
+import { useMediaModalSession } from '@/hooks/useMediaModalSession';
+import { splitMediaForSubmit, type MediaUploadItem } from '@/types/media';
 
 type ContributePhotoModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (photos: { photoUrl: string; caption?: string }[]) => void;
+  onSubmit: (data: {
+    mediaIds: string[];
+    photoUrls?: string[];
+    caption?: string;
+  }) => void;
   contributorName: string;
+  eventId?: string;
 };
 
 export function ContributePhotoModal({
@@ -21,26 +28,41 @@ export function ContributePhotoModal({
   onClose,
   onSubmit,
   contributorName,
+  eventId,
 }: ContributePhotoModalProps) {
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<MediaUploadItem[]>([]);
   const [caption, setCaption] = useState('');
+  const mediaSession = useMediaModalSession();
+
+  useEffect(() => {
+    if (isOpen) {
+      setPhotos([]);
+      setCaption('');
+    }
+  }, [isOpen]);
 
   const handleClose = () => {
-    setPhotoUrls([]);
+    void mediaSession.cleanupPending();
+    setPhotos([]);
     setCaption('');
     onClose();
   };
 
   const handleSubmit = () => {
-    if (photoUrls.length === 0) return;
-    onSubmit(
-      photoUrls.map((url) => ({
-        photoUrl: url,
-        caption: caption.trim() || undefined,
-      })),
-    );
-    handleClose();
+    const { mediaIds, photoUrls } = splitMediaForSubmit(photos);
+    if (mediaIds.length === 0 && photoUrls.length === 0) return;
+    mediaSession.commitPending();
+    onSubmit({
+      mediaIds,
+      photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
+      caption: caption.trim() || undefined,
+    });
+    setPhotos([]);
+    setCaption('');
+    onClose();
   };
+
+  const hasReadyPhotos = photos.some((p) => !p.uploading && !p.error);
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -95,8 +117,12 @@ export function ContributePhotoModal({
 
                 <div className="px-6 py-5 space-y-4">
                   <ImageDropzone
-                    value={photoUrls}
-                    onChange={setPhotoUrls}
+                    value={photos}
+                    onChange={setPhotos}
+                    purpose="event_contribution"
+                    contextId={eventId}
+                    onPendingTrack={mediaSession.trackPending}
+                    onPendingUntrack={mediaSession.untrackPending}
                     multiple
                     maxFiles={10}
                   />
@@ -129,11 +155,12 @@ export function ContributePhotoModal({
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={photoUrls.length === 0}
+                    disabled={!hasReadyPhotos}
                     className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary-500 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Upload size={16} />
-                    Unggah {photoUrls.length > 0 ? `(${photoUrls.length})` : ''}
+                    Unggah{' '}
+                    {photos.length > 0 ? `(${photos.filter((p) => !p.uploading).length})` : ''}
                   </button>
                 </div>
               </DialogPanel>

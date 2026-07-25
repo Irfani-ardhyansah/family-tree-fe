@@ -209,11 +209,14 @@ export function FamilyDataPage() {
     setDeleteTarget(person);
   };
 
-  const handleSave = async (data: Omit<Person, 'id'>) => {
+  const handleSave = async (
+    data: Omit<Person, 'id'>,
+    options?: { mediaId?: string | null },
+  ) => {
     setActionError('');
     setIsSaving(true);
     try {
-      await savePerson(data, personToEdit?.id);
+      await savePerson(data, personToEdit?.id, options?.mediaId);
     } catch (err) {
       setActionError(
         err instanceof ApiClientError

@@ -11,6 +11,12 @@ import type { FamilyEvent, EventType } from '@/types/event';
 import { EVENT_TYPE_CONFIG } from '@/types/event';
 import type { Person } from '@/types/person';
 import { ImageDropzone } from '@/components/ui/ImageDropzone';
+import { useMediaModalSession } from '@/hooks/useMediaModalSession';
+import {
+  splitMediaForSubmit,
+  urlsToExistingMediaItems,
+  type MediaUploadItem,
+} from '@/types/media';
 
 type FormData = {
   title: string;
@@ -20,7 +26,7 @@ type FormData = {
   location: string;
   description: string;
   personIds: string[];
-  photoUrls: string[];
+  photos: MediaUploadItem[];
   attendeeIds: string[];
   restrictAccess: boolean;
 };
@@ -33,7 +39,7 @@ const defaultForm: FormData = {
   location: '',
   description: '',
   personIds: [],
-  photoUrls: [],
+  photos: [],
   attendeeIds: [],
   restrictAccess: false,
 };
@@ -47,7 +53,7 @@ function toFormData(e: FamilyEvent): FormData {
     location: e.location ?? '',
     description: e.description ?? '',
     personIds: e.personIds,
-    photoUrls: e.photoUrls,
+    photos: urlsToExistingMediaItems(e.photoUrls),
     attendeeIds: e.attendeeIds ?? [],
     restrictAccess: (e.attendeeIds ?? []).length > 0,
   };
@@ -266,7 +272,7 @@ export type EventFormModalProps = {
   isOpen: boolean;
   onClose: () => void;
   eventToEdit: FamilyEvent | null;
-  onSave: (data: Omit<FamilyEvent, 'id'>) => void;
+  onSave: (data: Omit<FamilyEvent, 'id'>, mediaIds?: string[]) => void;
   persons: Person[];
 };
 
@@ -287,6 +293,7 @@ export function EventFormModal({
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>(
     {},
   );
+  const mediaSession = useMediaModalSession();
 
   useEffect(() => {
     if (isOpen) {
@@ -295,6 +302,11 @@ export function EventFormModal({
       setFormData(eventToEdit ? toFormData(eventToEdit) : defaultForm);
     }
   }, [isOpen, eventToEdit]);
+
+  const handleClose = () => {
+    void mediaSession.cleanupPending();
+    onClose();
+  };
 
   const set = <K extends keyof FormData>(key: K, value: FormData[K]) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -316,6 +328,8 @@ export function EventFormModal({
 
   const handleSubmit = () => {
     if (!validateStep1()) { setStep(1); return; }
+    const { mediaIds, photoUrls } = splitMediaForSubmit(formData.photos);
+    mediaSession.commitPending();
     onSave({
       title: formData.title.trim(),
       type: formData.type,
@@ -324,10 +338,10 @@ export function EventFormModal({
       location: formData.location.trim() || undefined,
       description: formData.description.trim() || undefined,
       personIds: formData.personIds,
-      photoUrls: formData.photoUrls,
+      photoUrls,
       attendeeIds: formData.restrictAccess ? formData.attendeeIds : [],
       contributions: eventToEdit?.contributions ?? [],
-    });
+    }, mediaIds.length > 0 ? mediaIds : undefined);
     onClose();
   };
 
@@ -335,7 +349,7 @@ export function EventFormModal({
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-10" onClose={onClose}>
+      <Dialog as="div" className="relative z-10" onClose={handleClose}>
         <TransitionChild
           as={Fragment}
           enter="ease-out duration-300"
@@ -370,7 +384,7 @@ export function EventFormModal({
                   </DialogTitle>
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                     aria-label="Tutup"
                   >
@@ -527,8 +541,12 @@ export function EventFormModal({
                           </span>
                         </label>
                         <ImageDropzone
-                          value={formData.photoUrls}
-                          onChange={(urls) => set('photoUrls', urls)}
+                          value={formData.photos}
+                          onChange={(photos) => set('photos', photos)}
+                          purpose="event"
+                          contextId={eventToEdit?.id}
+                          onPendingTrack={mediaSession.trackPending}
+                          onPendingUntrack={mediaSession.untrackPending}
                           multiple
                           maxFiles={10}
                         />
@@ -540,7 +558,7 @@ export function EventFormModal({
                   <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
                     <button
                       type="button"
-                      onClick={step === 1 ? onClose : () => setStep(1)}
+                      onClick={step === 1 ? handleClose : () => setStep(1)}
                       className="px-5 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       {step === 1 ? 'Batal' : '← Kembali'}

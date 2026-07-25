@@ -194,11 +194,13 @@ export function EventDetailPage() {
     .map((id) => personMap.get(id)?.fullName)
     .filter(Boolean) as string[];
 
-  const handleContribute = async (
-    photos: { photoUrl: string; caption?: string }[],
-  ) => {
+  const handleContribute = async (data: {
+    mediaIds: string[];
+    photoUrls?: string[];
+    caption?: string;
+  }) => {
     if (!currentUserId) return;
-    await addContribution(currentUserId, photos);
+    await addContribution(currentUserId, data);
   };
 
   if (!canAccess) {
@@ -504,6 +506,7 @@ export function EventDetailPage() {
         onClose={() => setShowContribute(false)}
         onSubmit={handleContribute}
         contributorName={me?.fullName ?? 'Saya'}
+        eventId={eventId}
       />
     </>
   );

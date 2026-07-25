@@ -1,21 +1,13 @@
 import { apiFetch } from '@/lib/apiClient';
+import { buildQuery } from '@/lib/apiQuery';
 import type {
   ApiEvent,
   ContributionWritePayload,
   EventDetailResponse,
   EventListResponse,
   EventWritePayload,
+  EventWriteResponse,
 } from '@/types/api';
-
-function withFocus(focusPersonId: number, extra?: Record<string, string>): string {
-  const params = new URLSearchParams({ focusPersonId: String(focusPersonId) });
-  if (extra) {
-    for (const [key, value] of Object.entries(extra)) {
-      if (value !== '') params.set(key, value);
-    }
-  }
-  return params.toString();
-}
 
 export type EventListQuery = {
   type?: string;
@@ -28,74 +20,63 @@ export type EventListQuery = {
   limit?: number;
 };
 
-export async function fetchEvents(
-  focusPersonId: number,
-  query: EventListQuery = {},
-): Promise<EventListResponse> {
-  const extra: Record<string, string> = {};
-  if (query.type) extra.type = query.type;
-  if (query.year) extra.year = query.year;
-  if (query.month) extra.month = query.month;
-  if (query.dateFrom) extra.dateFrom = query.dateFrom;
-  if (query.dateTo) extra.dateTo = query.dateTo;
-  if (query.q) extra.q = query.q;
-  if (query.page != null) extra.page = String(query.page);
-  if (query.limit != null) extra.limit = String(query.limit);
-
-  const qs = withFocus(focusPersonId, extra);
-  return apiFetch<EventListResponse>(`/events?${qs}`);
+function eventQueryToParams(query: EventListQuery): Record<string, string | undefined> {
+  return {
+    type: query.type,
+    year: query.year,
+    month: query.month,
+    dateFrom: query.dateFrom,
+    dateTo: query.dateTo,
+    q: query.q,
+    page: query.page != null ? String(query.page) : undefined,
+    limit: query.limit != null ? String(query.limit) : undefined,
+  };
 }
 
-export async function fetchEventById(
-  id: number,
-  focusPersonId: number,
-): Promise<ApiEvent> {
-  const qs = withFocus(focusPersonId);
-  const data = await apiFetch<EventDetailResponse>(`/events/${id}?${qs}`);
+export async function fetchEvents(
+  query: EventListQuery = {},
+): Promise<EventListResponse> {
+  return apiFetch<EventListResponse>(
+    `/events${buildQuery(eventQueryToParams(query))}`,
+  );
+}
+
+export async function fetchEventById(id: number): Promise<ApiEvent> {
+  const data = await apiFetch<EventDetailResponse>(`/events/${id}`);
   return data.event;
 }
 
-export async function createEvent(
-  focusPersonId: number,
-  payload: EventWritePayload,
-): Promise<ApiEvent> {
-  const qs = withFocus(focusPersonId);
-  return apiFetch<ApiEvent>(`/events?${qs}`, {
+export async function createEvent(payload: EventWritePayload): Promise<ApiEvent> {
+  const data = await apiFetch<EventWriteResponse>('/events', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+  return data.event;
 }
 
 export async function updateEventById(
   id: number,
-  focusPersonId: number,
   payload: EventWritePayload,
 ): Promise<ApiEvent> {
-  const qs = withFocus(focusPersonId);
-  return apiFetch<ApiEvent>(`/events/${id}?${qs}`, {
+  const data = await apiFetch<EventWriteResponse>(`/events/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
   });
+  return data.event;
 }
 
-export async function deleteEventById(
-  id: number,
-  focusPersonId: number,
-): Promise<{ deleted: boolean }> {
-  const qs = withFocus(focusPersonId);
-  return apiFetch<{ deleted: boolean }>(`/events/${id}?${qs}`, {
+export async function deleteEventById(id: number): Promise<{ deleted: boolean }> {
+  return apiFetch<{ deleted: boolean }>(`/events/${id}`, {
     method: 'DELETE',
   });
 }
 
 export async function addEventContribution(
   eventId: number,
-  focusPersonId: number,
   payload: ContributionWritePayload,
 ): Promise<ApiEvent> {
-  const qs = withFocus(focusPersonId);
   const data = await apiFetch<EventDetailResponse>(
-    `/events/${eventId}/contributions?${qs}`,
+    `/events/${eventId}/contributions`,
     {
       method: 'POST',
       body: JSON.stringify(payload),

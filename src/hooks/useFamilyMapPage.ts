@@ -92,8 +92,8 @@ export function useFamilyMapPage({
 
     try {
       const [mapData, treeData] = await Promise.all([
-        fetchPersonMap(focusPersonId, params),
-        fetchPersonTree(focusPersonId).catch(() => null),
+        fetchPersonMap(params),
+        fetchPersonTree().catch(() => null),
       ]);
 
       setPersons(mapData.persons.map(apiPersonToLocal));
@@ -146,7 +146,7 @@ export function useFamilyMapPage({
         longitude: address?.longitude ?? null,
       };
 
-      await patchPersonAddress(Number(person.id), focusPersonId, apiAddress);
+      await patchPersonAddress(Number(person.id), apiAddress);
       await loadApi();
     },
     [source, focusPersonId, updatePerson, loadMock, loadApi],

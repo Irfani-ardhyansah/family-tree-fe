@@ -74,8 +74,8 @@ export function useEventsPage(
 
     try {
       const [data, treeData] = await Promise.all([
-        fetchEvents(focusPersonId, apiQuery),
-        fetchPersonTree(focusPersonId).catch(() => null),
+        fetchEvents(apiQuery),
+        fetchPersonTree().catch(() => null),
       ]);
 
       setEvents(sortEvents(data.events.map(apiEventToLocal)));
@@ -103,7 +103,11 @@ export function useEventsPage(
   }, [source, loadMock, loadApi, queryKey]);
 
   const saveEvent = useCallback(
-    async (data: Omit<FamilyEvent, 'id'>, editingId?: string) => {
+    async (
+      data: Omit<FamilyEvent, 'id'>,
+      editingId?: string,
+      mediaIds?: string[],
+    ) => {
       if (source === 'mock') {
         if (editingId) {
           const existing = mockCtx.getEventById(editingId);
@@ -124,12 +128,12 @@ export function useEventsPage(
         throw new Error('Sesi tidak valid.');
       }
 
-      const payload = localEventToApiPayload(data);
+      const payload = localEventToApiPayload(data, { mediaIds });
 
       if (editingId) {
-        await updateEventById(Number(editingId), focusPersonId, payload);
+        await updateEventById(Number(editingId), payload);
       } else {
-        await createEvent(focusPersonId, payload);
+        await createEvent(payload);
       }
 
       await loadApi();
@@ -149,7 +153,7 @@ export function useEventsPage(
         throw new Error('Sesi tidak valid.');
       }
 
-      await deleteEventById(Number(id), focusPersonId);
+      await deleteEventById(Number(id));
       await loadApi();
     },
     [source, focusPersonId, mockCtx, loadMock, loadApi],

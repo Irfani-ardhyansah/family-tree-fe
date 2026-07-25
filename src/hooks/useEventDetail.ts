@@ -45,8 +45,8 @@ export function useEventDetail(
 
     try {
       const [data, treeData] = await Promise.all([
-        fetchEventById(Number(eventId), focusPersonId),
-        fetchPersonTree(focusPersonId).catch(() => null),
+        fetchEventById(Number(eventId)),
+        fetchPersonTree().catch(() => null),
       ]);
 
       setEvent(apiEventToLocal(data));
@@ -91,16 +91,20 @@ export function useEventDetail(
   const addContribution = useCallback(
     async (
       contributorId: string,
-      photos: { photoUrl: string; caption?: string }[],
+      data: { mediaIds: string[]; photoUrls?: string[]; caption?: string },
     ) => {
       if (!eventId || !contributorId) return;
 
       if (source === 'mock') {
-        for (const photo of photos) {
+        const urls =
+          data.photoUrls && data.photoUrls.length > 0
+            ? data.photoUrls
+            : data.mediaIds.map((id) => `mock://${id}`);
+        for (const photoUrl of urls) {
           mockCtx.addContribution(eventId, {
-            photoUrl: photo.photoUrl,
+            photoUrl,
             contributorId,
-            caption: photo.caption,
+            caption: data.caption,
           });
         }
         loadMock();
@@ -111,22 +115,13 @@ export function useEventDetail(
         throw new Error('Sesi tidak valid.');
       }
 
-      let latest = event;
-      for (const photo of photos) {
-        const updated = await addEventContribution(
-          Number(eventId),
-          focusPersonId,
-          {
-            photoUrl: photo.photoUrl,
-            caption: photo.caption ?? null,
-          },
-        );
-        latest = apiEventToLocal(updated);
-      }
-
-      if (latest) setEvent(latest);
+      const updated = await addEventContribution(Number(eventId), {
+        mediaIds: data.mediaIds,
+        caption: data.caption ?? null,
+      });
+      setEvent(apiEventToLocal(updated));
     },
-    [source, eventId, focusPersonId, mockCtx, loadMock, event],
+    [source, eventId, focusPersonId, mockCtx, loadMock],
   );
 
   const displayEvent = source === 'mock' ? mockEvent : event;

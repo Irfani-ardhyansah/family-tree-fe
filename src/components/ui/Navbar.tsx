@@ -19,6 +19,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import { useAuth } from '@/context/AuthContext';
 import { useDataSource } from '@/context/DataSourceContext';
+import { shortPersonName } from '@/utils/personDisplayName';
 
 import type { Icon } from 'react-feather';
 
@@ -45,17 +46,21 @@ function PerspectiveSwitcher({ compact = false }: { compact?: boolean }) {
     me,
     spouse,
     hasSpouse,
-    focusShortLabel,
     theme,
+    isPerspectiveSaving,
   } = useFamilyPerspective();
+
+  const meLabel = shortPersonName(me, 'Saya');
+  const spouseLabel = shortPersonName(spouse, 'Pasangan');
 
   if (!hasSpouse) {
     return (
       <div
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${theme.accentBg} ${theme.accentText} ${theme.accentBorder}`}
+        title={me?.fullName}
       >
         <User size={13} />
-        {!compact && (me?.nickname ?? me?.fullName ?? 'Saya')}
+        {!compact && meLabel}
       </div>
     );
   }
@@ -64,30 +69,31 @@ function PerspectiveSwitcher({ compact = false }: { compact?: boolean }) {
     <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-gray-100/80 border border-gray-200">
       <button
         type="button"
-        onClick={() => setPerspective('self')}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+        disabled={isPerspectiveSaving}
+        onClick={() => perspective !== 'self' && setPerspective('self')}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-60 max-w-[7.5rem] ${
           perspective === 'self'
             ? `${theme.accent} text-white shadow-sm`
             : 'text-gray-500 hover:text-brand-700 hover:bg-white'
         }`}
-        title={me?.fullName}
+        title={me?.fullName ?? 'Saya'}
       >
-        <User size={13} />
-        {!compact && <span>Saya</span>}
+        <User size={13} className="flex-shrink-0" />
+        <span className="truncate">{meLabel}</span>
       </button>
       <button
         type="button"
-        onClick={() => setPerspective('spouse')}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+        disabled={isPerspectiveSaving}
+        onClick={() => perspective !== 'spouse' && setPerspective('spouse')}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-60 max-w-[7.5rem] ${
           perspective === 'spouse'
             ? 'bg-secondary-500 text-white shadow-sm'
             : 'text-gray-500 hover:text-brand-700 hover:bg-white'
         }`}
-        title={spouse?.fullName}
+        title={spouse?.fullName ?? 'Pasangan'}
       >
-        <Heart size={13} />
-        {!compact && <span>Pasangan</span>}
-        {compact && <span>{focusShortLabel}</span>}
+        <Heart size={13} className="flex-shrink-0" />
+        <span className="truncate">{spouseLabel}</span>
       </button>
     </div>
   );
@@ -162,8 +168,11 @@ function NavItem({
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { logout } = useAuth();
+  const { logout, person } = useAuth();
   const navigate = useNavigate();
+  const loginName = person
+    ? shortPersonName(person, person.fullName)
+    : null;
 
   const handleLogout = async () => {
     setMobileOpen(false);
@@ -209,6 +218,19 @@ export function Navbar() {
             <div className="hidden md:block">
               <PerspectiveSwitcher />
             </div>
+            {loginName && (
+              <div
+                className="hidden sm:flex flex-col items-end leading-tight px-1"
+                title={person?.fullName}
+              >
+                <span className="text-[10px] text-gray-400 font-medium">
+                  Login sebagai
+                </span>
+                <span className="text-xs font-semibold text-brand-700 max-w-[8rem] truncate">
+                  {loginName}
+                </span>
+              </div>
+            )}
             <button
               type="button"
               onClick={handleLogout}
@@ -241,6 +263,17 @@ export function Navbar() {
       {/* Mobile menu */}
       {mobileOpen && (
         <div className="lg:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-4 shadow-lg">
+          {loginName && (
+            <div className="px-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                Login sebagai
+              </p>
+              <p className="text-sm font-semibold text-brand-700" title={person?.fullName}>
+                {person?.fullName ?? loginName}
+              </p>
+            </div>
+          )}
+
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1">
               Sumber Data (dev)

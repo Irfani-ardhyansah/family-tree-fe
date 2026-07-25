@@ -38,6 +38,7 @@ export function apiPersonToLocal(person: ApiPerson): LocalPerson {
 
 export function localFormToApiPayload(
   data: Omit<LocalPerson, 'id'>,
+  options?: { mediaId?: string | null },
 ): PersonWritePayload {
   const hasAddress =
     data.address &&
@@ -58,7 +59,8 @@ export function localFormToApiPayload(
       data.status === 'deceased' && data.deathDate ? data.deathDate : null,
     status: data.status,
     religion: data.religion ?? null,
-    photoUrl: data.photoUrl ?? null,
+    photoUrl: options?.mediaId ? null : (data.photoUrl ?? null),
+    mediaId: options?.mediaId ?? undefined,
     occupation: data.occupation?.trim() || null,
     phone: data.phone?.trim() || null,
     phoneAlt: data.phoneAlt?.trim() || null,

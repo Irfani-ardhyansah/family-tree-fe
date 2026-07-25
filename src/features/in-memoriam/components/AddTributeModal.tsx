@@ -5,18 +5,31 @@ import {
   Transition,
   TransitionChild,
 } from '@headlessui/react';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { X, BookOpen } from 'react-feather';
 import { ImageDropzone } from '@/components/ui/ImageDropzone';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
+import { useMediaModalSession } from '@/hooks/useMediaModalSession';
+import type { MemoriamTribute } from '@/types/memoriam';
+import {
+  splitMediaForSubmit,
+  urlsToExistingMediaItems,
+  type MediaUploadItem,
+} from '@/types/media';
 import { isRichTextEmpty, sanitizeRichText } from '@/utils/richText';
 
 type AddTributeModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { content: string; photoUrls: string[] }) => void;
+  onSubmit: (data: {
+    content: string;
+    mediaIds?: string[];
+    photoUrls?: string[];
+  }) => void;
   deceasedName: string;
   authorName: string;
+  deceasedId?: string;
+  tributeToEdit?: MemoriamTribute | null;
 };
 
 export function AddTributeModal({
@@ -25,14 +38,31 @@ export function AddTributeModal({
   onSubmit,
   deceasedName,
   authorName,
+  deceasedId,
+  tributeToEdit = null,
 }: AddTributeModalProps) {
   const [content, setContent] = useState('');
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<MediaUploadItem[]>([]);
   const [error, setError] = useState('');
+  const mediaSession = useMediaModalSession();
+  const isEditing = tributeToEdit != null;
+
+  useEffect(() => {
+    if (isOpen) {
+      setContent(tributeToEdit?.content ?? '');
+      setPhotos(
+        tributeToEdit
+          ? urlsToExistingMediaItems(tributeToEdit.photoUrls)
+          : [],
+      );
+      setError('');
+    }
+  }, [isOpen, tributeToEdit]);
 
   const handleClose = () => {
+    void mediaSession.cleanupPending();
     setContent('');
-    setPhotoUrls([]);
+    setPhotos([]);
     setError('');
     onClose();
   };
@@ -42,8 +72,17 @@ export function AddTributeModal({
       setError('Cerita kenangan wajib diisi');
       return;
     }
-    onSubmit({ content: sanitizeRichText(content), photoUrls });
-    handleClose();
+    const { mediaIds, photoUrls } = splitMediaForSubmit(photos);
+    mediaSession.commitPending();
+    onSubmit({
+      content: sanitizeRichText(content),
+      mediaIds,
+      photoUrls,
+    });
+    setContent('');
+    setPhotos([]);
+    setError('');
+    onClose();
   };
 
   return (
@@ -79,7 +118,7 @@ export function AddTributeModal({
                       as="h3"
                       className="text-lg font-semibold text-slate-800"
                     >
-                      Tulis Kenangan
+                      {isEditing ? 'Edit Kenangan' : 'Tulis Kenangan'}
                     </DialogTitle>
                     <p className="text-xs text-gray-400 mt-0.5">
                       Untuk {deceasedName} · sebagai {authorName}
@@ -100,7 +139,11 @@ export function AddTributeModal({
                       Cerita / Kesan <span className="text-red-500">*</span>
                     </label>
                     <RichTextEditor
-                      key={isOpen ? 'open' : 'closed'}
+                      key={
+                        isOpen
+                          ? `open-${tributeToEdit?.id ?? 'new'}`
+                          : 'closed'
+                      }
                       value={content}
                       onChange={(html) => {
                         setContent(html);
@@ -120,8 +163,12 @@ export function AddTributeModal({
                       <span className="text-gray-400 font-normal">(opsional)</span>
                     </label>
                     <ImageDropzone
-                      value={photoUrls}
-                      onChange={setPhotoUrls}
+                      value={photos}
+                      onChange={setPhotos}
+                      purpose="memoriam_tribute"
+                      contextId={deceasedId}
+                      onPendingTrack={mediaSession.trackPending}
+                      onPendingUntrack={mediaSession.untrackPending}
                       multiple
                       maxFiles={8}
                     />
@@ -142,7 +189,7 @@ export function AddTributeModal({
                     className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-800 text-sm font-semibold text-white"
                   >
                     <BookOpen size={16} />
-                    Kirim Kenangan
+                    {isEditing ? 'Simpan Perubahan' : 'Kirim Kenangan'}
                   </button>
                 </div>
               </DialogPanel>

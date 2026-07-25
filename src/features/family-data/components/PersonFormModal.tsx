@@ -12,6 +12,12 @@ import {
 import { Fragment, useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { X, Check, ChevronDown, MapPin, Phone } from 'react-feather';
 import { ImageDropzone } from '@/components/ui/ImageDropzone';
+import { useMediaModalSession } from '@/hooks/useMediaModalSession';
+import {
+  splitMediaForSubmit,
+  urlsToExistingMediaItems,
+  type MediaUploadItem,
+} from '@/types/media';
 import type { Gender, LifeStatus, Person, Religion } from '@/types/person';
 import {
   buildAddressFromFields,
@@ -47,7 +53,7 @@ type FormData = {
   addressPostalCode: string;
   addressLatitude: string;
   addressLongitude: string;
-  photoUrls: string[];
+  photos: MediaUploadItem[];
   fatherId: string;
   motherId: string;
   spouseIds: string[];
@@ -71,7 +77,7 @@ const defaultForm: FormData = {
   addressPostalCode: '',
   addressLatitude: '',
   addressLongitude: '',
-  photoUrls: [],
+  photos: [],
   fatherId: '',
   motherId: '',
   spouseIds: [],
@@ -98,7 +104,7 @@ function toFormData(p: Person): FormData {
       p.address?.latitude != null ? String(p.address.latitude) : '',
     addressLongitude:
       p.address?.longitude != null ? String(p.address.longitude) : '',
-    photoUrls: p.photoUrl ? [p.photoUrl] : [],
+    photos: p.photoUrl ? urlsToExistingMediaItems([p.photoUrl]) : [],
     fatherId: p.fatherId ?? '',
     motherId: p.motherId ?? '',
     spouseIds: p.spouseIds,
@@ -297,40 +303,73 @@ const STEPS = [
   { number: 3, label: 'Hubungan' },
 ];
 
-function StepIndicator({ current }: { current: number }) {
+function StepIndicator({
+  current,
+  allowJump,
+  onJump,
+}: {
+  current: number;
+  allowJump?: boolean;
+  onJump?: (step: number) => void;
+}) {
   return (
     <div className="flex items-center justify-center gap-0 mb-6">
-      {STEPS.map((step, idx) => (
-        <Fragment key={step.number}>
-          <div className="flex flex-col items-center">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                current === step.number
-                  ? 'bg-primary-500 text-white'
-                  : current > step.number
-                    ? 'bg-primary-200 text-primary-700'
-                    : 'bg-gray-100 text-gray-400'
+      {STEPS.map((step, idx) => {
+        const isActive = current === step.number;
+        const isDone = current > step.number;
+        const canJump = Boolean(allowJump && onJump && !isActive);
+
+        return (
+          <Fragment key={step.number}>
+            <button
+              type="button"
+              disabled={!canJump}
+              onClick={() => onJump?.(step.number)}
+              className={`flex flex-col items-center ${
+                canJump
+                  ? 'cursor-pointer rounded-lg px-1 -mx-1 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300'
+                  : 'cursor-default'
               }`}
+              aria-current={isActive ? 'step' : undefined}
+              aria-label={
+                canJump
+                  ? `Ke langkah ${step.number}: ${step.label}`
+                  : `Langkah ${step.number}: ${step.label}`
+              }
             >
-              {current > step.number ? <Check size={14} /> : step.number}
-            </div>
-            <span
-              className={`text-xs mt-1 font-medium ${
-                current >= step.number ? 'text-primary-600' : 'text-gray-400'
-              }`}
-            >
-              {step.label}
-            </span>
-          </div>
-          {idx < STEPS.length - 1 && (
-            <div
-              className={`h-0.5 w-12 mx-1 mb-4 transition-colors ${
-                current > step.number + 0 ? 'bg-primary-300' : 'bg-gray-200'
-              }`}
-            />
-          )}
-        </Fragment>
-      ))}
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
+                  isActive
+                    ? 'bg-primary-500 text-white'
+                    : isDone || allowJump
+                      ? 'bg-primary-200 text-primary-700'
+                      : 'bg-gray-100 text-gray-400'
+                }`}
+              >
+                {isDone && !allowJump ? <Check size={14} /> : step.number}
+              </div>
+              <span
+                className={`text-xs mt-1 font-medium ${
+                  isActive || isDone || allowJump
+                    ? 'text-primary-600'
+                    : 'text-gray-400'
+                }`}
+              >
+                {step.label}
+              </span>
+            </button>
+            {idx < STEPS.length - 1 && (
+              <div
+                className={`h-0.5 w-12 mx-1 mb-4 transition-colors ${
+                  current > step.number || allowJump
+                    ? 'bg-primary-300'
+                    : 'bg-gray-200'
+                }`}
+              />
+            )}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -340,7 +379,10 @@ export type PersonFormModalProps = {
   isOpen: boolean;
   onClose: () => void;
   personToEdit: Person | null;
-  onSave: (data: Omit<Person, 'id'>) => void | Promise<void>;
+  onSave: (
+    data: Omit<Person, 'id'>,
+    options?: { mediaId?: string | null },
+  ) => void | Promise<void>;
   persons: Person[];
   isSaving?: boolean;
 };
@@ -364,6 +406,7 @@ export function PersonFormModal({
   const [geocodeSource, setGeocodeSource] = useState<GeocodeSource | null>(
     null,
   );
+  const mediaSession = useMediaModalSession();
 
   useEffect(() => {
     if (isOpen) {
@@ -379,6 +422,11 @@ export function PersonFormModal({
       setGeocodeSource(hasCoords ? 'api' : null);
     }
   }, [isOpen, personToEdit]);
+
+  const handleClose = () => {
+    void mediaSession.cleanupPending();
+    onClose();
+  };
 
   const set = <K extends keyof FormData>(key: K, value: FormData[K]) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -501,11 +549,19 @@ export function PersonFormModal({
 
   const handleBack = () => setStep((s) => Math.max(s - 1, 1));
 
+  const handleJumpToStep = (target: number) => {
+    if (target === step) return;
+    // Leaving step 1 still requires identity fields to be valid.
+    if (step === 1 && target !== 1 && !validateStep1()) return;
+    setStep(target);
+  };
+
   const handleSubmit = async () => {
     if (!validateStep1()) {
       setStep(1);
       return;
     }
+    const { mediaIds, photoUrls } = splitMediaForSubmit(formData.photos);
     const data: Omit<Person, 'id'> = {
       fullName: formData.fullName.trim(),
       nickname: formData.nickname.trim() || undefined,
@@ -530,7 +586,7 @@ export function PersonFormModal({
         latitude: formData.addressLatitude,
         longitude: formData.addressLongitude,
       }),
-      photoUrl: formData.photoUrls[0] || undefined,
+      photoUrl: photoUrls[0] || undefined,
       fatherId: formData.fatherId || undefined,
       motherId: formData.motherId || undefined,
       spouseIds: formData.spouseIds,
@@ -538,7 +594,10 @@ export function PersonFormModal({
       generationLabel: personToEdit?.generationLabel,
     };
     try {
-      await onSave(data);
+      mediaSession.commitPending();
+      await onSave(data, {
+        mediaId: mediaIds[0] ?? null,
+      });
       onClose();
     } catch {
       // parent shows error — keep modal open
@@ -572,7 +631,7 @@ export function PersonFormModal({
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-10" onClose={onClose}>
+      <Dialog as="div" className="relative z-10" onClose={handleClose}>
         <TransitionChild
           as={Fragment}
           enter="ease-out duration-300"
@@ -607,7 +666,7 @@ export function PersonFormModal({
                   </DialogTitle>
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                     aria-label="Tutup"
                   >
@@ -616,7 +675,11 @@ export function PersonFormModal({
                 </div>
 
                 <div className="px-6 pt-5 pb-6">
-                  <StepIndicator current={step} />
+                  <StepIndicator
+                    current={step}
+                    allowJump={isEditing}
+                    onJump={handleJumpToStep}
+                  />
 
                   {/* ── Step 1: Identitas ── */}
                   {step === 1 && (
@@ -994,9 +1057,13 @@ export function PersonFormModal({
                           </span>
                         </label>
                         <ImageDropzone
-                          value={formData.photoUrls}
-                          onChange={(urls) => set('photoUrls', urls)}
-                          multiple={false}
+                          value={formData.photos}
+                          onChange={(photos) => set('photos', photos)}
+                          purpose="person"
+                          contextId={personToEdit?.id}
+                          onPendingTrack={mediaSession.trackPending}
+                          onPendingUntrack={mediaSession.untrackPending}
+                          maxFiles={1}
                         />
                       </div>
                     </div>
@@ -1042,7 +1109,7 @@ export function PersonFormModal({
                   <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
                     <button
                       type="button"
-                      onClick={step === 1 ? onClose : handleBack}
+                      onClick={step === 1 ? handleClose : handleBack}
                       className="px-5 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       {step === 1 ? 'Batal' : '← Kembali'}
@@ -1052,15 +1119,20 @@ export function PersonFormModal({
                       <span className="text-xs text-gray-400">
                         {step} / {STEPS.length}
                       </span>
-                      {step < 3 ? (
+                      {step < 3 && (
                         <button
                           type="button"
                           onClick={handleNext}
-                          className="px-5 py-2.5 rounded-lg bg-primary-500 text-sm font-medium text-white hover:bg-primary-600 transition-colors"
+                          className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                            isEditing
+                              ? 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                              : 'bg-primary-500 text-white hover:bg-primary-600'
+                          }`}
                         >
                           Lanjut →
                         </button>
-                      ) : (
+                      )}
+                      {(step === 3 || isEditing) && (
                         <button
                           type="button"
                           onClick={() => void handleSubmit()}

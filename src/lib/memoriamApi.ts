@@ -1,4 +1,5 @@
 import { apiFetch } from '@/lib/apiClient';
+import { buildQuery } from '@/lib/apiQuery';
 import type {
   ApiMemoriamTribute,
   ApiPrayerRecord,
@@ -6,19 +7,10 @@ import type {
   MemoriamDetailResponse,
   MemoriamMyPrayerResponse,
   MemoriamPrayersResponse,
+  MemoriamTributeWriteResponse,
   MemoriamTributesResponse,
   TributeWritePayload,
 } from '@/types/api';
-
-function withFocus(focusPersonId: number, extra?: Record<string, string>): string {
-  const params = new URLSearchParams({ focusPersonId: String(focusPersonId) });
-  if (extra) {
-    for (const [key, value] of Object.entries(extra)) {
-      if (value !== '') params.set(key, value);
-    }
-  }
-  return params.toString();
-}
 
 export type MemoriamListQuery = {
   q?: string;
@@ -26,66 +18,81 @@ export type MemoriamListQuery = {
 };
 
 export async function fetchMemoriamDeceased(
-  focusPersonId: number,
   query: MemoriamListQuery = {},
 ): Promise<MemoriamDeceasedListResponse> {
-  const extra: Record<string, string> = {};
-  if (query.q) extra.q = query.q;
-  if (query.deathYear) extra.deathYear = query.deathYear;
-
-  const qs = withFocus(focusPersonId, extra);
-  return apiFetch<MemoriamDeceasedListResponse>(`/memoriam/deceased?${qs}`);
+  return apiFetch<MemoriamDeceasedListResponse>(
+    `/memoriam/deceased${buildQuery({
+      q: query.q,
+      deathYear: query.deathYear,
+    })}`,
+  );
 }
 
 export async function fetchMemorialDetail(
   deceasedId: number,
-  focusPersonId: number,
 ): Promise<MemoriamDetailResponse> {
-  const qs = withFocus(focusPersonId);
-  return apiFetch<MemoriamDetailResponse>(`/memoriam/${deceasedId}?${qs}`);
+  return apiFetch<MemoriamDetailResponse>(`/memoriam/${deceasedId}`);
 }
 
 export async function fetchMemorialTributes(
   deceasedId: number,
-  focusPersonId: number,
 ): Promise<MemoriamTributesResponse> {
-  const qs = withFocus(focusPersonId);
   return apiFetch<MemoriamTributesResponse>(
-    `/memoriam/${deceasedId}/tributes?${qs}`,
+    `/memoriam/${deceasedId}/tributes`,
   );
 }
 
 export async function createMemorialTribute(
   deceasedId: number,
-  focusPersonId: number,
   payload: TributeWritePayload,
 ): Promise<ApiMemoriamTribute> {
-  const qs = withFocus(focusPersonId);
-  return apiFetch<ApiMemoriamTribute>(
-    `/memoriam/${deceasedId}/tributes?${qs}`,
+  const data = await apiFetch<MemoriamTributeWriteResponse>(
+    `/memoriam/${deceasedId}/tributes`,
     {
       method: 'POST',
       body: JSON.stringify(payload),
     },
   );
+  return { ...data.tribute, deceasedId: data.tribute.deceasedId ?? deceasedId };
+}
+
+export async function updateMemorialTribute(
+  deceasedId: number,
+  tributeId: number,
+  payload: TributeWritePayload,
+): Promise<ApiMemoriamTribute> {
+  const data = await apiFetch<MemoriamTributeWriteResponse>(
+    `/memoriam/${deceasedId}/tributes/${tributeId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  );
+  return { ...data.tribute, deceasedId: data.tribute.deceasedId ?? deceasedId };
+}
+
+export async function deleteMemorialTribute(
+  deceasedId: number,
+  tributeId: number,
+): Promise<{ deleted: boolean }> {
+  return apiFetch<{ deleted: boolean }>(
+    `/memoriam/${deceasedId}/tributes/${tributeId}`,
+    { method: 'DELETE' },
+  );
 }
 
 export async function fetchMemorialPrayers(
   deceasedId: number,
-  focusPersonId: number,
 ): Promise<MemoriamPrayersResponse> {
-  const qs = withFocus(focusPersonId);
   return apiFetch<MemoriamPrayersResponse>(
-    `/memoriam/${deceasedId}/prayers?${qs}`,
+    `/memoriam/${deceasedId}/prayers`,
   );
 }
 
 export async function addMemorialPrayer(
   deceasedId: number,
-  focusPersonId: number,
 ): Promise<ApiPrayerRecord> {
-  const qs = withFocus(focusPersonId);
-  return apiFetch<ApiPrayerRecord>(`/memoriam/${deceasedId}/prayers?${qs}`, {
+  return apiFetch<ApiPrayerRecord>(`/memoriam/${deceasedId}/prayers`, {
     method: 'POST',
     body: JSON.stringify({}),
   });
@@ -93,10 +100,8 @@ export async function addMemorialPrayer(
 
 export async function fetchMyMemorialPrayer(
   deceasedId: number,
-  focusPersonId: number,
 ): Promise<MemoriamMyPrayerResponse> {
-  const qs = withFocus(focusPersonId);
   return apiFetch<MemoriamMyPrayerResponse>(
-    `/memoriam/${deceasedId}/prayers/me?${qs}`,
+    `/memoriam/${deceasedId}/prayers/me`,
   );
 }

@@ -21,6 +21,7 @@ const ALLOWED_TAGS = [
 const ALLOWED_ATTR = ['href', 'target', 'rel', 'class'];
 
 export function isHtmlContent(content: string): boolean {
+  if (!content) return false;
   return /<[a-z][\s\S]*>/i.test(content.trim());
 }
 

@@ -5,6 +5,9 @@ export type MemoriamTribute = {
   content: string;
   photoUrls: string[];
   createdAt: string;
+  updatedAt?: string;
+  /** Dari API — viewer boleh edit/hapus (hanya author) */
+  canManage?: boolean;
 };
 
 export type PrayerRecord = {

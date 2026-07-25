@@ -10,6 +10,8 @@ type RichTextContentProps = {
 };
 
 export function RichTextContent({ content, className = '' }: RichTextContentProps) {
+  if (!content?.trim()) return null;
+
   if (isHtmlContent(content)) {
     return (
       <div

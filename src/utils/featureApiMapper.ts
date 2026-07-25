@@ -37,13 +37,25 @@ export function apiEventToLocal(event: ApiEvent): FamilyEvent {
     contributions: (event.contributions ?? []).map(apiContributionToLocal),
     isRestricted: event.isRestricted,
     canAccess: event.canAccess,
+    createdById:
+      event.createdById != null ? String(event.createdById) : undefined,
+    canManage: event.canManage,
   };
 }
 
 export function localEventToApiPayload(
-  data: Omit<FamilyEvent, 'id' | 'contributions' | 'canAccess' | 'isRestricted'>,
+  data: Omit<
+    FamilyEvent,
+    | 'id'
+    | 'contributions'
+    | 'canAccess'
+    | 'isRestricted'
+    | 'createdById'
+    | 'canManage'
+  >,
+  options?: { mediaIds?: string[] },
 ): EventWritePayload {
-  return {
+  const payload: EventWritePayload = {
     title: data.title.trim(),
     type: data.type,
     date: data.date,
@@ -54,16 +66,27 @@ export function localEventToApiPayload(
     photoUrls: data.photoUrls ?? [],
     attendeeIds: (data.attendeeIds ?? []).map(Number),
   };
+
+  if (options?.mediaIds && options.mediaIds.length > 0) {
+    payload.mediaIds = options.mediaIds;
+  }
+
+  return payload;
 }
 
-export function apiTributeToLocal(t: ApiMemoriamTribute): MemoriamTribute {
+export function apiTributeToLocal(
+  t: ApiMemoriamTribute,
+  deceasedId?: number | string,
+): MemoriamTribute {
   return {
     id: String(t.id),
-    deceasedId: String(t.deceasedId),
+    deceasedId: String(t.deceasedId ?? deceasedId ?? ''),
     authorId: String(t.authorId),
-    content: t.content,
+    content: t.content ?? '',
     photoUrls: t.photoUrls ?? [],
     createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+    canManage: t.canManage,
   };
 }
 
@@ -92,12 +115,33 @@ export function memoriamDeceasedToLocal(item: MemoriamDeceasedItem): LocalPerson
   };
 }
 
-export function localTributeToApiPayload(data: {
-  content: string;
-  photoUrls: string[];
-}): TributeWritePayload {
+export function localTributeToApiPayload(
+  data: {
+    content: string;
+    photoUrls?: string[];
+    mediaIds?: string[];
+  },
+  options?: { replaceMedia?: boolean },
+): TributeWritePayload {
+  const payload: TributeWritePayload = { content: data.content };
+
+  if (options?.replaceMedia) {
+    // PATCH tribute: replace-all dari daftar final FE
+    payload.mediaIds = data.mediaIds ?? [];
+    payload.photoUrls = data.photoUrls ?? [];
+    return payload;
+  }
+
+  if (data.mediaIds && data.mediaIds.length > 0) {
+    payload.mediaIds = data.mediaIds;
+    if (data.photoUrls && data.photoUrls.length > 0) {
+      payload.photoUrls = data.photoUrls;
+    }
+    return payload;
+  }
+
   return {
-    content: data.content,
+    ...payload,
     photoUrls: data.photoUrls ?? [],
   };
 }
