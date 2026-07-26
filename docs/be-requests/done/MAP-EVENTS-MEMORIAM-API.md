@@ -81,7 +81,7 @@ Body: `{ "address": { ... } }`
 | Update / Delete event | **Hanya creator** (`createdById === selfPersonId`) → `403 EVENT_MANAGE_FORBIDDEN` |
 | Kontribusi | Hanya jika `canAccessEvent` |
 
-Lihat juga: `docs/EVENTS-MEMORIAM-OWNER-CRUD-API.md`.
+Lihat juga: [`EVENTS-MEMORIAM-OWNER-CRUD-API.md`](./EVENTS-MEMORIAM-OWNER-CRUD-API.md).
 
 ### Akses
 

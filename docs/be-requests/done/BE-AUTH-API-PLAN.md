@@ -100,7 +100,7 @@ Bahasa message error: Indonesia (selaras FE).
 **Tujuan:** Skema DB + entity saja. Belum endpoint auth.
 
 **Sumber seed (wajib):**  
-→ [`BE-MOCK-SEEDER.md`](./BE-MOCK-SEEDER.md) + [`seed/mock-family-seed.json`](./seed/mock-family-seed.json)  
+→ [`BE-MOCK-SEEDER.md`](./BE-MOCK-SEEDER.md) + [`mock-family-seed.json`](../../seed/mock-family-seed.json)  
 (95 persons mirror mock FE — jangan diganti seed minimal 3–5 orang.)
 
 **Deliverable:**
@@ -123,7 +123,7 @@ Bahasa message error: Indonesia (selaras FE).
 
 **Prompt singkat untuk AI BE:**
 
-> Kerjakan hanya PART 1 dari `BE-AUTH-API-PLAN.md`: domain model + migration + seeder penuh. Pakai `docs/BE-MOCK-SEEDER.md` dan `docs/seed/mock-family-seed.json`. Jangan buat endpoint auth dulu.
+> Kerjakan hanya PART 1 dari `BE-AUTH-API-PLAN.md`: domain model + migration + seeder penuh. Pakai `docs/be-requests/done/BE-MOCK-SEEDER.md` dan `docs/seed/mock-family-seed.json`. Jangan buat endpoint auth dulu.
 
 ---
 

@@ -10,11 +10,11 @@ Bulk import anggota keluarga agar **sekalian membentuk tree graph** (ayah, ibu, 
 
 Related:
 
-- `docs/PERSONS-IMPORT-FE-PROMPT.md` — prompt siap tempel untuk pengerjaan FE
-- `docs/FE-API-INTEGRATION.md` — persons list/tree/CRUD
-- `docs/templates/persons-import-template.csv`
-- `docs/templates/persons-import-example.csv`
-- `docs/templates/persons-import-example.json`
+- [`PERSONS-IMPORT-FE-PROMPT.md`](../../prompts/PERSONS-IMPORT-FE-PROMPT.md) — prompt siap tempel untuk pengerjaan FE
+- [`FE-API-INTEGRATION.md`](../../guides/FE-API-INTEGRATION.md) — persons list/tree/CRUD
+- [`persons-import-template.csv`](../../templates/persons-import-template.csv)
+- [`persons-import-example.csv`](../../templates/persons-import-example.csv)
+- [`persons-import-example.json`](../../templates/persons-import-example.json)
 
 ---
 
@@ -244,7 +244,7 @@ GET /api/v1/persons?view=tree
 Jangan isi `fatherTempId` + `fatherId` bersamaan (sama untuk ibu).  
 Jangan sediakan kolom `children`.
 
-CSV header resmi = isi `GET /import/template` / `docs/templates/persons-import-template.csv`.
+CSV header resmi = isi `GET /import/template` / `docs/templates/persons-import-template.csv` (lihat folder templates).
 
 ---
 
@@ -363,5 +363,5 @@ export type PersonImportJobResponse = {
 |-------|--------|
 | Template CSV/JSON | ✅ |
 | Migration + worker + endpoints | ✅ |
-| FE prompt | ✅ `PERSONS-IMPORT-FE-PROMPT.md` |
+| FE prompt | ✅ [`PERSONS-IMPORT-FE-PROMPT.md`](../../prompts/PERSONS-IMPORT-FE-PROMPT.md) |
 | Postman | ⏳ opsional |

@@ -117,9 +117,9 @@ async function waitForImportJob(jobId: string, onProgress: (j: PersonImportJobRe
 }
 
 ## Referensi repo API
-- docs/PERSONS-IMPORT-API.md (spek penuh)
+- docs/be-requests/done/PERSONS-IMPORT-API.md (spek penuh)
 - docs/templates/persons-import-*.csv|json
-- docs/FE-API-INTEGRATION.md § tree graph
+- docs/guides/FE-API-INTEGRATION.md § tree graph
 
 ## Acceptance criteria
 - [ ] Admin bisa download template, dry-run, lihat error per baris

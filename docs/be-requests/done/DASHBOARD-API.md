@@ -10,9 +10,9 @@ Status: **implemented di BE** (`src/modules/dashboard/*`) — FE konsumsi via `s
 
 Related docs:
 
-- `docs/MAP-EVENTS-MEMORIAM-API.md` — events & memoriam (sumber data agregat)
-- `docs/MEDIA-UPLOAD-API.md` — resolusi fokus baca & media
-- `docs/FE-API-INTEGRATION.md` — kontrak response & auth FE
+- [`MAP-EVENTS-MEMORIAM-API.md`](./MAP-EVENTS-MEMORIAM-API.md) — events & memoriam (sumber data agregat)
+- [`MEDIA-UPLOAD-API.md`](./MEDIA-UPLOAD-API.md) — resolusi fokus baca & media
+- [`FE-API-INTEGRATION.md`](../../guides/FE-API-INTEGRATION.md) — kontrak response & auth FE
 
 ---
 
