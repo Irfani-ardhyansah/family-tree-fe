@@ -66,28 +66,6 @@ const edgeTypes = {
   familyBranch: FamilyBranchEdge,
 };
 
-function useFullscreen() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  useEffect(() => {
-    const onChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current);
-    document.addEventListener('fullscreenchange', onChange);
-    return () => document.removeEventListener('fullscreenchange', onChange);
-  }, []);
-
-  const toggle = useCallback(async () => {
-    if (!containerRef.current) return;
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-    } else {
-      await containerRef.current.requestFullscreen();
-    }
-  }, []);
-
-  return { containerRef, isFullscreen, toggle };
-}
-
 function PersonDetailPanel({
   person,
   onClose,
@@ -188,6 +166,29 @@ function useIsNarrow(breakpoint = 768) {
   }, [breakpoint]);
 
   return isNarrow;
+}
+
+function useFullscreen() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onChange = () =>
+      setIsFullscreen(document.fullscreenElement === containerRef.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  const toggle = useCallback(async () => {
+    if (!containerRef.current) return;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await containerRef.current.requestFullscreen();
+    }
+  }, []);
+
+  return { containerRef, isFullscreen, toggle };
 }
 
 function TreeCanvas() {
@@ -830,6 +831,20 @@ function TreeCanvas() {
                         {nodesLocked ? 'Terkunci' : 'Geser'}
                       </span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={toggleFullscreen}
+                      className={`flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-lg border shadow-sm min-h-[36px] ${
+                        isFullscreen
+                          ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                          : 'bg-white text-brand-600 border-gray-200 hover:bg-gray-50'
+                      }`}
+                      title={isFullscreen ? 'Keluar layar penuh' : 'Layar penuh'}
+                      aria-label={isFullscreen ? 'Keluar layar penuh' : 'Layar penuh'}
+                    >
+                      {isFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+                      {isFullscreen ? 'Keluar' : 'Fullscreen'}
+                    </button>
                     {!nodesLocked && (
                       <button
                         type="button"
@@ -840,15 +855,6 @@ function TreeCanvas() {
                         Reset
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={toggleFullscreen}
-                      className="flex items-center gap-1 px-2.5 py-2 text-xs font-medium bg-white text-brand-600 border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm min-h-[36px]"
-                      title={isFullscreen ? 'Keluar fullscreen' : 'Fullscreen'}
-                      aria-label={isFullscreen ? 'Keluar fullscreen' : 'Fullscreen'}
-                    >
-                      {isFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
-                    </button>
                   </div>
                 </div>
               </Panel>
@@ -865,7 +871,7 @@ function TreeCanvas() {
 
               <Panel
                 position="bottom-left"
-                className={`!m-2 sm:!m-3 ${isNarrow ? '!mb-14' : ''}`}
+                className={`!m-2 sm:!m-3 !ml-14 sm:!ml-[4.5rem] ${isNarrow ? '!mb-14' : ''}`}
               >
                 <div className="bg-white/95 rounded-lg border border-gray-200 shadow-sm overflow-hidden">
                   <button
