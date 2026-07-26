@@ -4,6 +4,11 @@ export type GalleryItem = EventContribution & {
   contributorName: string;
 };
 
+/** Cover photos from event.photoUrls use synthetic ids in the gallery. */
+export function isEventCoverGalleryItem(item: Pick<GalleryItem, 'id'>): boolean {
+  return item.id.startsWith('cover-');
+}
+
 /** Semua orang keluarga boleh lihat jika attendeeIds kosong. */
 export function canAccessEvent(
   event: FamilyEvent,

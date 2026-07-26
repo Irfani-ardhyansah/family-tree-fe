@@ -19,6 +19,7 @@ import {
   apiPersonToLocal,
   localEventToApiPayload,
 } from '@/utils/featureApiMapper';
+import { eventOverlapsRange } from '@/utils/eventCalendar';
 
 function isUpcoming(dateStr: string): boolean {
   return new Date(dateStr) >= new Date(new Date().toDateString());
@@ -33,6 +34,35 @@ function sortEvents(events: FamilyEvent[]): FamilyEvent[] {
       ? new Date(a.date).getTime() - new Date(b.date).getTime()
       : new Date(b.date).getTime() - new Date(a.date).getTime();
   });
+}
+
+function applyMockQuery(
+  events: FamilyEvent[],
+  query: EventListQuery,
+): FamilyEvent[] {
+  let list = events;
+
+  if (query.view === 'calendar' && query.dateFrom && query.dateTo) {
+    list = list.filter((e) =>
+      eventOverlapsRange(e, query.dateFrom!, query.dateTo!),
+    );
+  }
+
+  if (query.type) {
+    list = list.filter((e) => e.type === query.type);
+  }
+
+  if (query.q?.trim()) {
+    const q = query.q.toLowerCase().trim();
+    list = list.filter(
+      (e) =>
+        e.title.toLowerCase().includes(q) ||
+        (e.location ?? '').toLowerCase().includes(q) ||
+        (e.description ?? '').toLowerCase().includes(q),
+    );
+  }
+
+  return list;
 }
 
 export function useEventsPage(
@@ -53,11 +83,14 @@ export function useEventsPage(
   const mockEvents = useMemo(
     () =>
       sortEvents(
-        mockCtx.events.filter((e) =>
-          eventMatchesPerspective(e.personIds, visiblePersonIds),
+        applyMockQuery(
+          mockCtx.events.filter((e) =>
+            eventMatchesPerspective(e.personIds, visiblePersonIds),
+          ),
+          apiQuery,
         ),
       ),
-    [mockCtx.events, visiblePersonIds],
+    [mockCtx.events, visiblePersonIds, apiQuery],
   );
 
   const loadMock = useCallback(() => {

@@ -77,12 +77,17 @@ export type TreeFilterMeta = TreeFilterParams & {
   applied: boolean;
 };
 
+/** List-only query: tree view ignores this and uses lineage filters instead. */
+export type PersonListScope = 'branch' | 'family';
+
 export type PersonListResponse =
   | {
       view: 'list';
       focusPersonId?: number;
       selfPersonId?: number;
       rootPersonId: number | null;
+      /** Echo of list query; default BE behavior is `branch`. */
+      scope?: PersonListScope;
       persons: Person[];
       pagination: PaginationMeta;
     }
@@ -121,7 +126,9 @@ export type AuthPerson = Pick<
   isMarried: boolean;
   isLegal: boolean;
   spouseIds: number[];
+  /** From family_members.role — prefer with `isAdmin` from auth/me */
   role?: PersonRole;
+  isAdmin?: boolean;
   /** Self first, then spouses — synced with allowedFocusPersonIds */
   allowedFocusPersons?: AllowedFocusPerson[];
 };
@@ -213,15 +220,18 @@ export type ApiEvent = {
   date: string;
   endDate: string | null;
   location: string | null;
-  description: string | null;
+  /** Absen / null pada `view=calendar` (payload ringan) */
+  description?: string | null;
   personIds: number[];
-  photoUrls: string[];
-  attendeeIds: number[];
+  /** Absen pada `view=calendar` */
+  photoUrls?: string[];
+  /** Absen pada `view=calendar` */
+  attendeeIds?: number[];
   contributions?: ApiEventContribution[];
   isRestricted: boolean;
   canAccess: boolean;
   contributionCount?: number;
-  /** Person id pembuat acara */
+  /** Person id pembuat acara — absen pada `view=calendar` */
   createdById?: number;
   /** true jika viewer (selfPersonId) === createdById */
   canManage?: boolean;

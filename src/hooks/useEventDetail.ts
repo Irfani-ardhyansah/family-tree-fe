@@ -2,13 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDataSource } from '@/context/DataSourceContext';
 import { useEvents as useMockEvents } from '@/context/EventContext';
 import { ApiClientError } from '@/lib/apiClient';
-import { addEventContribution, fetchEventById } from '@/lib/eventsApi';
+import {
+  addEventContribution,
+  fetchEventById,
+  updateEventById,
+} from '@/lib/eventsApi';
 import { fetchPersonTree } from '@/lib/personApi';
 import type { FamilyEvent } from '@/types/event';
 import type { Person as LocalPerson } from '@/types/person';
 import {
   apiEventToLocal,
   apiPersonToLocal,
+  localEventToApiPayload,
 } from '@/utils/featureApiMapper';
 
 export function useEventDetail(
@@ -124,6 +129,45 @@ export function useEventDetail(
     [source, eventId, focusPersonId, mockCtx, loadMock],
   );
 
+  /** Hapus foto cover acara (bukan kontribusi anggota) langsung dari detail. */
+  const removeCoverPhoto = useCallback(
+    async (photoUrl: string) => {
+      if (!eventId) return;
+
+      const current = source === 'mock' ? mockEvent : event;
+      if (!current) return;
+
+      const nextPhotoUrls = (current.photoUrls ?? []).filter(
+        (url) => url !== photoUrl,
+      );
+
+      if (source === 'mock') {
+        mockCtx.updateEvent({ ...current, photoUrls: nextPhotoUrls });
+        loadMock();
+        return;
+      }
+
+      if (focusPersonId == null) {
+        throw new Error('Sesi tidak valid.');
+      }
+
+      const payload = localEventToApiPayload({
+        title: current.title,
+        type: current.type,
+        date: current.date,
+        endDate: current.endDate,
+        location: current.location,
+        description: current.description,
+        personIds: current.personIds,
+        photoUrls: nextPhotoUrls,
+        attendeeIds: current.attendeeIds ?? [],
+      });
+      const updated = await updateEventById(Number(eventId), payload);
+      setEvent(apiEventToLocal(updated));
+    },
+    [source, eventId, focusPersonId, mockEvent, event, mockCtx, loadMock],
+  );
+
   const displayEvent = source === 'mock' ? mockEvent : event;
 
   return {
@@ -135,5 +179,6 @@ export function useEventDetail(
     accessForbidden,
     reload: source === 'mock' ? loadMock : loadApi,
     addContribution,
+    removeCoverPhoto,
   };
 }

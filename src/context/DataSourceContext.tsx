@@ -6,12 +6,16 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { isDevelopmentApp } from '@/lib/appEnv';
 
 export type DataSource = 'api' | 'mock';
 
 const STORAGE_KEY = 'familyroots_data_source';
 
 function readStoredSource(): DataSource {
+  // Production selalu API — abaikan preferensi mock di storage.
+  if (!isDevelopmentApp()) return 'api';
+
   try {
     const value = sessionStorage.getItem(STORAGE_KEY);
     return value === 'mock' ? 'mock' : 'api';
@@ -25,30 +29,39 @@ type DataSourceContextValue = {
   setSource: (source: DataSource) => void;
   isApi: boolean;
   isMock: boolean;
+  /** True only when VITE_APP_ENV=development */
+  canUseMock: boolean;
 };
 
 const DataSourceContext = createContext<DataSourceContextValue | null>(null);
 
 export function DataSourceProvider({ children }: { children: ReactNode }) {
+  const canUseMock = isDevelopmentApp();
   const [source, setSourceState] = useState<DataSource>(readStoredSource);
 
-  const setSource = useCallback((next: DataSource) => {
-    setSourceState(next);
-    try {
-      sessionStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // ignore storage errors
-    }
-  }, []);
+  const setSource = useCallback(
+    (next: DataSource) => {
+      const resolved = canUseMock ? next : 'api';
+      setSourceState(resolved);
+      if (!canUseMock) return;
+      try {
+        sessionStorage.setItem(STORAGE_KEY, resolved);
+      } catch {
+        // ignore storage errors
+      }
+    },
+    [canUseMock],
+  );
 
   const value = useMemo(
     () => ({
-      source,
+      source: canUseMock ? source : 'api',
       setSource,
-      isApi: source === 'api',
-      isMock: source === 'mock',
+      isApi: (canUseMock ? source : 'api') === 'api',
+      isMock: canUseMock && source === 'mock',
+      canUseMock,
     }),
-    [source, setSource],
+    [source, setSource, canUseMock],
   );
 
   return (

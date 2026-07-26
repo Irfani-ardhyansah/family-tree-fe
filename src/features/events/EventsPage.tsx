@@ -11,6 +11,7 @@ import {
   X,
   Calendar,
   Lock,
+  List,
 } from 'react-feather';
 import type { FamilyEvent, EventType } from '@/types/event';
 import { EVENT_TYPE_CONFIG } from '@/types/event';
@@ -19,8 +20,12 @@ import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import { useFocusPersonId } from '@/hooks/useFocusPersonId';
 import { useEventsPage } from '@/hooks/useEventsPage';
 import { isRestrictedEvent } from '@/utils/eventAccess';
+import { monthDateRange } from '@/utils/eventCalendar';
 import { EventFormModal } from './components/EventFormModal';
+import { EventsCalendarView } from './components/EventsCalendarView';
 import { DeleteConfirmDialog } from '../family-data/components/DeleteConfirmDialog';
+
+type LayoutMode = 'cards' | 'calendar';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatDate(dateStr: string): string {
@@ -277,6 +282,11 @@ export function EventsPage() {
   } = useFamilyPerspective();
   const focusPersonId = useFocusPersonId();
 
+  const [layout, setLayout] = useState<LayoutMode>('cards');
+  const [calCursor, setCalCursor] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  });
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
@@ -284,17 +294,30 @@ export function EventsPage() {
   const [eventToEdit, setEventToEdit] = useState<FamilyEvent | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FamilyEvent | null>(null);
 
-  const apiQuery = useMemo(
-    () => ({
+  const calendarRange = useMemo(
+    () => monthDateRange(calCursor.year, calCursor.month),
+    [calCursor],
+  );
+
+  const apiQuery = useMemo(() => {
+    if (layout === 'calendar') {
+      return {
+        view: 'calendar' as const,
+        dateFrom: calendarRange.dateFrom,
+        dateTo: calendarRange.dateTo,
+        type: filters.type !== 'all' ? filters.type : undefined,
+        q: search.trim() || undefined,
+      };
+    }
+    return {
       type: filters.type !== 'all' ? filters.type : undefined,
       year: filters.year || undefined,
       month: filters.month || undefined,
       dateFrom: filters.dateFrom || undefined,
       dateTo: filters.dateTo || undefined,
       q: search.trim() || undefined,
-    }),
-    [filters, search],
-  );
+    };
+  }, [layout, calendarRange, filters, search]);
 
   const {
     source,
@@ -335,15 +358,19 @@ export function EventsPage() {
     return { min, max };
   }, [filters.year, filters.month]);
 
-  const filtersActive = filters.type !== 'all' || filters.year !== '';
+  const filtersActive =
+    layout === 'calendar'
+      ? filters.type !== 'all'
+      : filters.type !== 'all' || filters.year !== '';
 
   const activeFilterCount = [
     filters.type !== 'all',
-    filters.year !== '', // date cascade counts as one group
+    layout === 'cards' && filters.year !== '',
   ].filter(Boolean).length;
 
   const filtered = useMemo(() => {
-    if (source === 'api') return events;
+    // API + mode kalender (mock) sudah difilter di hook / BE
+    if (source === 'api' || layout === 'calendar') return events;
 
     const q = search.toLowerCase().trim();
     return events
@@ -381,7 +408,7 @@ export function EventsPage() {
           ? new Date(a.date).getTime() - new Date(b.date).getTime()
           : new Date(b.date).getTime() - new Date(a.date).getTime();
       });
-  }, [source, events, search, filters]);
+  }, [source, layout, events, search, filters]);
 
   // Cascading setters — child resets when parent changes
   const setFilterType = (type: FilterState['type']) =>
@@ -429,14 +456,15 @@ export function EventsPage() {
     <>
       {/* ── Page header ──────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-brand-700">Acara Keluarga</h1>
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-brand-700">Acara Keluarga</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {filtered.length} acara · fokus{' '}
+            {filtered.length} acara
+            {layout === 'calendar' ? ' di bulan ini' : ''} · Fokus{' '}
             <span className={`font-medium ${theme.accentText}`}>
               {focusShortLabel}
             </span>
-            {upcomingCount > 0 && (
+            {layout === 'cards' && upcomingCount > 0 && (
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 font-medium">
                 {upcomingCount} mendatang
               </span>
@@ -448,7 +476,7 @@ export function EventsPage() {
         </div>
         <button
           onClick={openAdd}
-          className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm self-start sm:self-auto"
+          className="inline-flex items-center justify-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm w-full sm:w-auto"
         >
           <Plus size={18} />
           Tambah Acara
@@ -464,6 +492,34 @@ export function EventsPage() {
       {isLoading && (
         <div className="mb-4 text-sm text-gray-500">Memuat acara keluarga…</div>
       )}
+
+      {/* ── Layout toggle ────────────────────────────────── */}
+      <div className="flex gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200 mb-3">
+        <button
+          type="button"
+          onClick={() => setLayout('cards')}
+          className={`flex-1 inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all min-h-[44px] ${
+            layout === 'cards'
+              ? 'bg-white text-brand-700 shadow-sm'
+              : 'text-gray-500'
+          }`}
+        >
+          <List size={16} />
+          Kartu
+        </button>
+        <button
+          type="button"
+          onClick={() => setLayout('calendar')}
+          className={`flex-1 inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all min-h-[44px] ${
+            layout === 'calendar'
+              ? 'bg-white text-brand-700 shadow-sm'
+              : 'text-gray-500'
+          }`}
+        >
+          <Calendar size={16} />
+          Kalender
+        </button>
+      </div>
 
       {/* ── Search + Filter bar ──────────────────────────── */}
       <div className="flex gap-2 mb-3">
@@ -533,7 +589,8 @@ export function EventsPage() {
             />
           </div>
 
-          {/* ── Cascading date filters ── */}
+          {/* ── Cascading date filters (layout kartu saja) ── */}
+          {layout === 'cards' && (
           <div className="space-y-3">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
               Waktu
@@ -602,8 +659,8 @@ export function EventsPage() {
                       Pilih rentang tanggal di{' '}
                       {MONTH_NAMES[parseInt(filters.month) - 1]} {filters.year}:
                     </p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
+                    <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+                      <div className="flex-1 min-w-0">
                         <label className="block text-xs text-gray-500 mb-1">
                           Dari
                         </label>
@@ -613,11 +670,11 @@ export function EventsPage() {
                           min={datePickerBounds.min}
                           max={filters.dateTo || datePickerBounds.max}
                           onChange={(e) => setFilterDateFrom(e.target.value)}
-                          className="block w-full rounded-lg border-gray-300 text-xs focus:ring-primary-500 focus:border-primary-500 py-1.5"
+                          className="block w-full rounded-lg border-gray-300 text-sm sm:text-xs focus:ring-primary-500 focus:border-primary-500 py-2.5 sm:py-1.5"
                         />
                       </div>
-                      <span className="text-gray-400 text-sm mt-4">—</span>
-                      <div className="flex-1">
+                      <span className="hidden sm:inline text-gray-400 text-sm mb-2">—</span>
+                      <div className="flex-1 min-w-0">
                         <label className="block text-xs text-gray-500 mb-1">
                           Sampai
                         </label>
@@ -627,7 +684,7 @@ export function EventsPage() {
                           min={filters.dateFrom || datePickerBounds.min}
                           max={datePickerBounds.max}
                           onChange={(e) => setFilterDateTo(e.target.value)}
-                          className="block w-full rounded-lg border-gray-300 text-xs focus:ring-primary-500 focus:border-primary-500 py-1.5"
+                          className="block w-full rounded-lg border-gray-300 text-sm sm:text-xs focus:ring-primary-500 focus:border-primary-500 py-2.5 sm:py-1.5"
                         />
                       </div>
                       {(filters.dateFrom || filters.dateTo) && (
@@ -636,7 +693,8 @@ export function EventsPage() {
                             setFilterDateFrom('');
                             setFilterDateTo('');
                           }}
-                          className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 mt-5"
+                          className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 self-start sm:self-auto sm:mb-0.5"
+                          aria-label="Hapus rentang tanggal"
                         >
                           <X size={13} />
                         </button>
@@ -647,6 +705,14 @@ export function EventsPage() {
               </div>
             )}
           </div>
+          )}
+
+          {layout === 'calendar' && (
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Di mode kalender, navigasi bulan memakai tombol panah. Filter waktu
+              kartu tidak dipakai.
+            </p>
+          )}
 
           {/* Active filter chips summary */}
           {filtersActive && (
@@ -660,7 +726,7 @@ export function EventsPage() {
                   </button>
                 </span>
               )}
-              {dateBreadcrumb && (
+              {layout === 'cards' && dateBreadcrumb && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium">
                   📅 {dateBreadcrumb}
                   <button onClick={() => setFilterYear('')}>
@@ -673,8 +739,22 @@ export function EventsPage() {
         </div>
       )}
 
-      {/* ── Empty state ──────────────────────────────────── */}
-      {filtered.length === 0 && (
+      {/* ── Calendar layout ──────────────────────────────── */}
+      {layout === 'calendar' && (
+        <EventsCalendarView
+          year={calCursor.year}
+          month={calCursor.month}
+          events={filtered}
+          onMonthChange={setCalCursor}
+          canManageEvent={(event) =>
+            source === 'mock' ? true : Boolean(event.canManage)
+          }
+          onEdit={openEdit}
+        />
+      )}
+
+      {/* ── Empty state (kartu) ───────────────────────────── */}
+      {layout === 'cards' && filtered.length === 0 && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 py-16 flex flex-col items-center text-center">
           <Calendar className="text-gray-300 mb-3" size={40} />
           <p className="text-gray-500 font-medium">Tidak ada acara ditemukan</p>
@@ -701,7 +781,7 @@ export function EventsPage() {
       )}
 
       {/* ── Event cards grid ─────────────────────────────── */}
-      {filtered.length > 0 && (
+      {layout === 'cards' && filtered.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((event) => (
             <EventCard

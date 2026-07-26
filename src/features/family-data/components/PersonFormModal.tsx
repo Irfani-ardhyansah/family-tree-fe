@@ -24,10 +24,14 @@ import {
   getGoogleMapsSearchUrl,
 } from '@/utils/personContact';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { usePersonRelationSearch } from '@/hooks/usePersonRelationSearch';
+import type { PersonListScope } from '@/types/api';
 import {
   resolveAddressCoordinates,
   type GeocodeSource,
 } from '@/utils/addressGeocoding';
+
+const RELATION_SEARCH_DEBOUNCE_MS = 400;
 
 const AddressPinPicker = lazy(() =>
   import('@/components/ui/AddressPinPicker').then((m) => ({
@@ -116,23 +120,34 @@ function RelationCombobox({
   label,
   value,
   onChange,
-  options,
   placeholder,
+  gender,
+  excludeId,
+  scope,
+  seedPersons,
 }: {
   label: string;
   value: string;
   onChange: (id: string | null) => void;
-  options: Person[];
   placeholder: string;
+  gender?: Gender;
+  excludeId?: string;
+  scope?: PersonListScope;
+  seedPersons: Person[];
 }) {
   const [query, setQuery] = useState('');
-
-  const filtered =
-    query === ''
-      ? options
-      : options.filter((p) =>
-          p.fullName.toLowerCase().includes(query.toLowerCase()),
-        );
+  const debouncedQuery = useDebouncedValue(query, RELATION_SEARCH_DEBOUNCE_MS);
+  const excludeIds = useMemo(
+    () => (excludeId ? [excludeId] : []),
+    [excludeId],
+  );
+  const { options, isLoading, resolvePerson } = usePersonRelationSearch({
+    q: debouncedQuery,
+    scope,
+    gender,
+    excludeIds,
+    seedPersons,
+  });
 
   return (
     <div>
@@ -143,9 +158,7 @@ function RelationCombobox({
         <div className="relative">
           <ComboboxInput
             className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm pr-8"
-            displayValue={(id: string) =>
-              options.find((p) => p.id === id)?.fullName ?? ''
-            }
+            displayValue={(id: string) => resolvePerson(id)?.fullName ?? ''}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={placeholder}
           />
@@ -159,26 +172,30 @@ function RelationCombobox({
             >
               — Tidak ada / Tidak diketahui —
             </ComboboxOption>
-            {filtered.map((p) => (
-              <ComboboxOption
-                key={p.id}
-                value={p.id}
-                className="cursor-pointer px-4 py-2 text-brand-700 data-[focus]:bg-primary-50 data-[selected]:bg-primary-100 flex items-center justify-between"
-              >
-                <span>
-                  {p.fullName}
-                  {p.nickname && (
-                    <span className="text-gray-400 ml-1.5 text-xs">
-                      ({p.nickname})
-                    </span>
+            {isLoading && (
+              <div className="px-4 py-2 text-gray-400 italic">Mencari…</div>
+            )}
+            {!isLoading &&
+              options.map((p) => (
+                <ComboboxOption
+                  key={p.id}
+                  value={p.id}
+                  className="cursor-pointer px-4 py-2 text-brand-700 data-[focus]:bg-primary-50 data-[selected]:bg-primary-100 flex items-center justify-between"
+                >
+                  <span>
+                    {p.fullName}
+                    {p.nickname && (
+                      <span className="text-gray-400 ml-1.5 text-xs">
+                        ({p.nickname})
+                      </span>
+                    )}
+                  </span>
+                  {p.id === value && (
+                    <Check size={14} className="text-primary-600 flex-shrink-0" />
                   )}
-                </span>
-                {p.id === value && (
-                  <Check size={14} className="text-primary-600 flex-shrink-0" />
-                )}
-              </ComboboxOption>
-            ))}
-            {filtered.length === 0 && query !== '' && (
+                </ComboboxOption>
+              ))}
+            {!isLoading && options.length === 0 && query !== '' && (
               <div className="px-4 py-2 text-gray-400 italic">
                 Tidak ditemukan
               </div>
@@ -194,27 +211,35 @@ function RelationCombobox({
 function SpouseSelector({
   value,
   onChange,
-  options,
   excludeId,
+  scope,
+  seedPersons,
 }: {
   value: string[];
   onChange: (ids: string[]) => void;
-  options: Person[];
   excludeId?: string;
+  scope?: PersonListScope;
+  seedPersons: Person[];
 }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const debouncedQuery = useDebouncedValue(query, RELATION_SEARCH_DEBOUNCE_MS);
+  const excludeIds = useMemo(() => {
+    const ids = [...value];
+    if (excludeId) ids.push(excludeId);
+    return ids;
+  }, [value, excludeId]);
+  const { options, isLoading, resolvePerson } = usePersonRelationSearch({
+    q: debouncedQuery,
+    scope,
+    excludeIds,
+    seedPersons,
+    enabled: open,
+  });
 
-  const available = options.filter(
-    (p) => p.id !== excludeId && !value.includes(p.id),
-  );
-  const filtered =
-    query === ''
-      ? available
-      : available.filter((p) =>
-          p.fullName.toLowerCase().includes(query.toLowerCase()),
-        );
-  const selected = options.filter((p) => value.includes(p.id));
+  const selected = value
+    .map((id) => resolvePerson(id))
+    .filter((p): p is Person => p != null);
 
   const addSpouse = (id: string) => {
     onChange([...value, id]);
@@ -266,9 +291,14 @@ function SpouseSelector({
           placeholder="Cari dan tambah pasangan..."
           className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
         />
-        {open && filtered.length > 0 && (
+        {open && isLoading && (
+          <div className="absolute z-30 mt-1 w-full rounded-lg bg-white py-3 px-4 shadow-lg ring-1 ring-black/10 text-sm text-gray-400 italic">
+            Mencari…
+          </div>
+        )}
+        {open && !isLoading && options.length > 0 && (
           <ul className="absolute z-30 mt-1 max-h-48 w-full overflow-auto rounded-lg bg-white py-1 shadow-lg ring-1 ring-black/10 text-sm">
-            {filtered.map((p) => (
+            {options.map((p) => (
               <li key={p.id}>
                 <button
                   type="button"
@@ -286,7 +316,7 @@ function SpouseSelector({
             ))}
           </ul>
         )}
-        {open && query !== '' && filtered.length === 0 && (
+        {open && !isLoading && query !== '' && options.length === 0 && (
           <div className="absolute z-30 mt-1 w-full rounded-lg bg-white py-3 px-4 shadow-lg ring-1 ring-black/10 text-sm text-gray-400 italic">
             Tidak ditemukan
           </div>
@@ -383,7 +413,13 @@ export type PersonFormModalProps = {
     data: Omit<Person, 'id'>,
     options?: { mediaId?: string | null },
   ) => void | Promise<void>;
+  /** Seed for mock search + resolving selected relation labels. */
   persons: Person[];
+  /**
+   * Same scope as person list. Omit = BE branch/roots.
+   * Pass `family` only when admin opts into full-family list.
+   */
+  listScope?: PersonListScope;
   isSaving?: boolean;
 };
 
@@ -393,6 +429,7 @@ export function PersonFormModal({
   personToEdit,
   onSave,
   persons,
+  listScope,
   isSaving = false,
 }: PersonFormModalProps) {
   const [step, setStep] = useState(1);
@@ -604,8 +641,6 @@ export function PersonFormModal({
     }
   };
 
-  const malePersons = persons.filter((p) => p.gender === 'male');
-  const femalePersons = persons.filter((p) => p.gender === 'female');
   const isEditing = personToEdit !== null;
 
   const mapsPreviewUrl = useMemo(() => {
@@ -1080,9 +1115,10 @@ export function PersonFormModal({
                         label="Ayah"
                         value={formData.fatherId}
                         onChange={(id) => set('fatherId', id ?? '')}
-                        options={malePersons.filter(
-                          (p) => p.id !== personToEdit?.id,
-                        )}
+                        gender="male"
+                        excludeId={personToEdit?.id}
+                        scope={listScope}
+                        seedPersons={persons}
                         placeholder="Cari nama ayah..."
                       />
 
@@ -1090,17 +1126,19 @@ export function PersonFormModal({
                         label="Ibu"
                         value={formData.motherId}
                         onChange={(id) => set('motherId', id ?? '')}
-                        options={femalePersons.filter(
-                          (p) => p.id !== personToEdit?.id,
-                        )}
+                        gender="female"
+                        excludeId={personToEdit?.id}
+                        scope={listScope}
+                        seedPersons={persons}
                         placeholder="Cari nama ibu..."
                       />
 
                       <SpouseSelector
                         value={formData.spouseIds}
                         onChange={(ids) => set('spouseIds', ids)}
-                        options={persons}
                         excludeId={personToEdit?.id}
+                        scope={listScope}
+                        seedPersons={persons}
                       />
                     </div>
                   )}

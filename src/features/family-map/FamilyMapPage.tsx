@@ -1,6 +1,16 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Map as MapIcon, List, Search, X, Plus, MapPin } from 'react-feather';
+import {
+  Map as MapIcon,
+  List,
+  Search,
+  X,
+  Plus,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
+  Sliders,
+} from 'react-feather';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import { useFocusPersonId } from '@/hooks/useFocusPersonId';
 import { useFamilyMapPage } from '@/hooks/useFamilyMapPage';
@@ -30,6 +40,7 @@ export function FamilyMapPage() {
   const [provinceFilter, setProvinceFilter] = useState('');
   const [aliveOnly, setAliveOnly] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>('map');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [detailTarget, setDetailTarget] = useState<Person | null>(null);
   const [personToEdit, setPersonToEdit] = useState<Person | null>(null);
@@ -132,11 +143,11 @@ export function FamilyMapPage() {
   return (
     <>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <div>
-          <h1 className="text-2xl font-bold text-brand-700">Peta Keluarga</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-5">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-brand-700">Peta Keluarga</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Sebaran alamat · fokus{' '}
+            Sebaran alamat · Fokus{' '}
             <span className={`font-medium ${theme.accentText}`}>
               {focusShortLabel}
             </span>
@@ -150,7 +161,7 @@ export function FamilyMapPage() {
         </div>
         <Link
           to="/family/data"
-          className="inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-primary-300 text-brand-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors self-start"
+          className="inline-flex items-center justify-center gap-2 bg-white border border-gray-200 hover:border-primary-300 text-brand-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors w-full sm:w-auto"
         >
           <Plus size={16} />
           Kelola Alamat
@@ -168,117 +179,151 @@ export function FamilyMapPage() {
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4 space-y-3">
-        <div className="relative">
-          <Search
-            size={16}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari nama atau alamat..."
-            className="block w-full pl-10 pr-4 py-2.5 rounded-xl border-gray-300 text-sm focus:ring-primary-500 focus:border-primary-500"
-          />
-        </div>
-
-        {/* Garis keturunan */}
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
-            Garis Keluarga
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {TREE_LINEAGE_OPTIONS.map(({ value, label, desc }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setLineageFilter(value)}
-                title={desc}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-                  lineageFilter === value
-                    ? 'border-primary-500 bg-primary-500 text-white shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-primary-300'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {lineageFilter !== 'both' && (
-            <p className="text-[10px] text-gray-400 mt-1.5">
-              {lineageFilter === 'paternal'
-                ? 'Menampilkan garis ayah ke atas beserta keluarga terkait'
-                : 'Menampilkan garis ibu ke atas beserta keluarga terkait'}
-            </p>
-          )}
-        </div>
-
-        <div className="flex flex-wrap gap-2 items-center">
-          {cityOptions.length > 0 && (
-            <select
-              value={cityFilter}
-              onChange={(e) => setCityFilter(e.target.value)}
-              className="rounded-lg border-gray-300 text-sm py-1.5 focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value="">Semua kota</option>
-              {cityOptions.map((city) => (
-                <option key={city} value={city}>
-                  {city}
-                </option>
-              ))}
-            </select>
-          )}
-          {provinceOptions.length > 0 && (
-            <select
-              value={provinceFilter}
-              onChange={(e) => setProvinceFilter(e.target.value)}
-              className="rounded-lg border-gray-300 text-sm py-1.5 focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value="">Semua provinsi</option>
-              {provinceOptions.map((prov) => (
-                <option key={prov} value={prov}>
-                  {prov}
-                </option>
-              ))}
-            </select>
-          )}
-          <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 cursor-pointer hover:bg-gray-50">
-            <input
-              type="checkbox"
-              checked={aliveOnly}
-              onChange={(e) => setAliveOnly(e.target.checked)}
-              className="rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-4 overflow-hidden">
+        <div className="p-3 sm:p-4 space-y-3">
+          <div className="relative">
+            <Search
+              size={16}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
             />
-            Hanya yang hidup
-          </label>
-          {filtersActive && (
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari nama atau alamat..."
+              className="block w-full pl-10 pr-4 py-2.5 rounded-xl border-gray-300 text-sm focus:ring-primary-500 focus:border-primary-500"
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-2 md:hidden">
             <button
               type="button"
-              onClick={resetFilters}
-              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 font-medium"
+              onClick={() => setFiltersOpen((v) => !v)}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-semibold ${
+                filtersOpen || filtersActive
+                  ? 'border-primary-400 bg-primary-50 text-primary-700'
+                  : 'border-gray-200 text-brand-700'
+              }`}
+              aria-expanded={filtersOpen}
             >
-              <X size={12} />
-              Reset
+              <Sliders size={15} />
+              Filter
+              {filtersActive && (
+                <span className="w-5 h-5 rounded-full bg-primary-500 text-white text-[10px] flex items-center justify-center">
+                  !
+                </span>
+              )}
+              {filtersOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
             </button>
-          )}
+            {filtersActive && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 font-medium"
+              >
+                <X size={12} />
+                Reset
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap gap-3 pt-1 border-t border-gray-50 text-[10px] text-gray-500">
-          <span className="inline-flex items-center gap-1">
-            <span className="w-3 h-3 rounded-full bg-blue-500" /> Laki-laki
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="w-3 h-3 rounded-full bg-pink-500" /> Perempuan
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="w-3 h-3 rounded-full bg-slate-400" /> Meninggal
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="w-3 h-3 rounded-full border-2 border-amber-400 bg-blue-500" />{' '}
-            Perkiraan kota
-          </span>
+        <div className={`px-3 sm:px-4 pb-4 space-y-3 ${filtersOpen ? 'block' : 'hidden md:block'}`}>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
+              Garis Keluarga
+            </p>
+            <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+              {TREE_LINEAGE_OPTIONS.map(({ value, label, desc }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setLineageFilter(value)}
+                  title={desc}
+                  className={`px-3 py-2.5 sm:py-1.5 rounded-xl text-xs font-semibold border transition-all min-h-[44px] sm:min-h-0 ${
+                    lineageFilter === value
+                      ? 'border-primary-500 bg-primary-500 text-white shadow-sm'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-primary-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {lineageFilter !== 'both' && (
+              <p className="text-[10px] text-gray-400 mt-1.5">
+                {lineageFilter === 'paternal'
+                  ? 'Menampilkan garis ayah ke atas beserta keluarga terkait'
+                  : 'Menampilkan garis ibu ke atas beserta keluarga terkait'}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-center">
+            {cityOptions.length > 0 && (
+              <select
+                value={cityFilter}
+                onChange={(e) => setCityFilter(e.target.value)}
+                className="w-full sm:w-auto rounded-lg border-gray-300 text-sm py-2.5 sm:py-1.5 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="">Semua kota</option>
+                {cityOptions.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
+            )}
+            {provinceOptions.length > 0 && (
+              <select
+                value={provinceFilter}
+                onChange={(e) => setProvinceFilter(e.target.value)}
+                className="w-full sm:w-auto rounded-lg border-gray-300 text-sm py-2.5 sm:py-1.5 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="">Semua provinsi</option>
+                {provinceOptions.map((prov) => (
+                  <option key={prov} value={prov}>
+                    {prov}
+                  </option>
+                ))}
+              </select>
+            )}
+            <label className="inline-flex items-center gap-2 px-3 py-2.5 sm:py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 cursor-pointer hover:bg-gray-50 min-h-[44px] sm:min-h-0">
+              <input
+                type="checkbox"
+                checked={aliveOnly}
+                onChange={(e) => setAliveOnly(e.target.checked)}
+                className="rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+              />
+              Hanya yang hidup
+            </label>
+            {filtersActive && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="hidden md:inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 font-medium"
+              >
+                <X size={12} />
+                Reset
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-3 pt-1 border-t border-gray-50 text-[10px] text-gray-500">
+            <span className="inline-flex items-center gap-1">
+              <span className="w-3 h-3 rounded-full bg-blue-500" /> Laki-laki
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-3 h-3 rounded-full bg-pink-500" /> Perempuan
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-3 h-3 rounded-full bg-slate-400" /> Meninggal
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-3 h-3 rounded-full border-2 border-amber-400 bg-blue-500" />{' '}
+              Perkiraan kota
+            </span>
+          </div>
         </div>
       </div>
 
@@ -331,11 +376,13 @@ export function FamilyMapPage() {
           </Link>
         </div>
       ) : (
-        <div className="flex flex-col md:flex-row gap-4 md:h-[calc(100vh-18rem)] min-h-[480px]">
+        <div className="flex flex-col md:flex-row gap-4 md:h-[calc(100dvh-16rem)] min-h-[360px] md:min-h-[480px]">
           {/* Sidebar */}
           <div
             className={`md:w-80 flex-shrink-0 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col ${
-              mobileTab === 'list' ? 'block' : 'hidden md:flex'
+              mobileTab === 'list'
+                ? 'flex max-h-[65dvh] md:max-h-none'
+                : 'hidden md:flex'
             }`}
           >
             <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/80">
@@ -343,10 +390,10 @@ export function FamilyMapPage() {
                 Daftar Anggota
               </p>
               <p className="text-xs text-gray-400">
-                {filteredEntries.length} anggota · klik untuk fokus peta
+                {filteredEntries.length} anggota · ketuk untuk fokus peta
               </p>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto overscroll-contain">
               <MapMemberList
                 entries={filteredEntries}
                 selectedPersonId={selectedPersonId}
@@ -357,7 +404,7 @@ export function FamilyMapPage() {
 
           {/* Map */}
           <div
-            className={`flex-1 min-h-[360px] md:min-h-0 rounded-2xl overflow-hidden border border-gray-100 shadow-sm ${
+            className={`flex-1 min-h-[55dvh] md:min-h-0 rounded-2xl overflow-hidden border border-gray-100 shadow-sm ${
               mobileTab === 'map' ? 'block' : 'hidden md:block'
             }`}
           >

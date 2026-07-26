@@ -73,6 +73,7 @@ function mergeAuthPerson(
     isLegal: me.isLegal ?? base.isLegal,
     spouseIds: me.spouseIds ?? base.spouseIds,
     role: me.role ?? base.role,
+    isAdmin: me.isAdmin ?? base.isAdmin,
     familyId: me.familyId ?? baseMe.familyId ?? 0,
     readFocusPersonId: Number.isNaN(readFocusPersonId) ? base.id : readFocusPersonId,
     allowedFocusPersonIds:

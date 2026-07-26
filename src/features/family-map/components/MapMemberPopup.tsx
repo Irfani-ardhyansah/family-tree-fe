@@ -31,7 +31,7 @@ export function MapMemberPopup({ pin, onDetail }: MapMemberPopupProps) {
       : 'bg-pink-500';
 
   return (
-    <div className="min-w-[220px] max-w-[260px]">
+    <div className="min-w-0 w-[min(72vw,260px)] max-w-[260px]">
       <div className="flex items-start gap-3 mb-3">
         {person.photoUrl ? (
           <img

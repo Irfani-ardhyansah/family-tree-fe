@@ -10,16 +10,19 @@ import {
   Lock,
   Globe,
   Image as ImageIcon,
+  Trash2,
 } from 'react-feather';
 import { useFamily } from '@/context/FamilyDataContext';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import { useFocusPersonId } from '@/hooks/useFocusPersonId';
 import { useEventDetail } from '@/hooks/useEventDetail';
+import { ApiClientError } from '@/lib/apiClient';
 import { EVENT_TYPE_CONFIG } from '@/types/event';
 import {
   buildGalleryItems,
   canAccessEvent,
   groupByContributor,
+  isEventCoverGalleryItem,
   isRestrictedEvent,
   type GalleryItem,
 } from '@/utils/eventAccess';
@@ -86,6 +89,7 @@ export function EventDetailPage() {
     error,
     accessForbidden,
     addContribution,
+    removeCoverPhoto,
   } = useEventDetail(eventId, focusPersonId);
 
   const persons = source === 'api' ? apiPersons : mockPersons;
@@ -104,6 +108,8 @@ export function EventDetailPage() {
   );
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [showContribute, setShowContribute] = useState(false);
+  const [deletingPhotoUrl, setDeletingPhotoUrl] = useState<string | null>(null);
+  const [galleryActionError, setGalleryActionError] = useState('');
 
   const galleryItems = useMemo(
     () => (event ? buildGalleryItems(event, getPersonName) : []),
@@ -182,6 +188,7 @@ export function EventDetailPage() {
   }
 
   const canAccess = canAccessEvent(event, currentUserId);
+  const canManage = source === 'mock' ? true : Boolean(event.canManage);
   const cfg = EVENT_TYPE_CONFIG[event.type];
   const coverPhoto =
     galleryItems[0]?.photoUrl ?? null;
@@ -201,6 +208,31 @@ export function EventDetailPage() {
   }) => {
     if (!currentUserId) return;
     await addContribution(currentUserId, data);
+  };
+
+  const handleDeleteCoverPhoto = async (item: GalleryItem) => {
+    if (!canManage || !isEventCoverGalleryItem(item)) return;
+    if (!window.confirm('Hapus foto ini dari acara?')) return;
+
+    setGalleryActionError('');
+    setDeletingPhotoUrl(item.photoUrl);
+    try {
+      await removeCoverPhoto(item.photoUrl);
+      setLightboxIndex((prev) => {
+        if (prev == null) return prev;
+        const nextLen = filteredGallery.length - 1;
+        if (nextLen <= 0) return null;
+        return Math.min(prev, nextLen - 1);
+      });
+    } catch (err) {
+      setGalleryActionError(
+        err instanceof ApiClientError
+          ? err.message
+          : 'Gagal menghapus foto.',
+      );
+    } finally {
+      setDeletingPhotoUrl(null);
+    }
   };
 
   if (!canAccess) {
@@ -231,10 +263,11 @@ export function EventDetailPage() {
       {/* Back nav */}
       <button
         onClick={() => navigate('/events')}
-        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-brand-700 mb-5 transition-colors"
+        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-brand-700 mb-5 transition-colors min-h-[44px]"
       >
         <ArrowLeft size={16} />
-        Kembali ke Acara Keluarga
+        <span className="sm:hidden">Kembali</span>
+        <span className="hidden sm:inline">Kembali ke Acara Keluarga</span>
       </button>
 
       {/* Hero */}
@@ -271,7 +304,7 @@ export function EventDetailPage() {
                 </span>
               )}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight">
+            <h1 className="text-xl sm:text-3xl font-bold text-white leading-tight break-words">
               {event.title}
             </h1>
           </div>
@@ -313,12 +346,21 @@ export function EventDetailPage() {
               </div>
               <button
                 onClick={() => setShowContribute(true)}
-                className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors self-start"
+                className="inline-flex items-center justify-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors w-full sm:w-auto min-h-[44px]"
               >
                 <Plus size={16} />
                 Tambah Foto
               </button>
             </div>
+
+            {galleryActionError && (
+              <div
+                role="alert"
+                className="mb-3 rounded-xl bg-red-50 border border-red-100 px-3 py-2 text-sm text-red-700"
+              >
+                {galleryActionError}
+              </div>
+            )}
 
             {/* Contributor filter pills */}
             {contributors.length > 0 && (
@@ -378,6 +420,11 @@ export function EventDetailPage() {
                   key={item.id}
                   item={item}
                   onClick={() => setLightboxIndex(idx)}
+                  canDelete={
+                    canManage && isEventCoverGalleryItem(item)
+                  }
+                  isDeleting={deletingPhotoUrl === item.photoUrl}
+                  onDelete={() => void handleDeleteCoverPhoto(item)}
                 />
               ))}
             </div>
@@ -491,12 +538,22 @@ export function EventDetailPage() {
       </div>
 
       {/* Lightbox */}
-      {lightboxIndex !== null && (
+      {lightboxIndex !== null && filteredGallery[lightboxIndex] && (
         <GalleryLightbox
           items={filteredGallery}
           currentIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onNavigate={setLightboxIndex}
+          canDeleteCurrent={
+            canManage &&
+            isEventCoverGalleryItem(filteredGallery[lightboxIndex])
+          }
+          isDeleting={
+            deletingPhotoUrl === filteredGallery[lightboxIndex]?.photoUrl
+          }
+          onDeleteCurrent={() =>
+            void handleDeleteCoverPhoto(filteredGallery[lightboxIndex])
+          }
         />
       )}
 
@@ -515,37 +572,61 @@ export function EventDetailPage() {
 function GalleryTile({
   item,
   onClick,
+  canDelete,
+  isDeleting,
+  onDelete,
 }: {
   item: GalleryItem;
   onClick: () => void;
+  canDelete?: boolean;
+  isDeleting?: boolean;
+  onDelete?: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className="break-inside-avoid w-full rounded-xl overflow-hidden group relative bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-400"
-    >
-      <img
-        src={item.photoUrl}
-        alt={item.caption ?? 'Foto acara'}
-        className="w-full object-cover group-hover:scale-105 transition-transform duration-300"
-        loading="lazy"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <div className="flex items-center gap-1.5">
-          <ContributorAvatar name={item.contributorName} size="sm" />
-          <div className="min-w-0 text-left">
-            <p className="text-[10px] font-semibold text-white truncate">
-              {item.contributorName}
-            </p>
-            {item.caption && (
-              <p className="text-[9px] text-white/70 truncate">
-                {item.caption}
+    <div className="break-inside-avoid w-full rounded-xl overflow-hidden group relative bg-gray-100">
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full block focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-inset"
+      >
+        <img
+          src={item.photoUrl}
+          alt={item.caption ?? 'Foto acara'}
+          className="w-full object-cover group-hover:scale-105 transition-transform duration-300"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+        <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          <div className="flex items-center gap-1.5">
+            <ContributorAvatar name={item.contributorName} size="sm" />
+            <div className="min-w-0 text-left">
+              <p className="text-[10px] font-semibold text-white truncate">
+                {item.contributorName}
               </p>
-            )}
+              {item.caption && (
+                <p className="text-[9px] text-white/70 truncate">
+                  {item.caption}
+                </p>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </button>
+      </button>
+      {canDelete && onDelete && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          disabled={isDeleting}
+          className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/55 hover:bg-red-600 text-white opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity disabled:opacity-50"
+          aria-label="Hapus foto"
+          title="Hapus foto"
+        >
+          <Trash2 size={14} />
+        </button>
+      )}
+    </div>
   );
 }

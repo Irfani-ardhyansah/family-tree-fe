@@ -2,6 +2,8 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string;
+  /** `development` | `production` — mock/API switcher only in development */
+  readonly VITE_APP_ENV?: string;
 }
 
 interface ImportMeta {

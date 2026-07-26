@@ -106,7 +106,10 @@ isEventVisibleInPerspective(personIds, visibleSubgraph):
 | DELETE | `/api/v1/events/:id?focusPersonId={id}` |
 | POST | `/api/v1/events/:id/contributions?focusPersonId={id}` |
 
-Filter list: `type`, `year`, `month`, `dateFrom`, `dateTo`, `q`, `page`, `limit`.
+Filter list: `type`, `year`, `month`, `dateFrom`, `dateTo`, `q`, `page`, `limit`, `view`.
+
+- Overlap range: `event.date <= dateTo AND COALESCE(endDate, date) >= dateFrom`
+- `view=calendar`: wajib `dateFrom`+`dateTo` (max 62 hari), return semua overlap (cap 500), item ringan (tanpa description/photos/attendees/contributions). `page`/`limit` diabaikan.
 
 ### Error codes
 

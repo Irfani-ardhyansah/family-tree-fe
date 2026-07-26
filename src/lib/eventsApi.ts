@@ -18,18 +18,22 @@ export type EventListQuery = {
   q?: string;
   page?: number;
   limit?: number;
+  /** Mode kalender: wajib dateFrom+dateTo, abaikan page/limit, payload ringan */
+  view?: 'calendar';
 };
 
 function eventQueryToParams(query: EventListQuery): Record<string, string | undefined> {
+  const isCalendar = query.view === 'calendar';
   return {
     type: query.type,
-    year: query.year,
-    month: query.month,
+    year: isCalendar ? undefined : query.year,
+    month: isCalendar ? undefined : query.month,
     dateFrom: query.dateFrom,
     dateTo: query.dateTo,
     q: query.q,
-    page: query.page != null ? String(query.page) : undefined,
-    limit: query.limit != null ? String(query.limit) : undefined,
+    page: isCalendar || query.page == null ? undefined : String(query.page),
+    limit: isCalendar || query.limit == null ? undefined : String(query.limit),
+    view: query.view,
   };
 }
 

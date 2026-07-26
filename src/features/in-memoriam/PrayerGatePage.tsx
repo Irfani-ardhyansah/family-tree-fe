@@ -119,8 +119,8 @@ export function PrayerGatePage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4] flex flex-col items-center justify-center px-6 py-12">
-      <div className="max-w-lg w-full text-center space-y-8">
+    <div className="min-h-[calc(100dvh-4rem)] -mx-3 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6 lg:-my-8 bg-[#f8f7f4] flex flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-12">
+      <div className="max-w-lg w-full text-center space-y-6 sm:space-y-8">
         {/* Fade-in intro */}
         <p
           className={`text-sm text-slate-500 tracking-wide transition-all duration-1000 ${
@@ -145,7 +145,7 @@ export function PrayerGatePage() {
           }`}
         >
           <p
-            className="text-2xl sm:text-3xl leading-loose text-slate-800 font-serif"
+            className="text-xl sm:text-3xl leading-relaxed sm:leading-loose text-slate-800 font-serif"
             dir="rtl"
           >
             {PRAYERS[0].arabic}
@@ -165,7 +165,7 @@ export function PrayerGatePage() {
           }`}
         >
           <p
-            className="text-2xl sm:text-3xl leading-loose text-slate-800 font-serif"
+            className="text-xl sm:text-3xl leading-relaxed sm:leading-loose text-slate-800 font-serif"
             dir="rtl"
           >
             {PRAYERS[1].arabic}
@@ -179,7 +179,7 @@ export function PrayerGatePage() {
         {/* Button */}
         <button
           onClick={handleContinue}
-          className={`mt-4 w-full sm:w-auto px-10 py-3.5 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold transition-all duration-700 shadow-sm ${
+          className={`mt-4 w-full sm:w-auto px-10 py-3.5 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold transition-all duration-700 shadow-sm min-h-[48px] ${
             visibleStep >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}
         >

@@ -5,6 +5,7 @@ import type { Gender, LifeStatus, Person } from '@/types/person';
 import { useFamilyPerspective } from '@/context/FamilyPerspectiveContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useCanManagePersons } from '@/hooks/useCanManagePersons';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useFocusPersonId } from '@/hooks/useFocusPersonId';
 import { usePersonListPage } from '@/hooks/usePersonListPage';
 import { useDataSource } from '@/context/DataSourceContext';
@@ -17,21 +18,20 @@ import { PersonDetailModal } from './components/PersonDetailModal';
 import { PersonContactBadges } from '@/components/ui/PersonContactInfo';
 
 const PAGE_SIZE = 15;
+const SEARCH_DEBOUNCE_MS = 400;
 
 type Filters = {
   status: LifeStatus | 'all';
   gender: Gender | 'all';
-  generationLabel: string;
 };
 
 const DEFAULT_FILTERS: Filters = {
   status: 'all',
   gender: 'all',
-  generationLabel: '',
 };
 
 function isDefaultFilters(f: Filters) {
-  return f.status === 'all' && f.gender === 'all' && f.generationLabel === '';
+  return f.status === 'all' && f.gender === 'all';
 }
 
 function formatDate(dateStr?: string): string {
@@ -109,6 +109,11 @@ export function FamilyDataPage() {
   } = useFamilyPerspective();
 
   const [page, setPage] = useState(1);
+  const [showAllFamily, setShowAllFamily] = useState(false);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
+  const searchQuery = debouncedSearch.trim();
+
   const {
     persons: listPersons,
     allPersons,
@@ -116,23 +121,32 @@ export function FamilyDataPage() {
     isLoading,
     error: listError,
     selfRole,
+    reload,
     savePerson,
     removePerson,
   } = usePersonListPage({
     focusPersonId,
     page,
     limit: PAGE_SIZE,
+    // Default: no scope param (BE branch). Admin checkbox → scope=family.
+    scope: showAllFamily ? 'family' : undefined,
+    q: searchQuery || undefined,
   });
 
   const isAdmin = useIsAdmin(selfRole);
 
   useEffect(() => {
+    if (!isAdmin && showAllFamily) {
+      setShowAllFamily(false);
+    }
+  }, [isAdmin, showAllFamily]);
+
+  useEffect(() => {
     setPage(1);
-  }, [focusPersonId, source]);
+  }, [focusPersonId, source, showAllFamily]);
 
   const persons = listPersons;
 
-  const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -143,25 +157,14 @@ export function FamilyDataPage() {
   const [actionError, setActionError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const generationOptions = useMemo(() => {
-    const labels = persons
-      .map((p) => p.generationLabel)
-      .filter((l): l is string => !!l);
-    return [...new Set(labels)].sort();
-  }, [persons]);
-
+  // Name search is server-side via `q`; keep status/gender as local filters.
   const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
     return persons.filter((p) => {
-      if (q && !p.fullName.toLowerCase().includes(q) &&
-          !(p.nickname ?? '').toLowerCase().includes(q) &&
-          !(p.generationLabel ?? '').toLowerCase().includes(q)) return false;
       if (filters.status !== 'all' && p.status !== filters.status) return false;
       if (filters.gender !== 'all' && p.gender !== filters.gender) return false;
-      if (filters.generationLabel && p.generationLabel !== filters.generationLabel) return false;
       return true;
     });
-  }, [persons, search, filters]);
+  }, [persons, filters]);
 
   const setFilter = <K extends keyof Filters>(key: K, value: Filters[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -176,7 +179,6 @@ export function FamilyDataPage() {
   const activeFilterCount = [
     filters.status !== 'all',
     filters.gender !== 'all',
-    filters.generationLabel !== '',
   ].filter(Boolean).length;
 
   const totalPages = pagination?.totalPages ?? 1;
@@ -232,16 +234,8 @@ export function FamilyDataPage() {
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     setActionError('');
-    try {
-      await removePerson(deleteTarget.id);
-      setDeleteTarget(null);
-    } catch (err) {
-      setActionError(
-        err instanceof ApiClientError
-          ? err.message
-          : 'Gagal menghapus anggota.',
-      );
-    }
+    // Error (mis. PERSON_HAS_CHILDREN 409) ditampilkan di dialog.
+    await removePerson(deleteTarget.id);
   };
 
   return (
@@ -253,10 +247,17 @@ export function FamilyDataPage() {
             Data Anggota Keluarga
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {totalCount} anggota · fokus{' '}
-            <span className={`font-medium ${theme.accentText}`}>
-              {focusShortLabel}
-            </span>
+            {totalCount} anggota ·{' '}
+            {showAllFamily ? (
+              'semua keluarga'
+            ) : (
+              <>
+                fokus{' '}
+                <span className={`font-medium ${theme.accentText}`}>
+                  {focusShortLabel}
+                </span>
+              </>
+            )}
             <span className="mx-1.5">·</span>
             <span
               className={`font-medium ${
@@ -313,45 +314,59 @@ export function FamilyDataPage() {
       )}
 
       {/* ── Search + Filter bar ──────────────────────────── */}
-      <div className="flex gap-2 mb-3">
-        <div className="relative flex-1">
-          <Search
-            size={16}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Cari nama anggota keluarga..."
-            className="block w-full pl-10 pr-4 py-2.5 rounded-xl border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
-          />
-          {search && (
-            <button
-              onClick={() => handleSearchChange('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              aria-label="Hapus pencarian"
-            >
-              <X size={14} />
-            </button>
-          )}
+      <div className="flex flex-col gap-2 mb-3">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search
+              size={16}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Cari nama anggota keluarga..."
+              className="block w-full pl-10 pr-4 py-2.5 rounded-xl border-gray-300 shadow-sm text-sm focus:ring-primary-500 focus:border-primary-500"
+            />
+            {search && (
+              <button
+                onClick={() => handleSearchChange('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label="Hapus pencarian"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+              showFilters || filtersActive
+                ? 'border-primary-400 bg-primary-50 text-primary-700'
+                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Filter size={15} />
+            <span className="hidden sm:inline">Filter</span>
+            {activeFilterCount > 0 && (
+              <span className="w-5 h-5 rounded-full bg-primary-500 text-white text-xs flex items-center justify-center leading-none">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
         </div>
-        <button
-          onClick={() => setShowFilters((v) => !v)}
-          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
-            showFilters || filtersActive
-              ? 'border-primary-400 bg-primary-50 text-primary-700'
-              : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          <Filter size={15} />
-          <span className="hidden sm:inline">Filter</span>
-          {activeFilterCount > 0 && (
-            <span className="w-5 h-5 rounded-full bg-primary-500 text-white text-xs flex items-center justify-center leading-none">
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
+
+        {isAdmin && (
+          <label className="inline-flex items-center gap-2 self-start text-sm text-gray-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showAllFamily}
+              onChange={(e) => setShowAllFamily(e.target.checked)}
+              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            Tampilkan semua anggota keluarga
+          </label>
+        )}
       </div>
 
       {/* ── Filter panel ─────────────────────────────────── */}
@@ -369,7 +384,7 @@ export function FamilyDataPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Status */}
             <div>
               <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Status</p>
@@ -423,23 +438,6 @@ export function FamilyDataPage() {
                 ))}
               </div>
             </div>
-
-            {/* Generasi */}
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Hubungan / Generasi</p>
-              <select
-                value={filters.generationLabel}
-                onChange={(e) => setFilter('generationLabel', e.target.value)}
-                className="block w-full rounded-lg border-gray-300 text-sm focus:ring-primary-500 focus:border-primary-500 py-1.5"
-              >
-                <option value="">Semua generasi</option>
-                {generationOptions.map((label) => (
-                  <option key={label} value={label}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
 
           {/* Active filter chips summary */}
@@ -457,14 +455,6 @@ export function FamilyDataPage() {
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium">
                   {filters.gender === 'male' ? 'Laki-laki' : 'Perempuan'}
                   <button onClick={() => setFilter('gender', 'all')} className="hover:text-primary-900">
-                    <X size={11} />
-                  </button>
-                </span>
-              )}
-              {filters.generationLabel && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium">
-                  {filters.generationLabel}
-                  <button onClick={() => setFilter('generationLabel', '')} className="hover:text-primary-900">
                     <X size={11} />
                   </button>
                 </span>
@@ -806,6 +796,7 @@ export function FamilyDataPage() {
         personToEdit={personToEdit}
         onSave={handleSave}
         persons={allPersons.length > 0 ? allPersons : persons}
+        listScope={showAllFamily ? 'family' : undefined}
         isSaving={isSaving}
       />
 
@@ -813,6 +804,9 @@ export function FamilyDataPage() {
         <PersonImportModal
           isOpen={isImportOpen}
           onClose={() => setIsImportOpen(false)}
+          onSuccess={() => {
+            void reload();
+          }}
         />
       )}
 

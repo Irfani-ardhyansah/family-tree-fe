@@ -100,7 +100,9 @@ function PerspectiveSwitcher({ compact = false }: { compact?: boolean }) {
 }
 
 function DataSourceSwitcher({ compact = false }: { compact?: boolean }) {
-  const { source, setSource } = useDataSource();
+  const { source, setSource, canUseMock } = useDataSource();
+
+  if (!canUseMock) return null;
 
   return (
     <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-gray-100/80 border border-dashed border-gray-300">
@@ -169,6 +171,7 @@ function NavItem({
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { logout, person } = useAuth();
+  const { canUseMock } = useDataSource();
   const navigate = useNavigate();
   const loginName = person
     ? shortPersonName(person, person.fullName)
@@ -181,9 +184,9 @@ export function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200/80 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center gap-3">
+    <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200/80 shadow-sm pt-[env(safe-area-inset-top)]">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-14 sm:h-16 items-center gap-2 sm:gap-3">
           {/* Logo */}
           <Link
             to="/"
@@ -212,9 +215,11 @@ export function Navbar() {
 
           {/* Right actions */}
           <div className="flex items-center gap-2">
-            <div className="hidden lg:block">
-              <DataSourceSwitcher />
-            </div>
+            {canUseMock && (
+              <div className="hidden lg:block">
+                <DataSourceSwitcher />
+              </div>
+            )}
             <div className="hidden md:block">
               <PerspectiveSwitcher />
             </div>
@@ -262,7 +267,7 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="lg:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-4 shadow-lg">
+        <div className="lg:hidden border-t border-gray-100 bg-white px-3 sm:px-4 py-4 space-y-4 shadow-lg max-h-[calc(100dvh-3.5rem)] overflow-y-auto">
           {loginName && (
             <div className="px-1">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
@@ -274,12 +279,14 @@ export function Navbar() {
             </div>
           )}
 
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1">
-              Sumber Data (dev)
-            </p>
-            <DataSourceSwitcher compact />
-          </div>
+          {canUseMock && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1">
+                Sumber Data (dev)
+              </p>
+              <DataSourceSwitcher compact />
+            </div>
+          )}
 
           <div className="md:hidden">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1">

@@ -229,40 +229,57 @@ const STEPS = [
   { number: 2, label: 'Detail' },
 ];
 
-function StepIndicator({ current }: { current: number }) {
+function StepIndicator({
+  current,
+  onSelect,
+}: {
+  current: number;
+  onSelect: (step: number) => void;
+}) {
   return (
     <div className="flex items-center justify-center gap-0 mb-6">
-      {STEPS.map((step, idx) => (
-        <Fragment key={step.number}>
-          <div className="flex flex-col items-center">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                current === step.number
-                  ? 'bg-primary-500 text-white'
-                  : current > step.number
-                    ? 'bg-primary-200 text-primary-700'
-                    : 'bg-gray-100 text-gray-400'
-              }`}
+      {STEPS.map((step, idx) => {
+        const isCurrent = current === step.number;
+        const isDone = current > step.number;
+        return (
+          <Fragment key={step.number}>
+            <button
+              type="button"
+              onClick={() => onSelect(step.number)}
+              className="flex flex-col items-center rounded-lg px-1 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+              aria-current={isCurrent ? 'step' : undefined}
             >
-              {current > step.number ? <Check size={14} /> : step.number}
-            </div>
-            <span
-              className={`text-xs mt-1 font-medium ${
-                current >= step.number ? 'text-primary-600' : 'text-gray-400'
-              }`}
-            >
-              {step.label}
-            </span>
-          </div>
-          {idx < STEPS.length - 1 && (
-            <div
-              className={`h-0.5 w-16 mx-1 mb-4 transition-colors ${
-                current > step.number ? 'bg-primary-300' : 'bg-gray-200'
-              }`}
-            />
-          )}
-        </Fragment>
-      ))}
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
+                  isCurrent
+                    ? 'bg-primary-500 text-white'
+                    : isDone
+                      ? 'bg-primary-200 text-primary-700'
+                      : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                }`}
+              >
+                {isDone ? <Check size={14} /> : step.number}
+              </div>
+              <span
+                className={`text-xs mt-1 font-medium ${
+                  current >= step.number
+                    ? 'text-primary-600'
+                    : 'text-gray-400'
+                }`}
+              >
+                {step.label}
+              </span>
+            </button>
+            {idx < STEPS.length - 1 && (
+              <div
+                className={`h-0.5 w-8 sm:w-16 mx-1 mb-4 transition-colors ${
+                  current > step.number ? 'bg-primary-300' : 'bg-gray-200'
+                }`}
+              />
+            )}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -321,9 +338,17 @@ export function EventFormModal({
     return Object.keys(e).length === 0;
   };
 
+  const isEditing = eventToEdit !== null;
+
+  const goToStep = (next: number) => {
+    if (next === step) return;
+    // Create flow: validate step 1 before leaving it. Edit: free navigation.
+    if (next > 1 && !isEditing && !validateStep1()) return;
+    setStep(next);
+  };
+
   const handleNext = () => {
-    if (step === 1 && !validateStep1()) return;
-    setStep(2);
+    goToStep(2);
   };
 
   const handleSubmit = () => {
@@ -344,8 +369,6 @@ export function EventFormModal({
     }, mediaIds.length > 0 ? mediaIds : undefined);
     onClose();
   };
-
-  const isEditing = eventToEdit !== null;
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -373,9 +396,9 @@ export function EventFormModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <DialogPanel className="w-full max-w-lg rounded-2xl bg-white shadow-xl overflow-hidden">
+              <DialogPanel className="w-full max-w-lg mx-3 sm:mx-0 rounded-2xl bg-white shadow-xl overflow-hidden max-h-[90dvh] overflow-y-auto">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
+                <div className="flex items-center justify-between px-4 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-gray-100">
                   <DialogTitle
                     as="h3"
                     className="text-lg font-semibold text-brand-700"
@@ -392,8 +415,8 @@ export function EventFormModal({
                   </button>
                 </div>
 
-                <div className="px-6 pt-5 pb-6">
-                  <StepIndicator current={step} />
+                <div className="px-4 sm:px-6 pt-5 pb-6">
+                  <StepIndicator current={step} onSelect={goToStep} />
 
                   {/* ── Step 1: Informasi Acara ── */}
                   {step === 1 && (

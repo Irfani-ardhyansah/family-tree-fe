@@ -10,3 +10,30 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Touch-friendly Leaflet popups on narrow screens */
+@media (max-width: 767px) {
+  .leaflet-popup-content-wrapper {
+    border-radius: 14px !important;
+  }
+  .leaflet-popup-content {
+    margin: 12px !important;
+    min-width: 0 !important;
+  }
+  .leaflet-control-zoom a {
+    width: 36px !important;
+    height: 36px !important;
+    line-height: 36px !important;
+    font-size: 18px !important;
+  }
+}

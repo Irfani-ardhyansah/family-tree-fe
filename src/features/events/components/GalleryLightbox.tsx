@@ -1,6 +1,6 @@
 import { Dialog, DialogBackdrop, Transition, TransitionChild } from '@headlessui/react';
 import { Fragment } from 'react';
-import { X, ChevronLeft, ChevronRight } from 'react-feather';
+import { X, ChevronLeft, ChevronRight, Trash2 } from 'react-feather';
 import type { GalleryItem } from '@/utils/eventAccess';
 
 type GalleryLightboxProps = {
@@ -8,6 +8,9 @@ type GalleryLightboxProps = {
   currentIndex: number;
   onClose: () => void;
   onNavigate: (index: number) => void;
+  canDeleteCurrent?: boolean;
+  onDeleteCurrent?: () => void;
+  isDeleting?: boolean;
 };
 
 function formatDateTime(dateStr: string): string {
@@ -27,6 +30,9 @@ export function GalleryLightbox({
   currentIndex,
   onClose,
   onNavigate,
+  canDeleteCurrent = false,
+  onDeleteCurrent,
+  isDeleting = false,
 }: GalleryLightboxProps) {
   const item = items[currentIndex];
   if (!item) return null;
@@ -66,6 +72,18 @@ export function GalleryLightbox({
               <span className="text-xs text-white/50">
                 {currentIndex + 1} / {items.length}
               </span>
+              {canDeleteCurrent && onDeleteCurrent && (
+                <button
+                  type="button"
+                  onClick={onDeleteCurrent}
+                  disabled={isDeleting}
+                  className="p-2 rounded-full hover:bg-red-500/30 text-red-200 hover:text-red-100 transition-colors disabled:opacity-50"
+                  aria-label="Hapus foto"
+                  title="Hapus foto"
+                >
+                  <Trash2 size={20} />
+                </button>
+              )}
               <button
                 onClick={onClose}
                 className="p-2 rounded-full hover:bg-white/10 transition-colors"

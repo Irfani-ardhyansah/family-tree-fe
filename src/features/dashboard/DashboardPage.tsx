@@ -47,16 +47,16 @@ function StatCard({
 }) {
   return (
     <div
-      className={`bg-white rounded-xl shadow-sm border p-6 flex items-center ${
+      className={`bg-white rounded-xl shadow-sm border p-4 sm:p-6 flex items-center min-w-0 ${
         borderClass ?? 'border-gray-100'
       }`}
     >
-      <div className={`${iconBg} p-3 rounded-full mr-4`}>
-        <Icon className={iconColor} size={24} />
+      <div className={`${iconBg} p-2.5 sm:p-3 rounded-full mr-3 sm:mr-4 flex-shrink-0`}>
+        <Icon className={iconColor} size={22} />
       </div>
-      <div>
-        <p className="text-gray-500 text-sm">{label}</p>
-        <h3 className="text-2xl font-bold text-brand-700">{value}</h3>
+      <div className="min-w-0">
+        <p className="text-gray-500 text-xs sm:text-sm leading-snug">{label}</p>
+        <h3 className="text-xl sm:text-2xl font-bold text-brand-700">{value}</h3>
       </div>
     </div>
   );
@@ -108,8 +108,8 @@ export function DashboardPage() {
   return (
     <>
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-brand-700">Dashboard</h1>
+      <div className="mb-5 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-bold text-brand-700">Dashboard</h1>
         <p className="text-sm text-gray-500 mt-1">
           Ringkasan keluarga{' '}
           <span className={`font-semibold ${theme.accentText}`}>
@@ -121,25 +121,30 @@ export function DashboardPage() {
       {/* Focus person card */}
       {focusPerson && (
         <div
-          className={`mb-6 rounded-2xl border-2 p-5 flex items-center gap-4 ${theme.accentBg} ${theme.accentBorder}`}
+          className={`mb-6 rounded-2xl border-2 p-4 sm:p-5 flex items-center gap-3 sm:gap-4 min-w-0 ${theme.accentBg} ${theme.accentBorder}`}
         >
           <div
-            className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white ${theme.accent}`}
+            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-lg sm:text-xl font-bold text-white flex-shrink-0 ${theme.accent}`}
           >
             {focusPerson.fullName.charAt(0)}
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
               Fokus saat ini
             </p>
-            <p className="text-lg font-bold text-brand-700">{focusPerson.fullName}</p>
+            <p className="text-base sm:text-lg font-bold text-brand-700 truncate">
+              {focusPerson.fullName}
+            </p>
             {focusPerson.nickname && (
               <p className={`text-sm font-medium ${theme.accentText}`}>
                 {focusPerson.nickname}
               </p>
             )}
+            <p className="sm:hidden text-xs text-gray-400 mt-1">
+              Ganti fokus di menu navbar
+            </p>
           </div>
-          <div className="ml-auto hidden sm:flex items-center gap-1.5 text-xs text-gray-400">
+          <div className="ml-auto hidden sm:flex items-center gap-1.5 text-xs text-gray-400 flex-shrink-0">
             {perspective === 'self' ? <User size={14} /> : <Heart size={14} />}
             Ganti fokus di navbar
           </div>
@@ -153,7 +158,7 @@ export function DashboardPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
         <StatCard
           label="Total Anggota"
           value={isLoading ? '—' : stats.members}
@@ -187,10 +192,10 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent events as activity feed */}
-        <div className={`lg:col-span-2 bg-white rounded-xl shadow-sm border p-6 ${theme.accentBorder}`}>
-          <div className="flex justify-between items-center mb-5">
-            <h2 className="text-lg font-bold text-brand-700">Aktivitas Terbaru</h2>
-            <Link to="/events" className={`text-sm font-medium ${theme.accentText} hover:underline`}>
+        <div className={`lg:col-span-2 bg-white rounded-xl shadow-sm border p-4 sm:p-6 ${theme.accentBorder}`}>
+          <div className="flex justify-between items-center gap-3 mb-5">
+            <h2 className="text-base sm:text-lg font-bold text-brand-700">Aktivitas Terbaru</h2>
+            <Link to="/events" className={`text-sm font-medium flex-shrink-0 ${theme.accentText} hover:underline`}>
               Lihat semua
             </Link>
           </div>
@@ -227,8 +232,8 @@ export function DashboardPage() {
         </div>
 
         {/* Quick actions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-bold text-brand-700 mb-5">Aksi Cepat</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          <h2 className="text-base sm:text-lg font-bold text-brand-700 mb-5">Aksi Cepat</h2>
           <div className="space-y-3">
             <Link
               to="/family/tree"
@@ -282,9 +287,9 @@ export function DashboardPage() {
       </div>
 
       {/* Recent tributes */}
-      <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-        <div className="flex justify-between items-center mb-5">
-          <h2 className="text-lg font-bold text-brand-700">Kenangan Terbaru</h2>
+      <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-100 p-4 sm:p-6">
+        <div className="flex justify-between items-center gap-3 mb-5">
+          <h2 className="text-base sm:text-lg font-bold text-brand-700">Kenangan Terbaru</h2>
           <Link
             to="/in-memoriam"
             className="text-sm font-medium text-slate-600 hover:underline"
@@ -347,9 +352,9 @@ export function DashboardPage() {
       </div>
 
       {/* Upcoming events */}
-      <div className={`mt-6 bg-white rounded-xl shadow-sm border p-6 ${theme.accentBorder}`}>
-        <div className="flex justify-between items-center mb-5">
-          <h2 className="text-lg font-bold text-brand-700">Acara Mendatang</h2>
+      <div className={`mt-6 bg-white rounded-xl shadow-sm border p-4 sm:p-6 ${theme.accentBorder}`}>
+        <div className="flex justify-between items-center gap-3 mb-5">
+          <h2 className="text-base sm:text-lg font-bold text-brand-700">Acara Mendatang</h2>
           <Link to="/events" className={`text-sm font-medium ${theme.accentText} hover:underline`}>
             Lihat semua
           </Link>

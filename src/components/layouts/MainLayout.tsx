@@ -45,7 +45,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       {showPerspectiveUI && <PerspectiveBanner />}
 
       <main>
-        <div className="mx-auto max-w-7xl py-8 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl py-4 px-3 sm:py-6 sm:px-6 lg:py-8 lg:px-8">
           {children}
         </div>
       </main>

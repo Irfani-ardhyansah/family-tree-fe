@@ -1,13 +1,27 @@
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
-import { Fragment } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { AlertTriangle } from 'react-feather';
+import { ApiClientError } from '@/lib/apiClient';
 
 type DeleteConfirmDialogProps = {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   personName: string;
 };
+
+function mapDeleteError(error: unknown): string {
+  if (error instanceof ApiClientError) {
+    if (error.code === 'PERSON_HAS_CHILDREN') {
+      return error.message;
+    }
+    return error.message || 'Gagal menghapus anggota.';
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return 'Gagal menghapus anggota.';
+}
 
 export function DeleteConfirmDialog({
   isOpen,
@@ -15,14 +29,32 @@ export function DeleteConfirmDialog({
   onConfirm,
   personName,
 }: DeleteConfirmDialogProps) {
-  const handleConfirm = () => {
-    onConfirm();
-    onClose();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsDeleting(false);
+      setError('');
+    }
+  }, [isOpen]);
+
+  const handleConfirm = async () => {
+    setError('');
+    setIsDeleting(true);
+    try {
+      await onConfirm();
+      onClose();
+    } catch (err) {
+      setError(mapDeleteError(err));
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-20" onClose={onClose}>
+      <Dialog as="div" className="relative z-20" onClose={isDeleting ? () => {} : onClose}>
         <TransitionChild
           as={Fragment}
           enter="ease-out duration-300"
@@ -59,7 +91,7 @@ export function DeleteConfirmDialog({
                   </DialogTitle>
                 </div>
 
-                <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+                <p className="text-sm text-gray-600 mb-4 leading-relaxed">
                   Apakah Anda yakin ingin menghapus{' '}
                   <span className="font-semibold text-brand-700">
                     {personName}
@@ -67,20 +99,31 @@ export function DeleteConfirmDialog({
                   ? Tindakan ini tidak dapat dibatalkan.
                 </p>
 
+                {error && (
+                  <div
+                    role="alert"
+                    className="mb-4 rounded-xl bg-red-50 border border-red-100 px-3 py-2.5 text-sm text-red-700 leading-relaxed"
+                  >
+                    {error}
+                  </div>
+                )}
+
                 <div className="flex gap-3">
                   <button
                     type="button"
                     onClick={onClose}
-                    className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    disabled={isDeleting}
+                    className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                   >
                     Batal
                   </button>
                   <button
                     type="button"
-                    onClick={handleConfirm}
-                    className="flex-1 rounded-lg bg-red-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-600 transition-colors"
+                    onClick={() => void handleConfirm()}
+                    disabled={isDeleting}
+                    className="flex-1 rounded-lg bg-red-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-600 transition-colors disabled:opacity-50"
                   >
-                    Ya, Hapus
+                    {isDeleting ? 'Menghapus…' : 'Ya, Hapus'}
                   </button>
                 </div>
               </DialogPanel>

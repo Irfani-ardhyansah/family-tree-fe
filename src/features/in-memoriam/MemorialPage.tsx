@@ -254,21 +254,21 @@ export function MemorialPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4]">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+    <div className="min-h-[calc(100dvh-4rem)] -mx-3 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6 lg:-my-8 bg-[#f8f7f4] px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
+      <div className="max-w-4xl mx-auto">
         {/* Back */}
         <Link
           to="/in-memoriam"
-          className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 mb-6 transition-colors"
+          className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 mb-5 sm:mb-6 transition-colors min-h-[44px]"
         >
           <ArrowLeft size={16} />
           Semua Kenangan
         </Link>
 
         {/* Profile header */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-8">
-          <div className="h-24 sm:h-32 bg-gradient-to-r from-slate-600 to-slate-500" />
-          <div className="px-6 pb-6 -mt-12 sm:-mt-14">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-6 sm:mb-8">
+          <div className="h-20 sm:h-32 bg-gradient-to-r from-slate-600 to-slate-500" />
+          <div className="px-4 sm:px-6 pb-5 sm:pb-6 -mt-12 sm:-mt-14">
             <div className="flex flex-col sm:flex-row sm:items-end gap-4">
               {deceased.photoUrl ? (
                 <img
@@ -281,11 +281,11 @@ export function MemorialPage() {
                   {getInitials(deceased.fullName)}
                 </div>
               )}
-              <div className="flex-1 pb-1">
+              <div className="flex-1 pb-1 min-w-0">
                 <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">
                   {label}
                 </p>
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
+                <h1 className="text-xl sm:text-3xl font-bold text-slate-800 break-words">
                   {deceased.fullName}
                 </h1>
                 {deceased.nickname && (
@@ -334,14 +334,15 @@ export function MemorialPage() {
           <button
             type="button"
             onClick={() => handleTabChange('stories')}
-            className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
+            className={`flex-1 inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 rounded-lg text-sm font-semibold transition-all min-h-[48px] ${
               activeTab === 'stories'
                 ? 'bg-slate-700 text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
             }`}
           >
-            <BookOpen size={16} />
-            <span>Kenangan & Ucapan</span>
+            <BookOpen size={16} className="flex-shrink-0" />
+            <span className="hidden sm:inline">Kenangan & Ucapan</span>
+            <span className="sm:hidden">Kenangan</span>
             <span
               className={`px-2 py-0.5 rounded-full text-xs ${
                 activeTab === 'stories'
@@ -355,13 +356,13 @@ export function MemorialPage() {
           <button
             type="button"
             onClick={() => handleTabChange('gallery')}
-            className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
+            className={`flex-1 inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 rounded-lg text-sm font-semibold transition-all min-h-[48px] ${
               activeTab === 'gallery'
                 ? 'bg-slate-700 text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
             }`}
           >
-            <ImageIcon size={16} />
+            <ImageIcon size={16} className="flex-shrink-0" />
             <span className="hidden sm:inline">Galeri Kenangan</span>
             <span className="sm:hidden">Galeri</span>
             <span
@@ -464,9 +465,9 @@ export function MemorialPage() {
         {/* Tributes timeline */}
         {activeTab === 'stories' && (
         <section>
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <BookOpen size={20} className="text-slate-500" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+            <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+              <BookOpen size={20} className="text-slate-500 flex-shrink-0" />
               Kenangan & Ucapan
               <span className="text-sm font-normal text-slate-400">
                 ({tributesList.length})
@@ -476,7 +477,7 @@ export function MemorialPage() {
               <button
                 type="button"
                 onClick={openAddTribute}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold shadow-sm transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold shadow-sm transition-colors w-full sm:w-auto min-h-[44px]"
               >
                 <Plus size={16} />
                 Tulis Kenangan

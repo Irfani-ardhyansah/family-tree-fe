@@ -58,15 +58,15 @@ export function InMemoriamListPage() {
   const hasActiveFilters = yearFilter !== '' || search.trim() !== '';
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4]">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <div className="min-h-[calc(100dvh-4rem)] -mx-3 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6 lg:-my-8 bg-[#f8f7f4] px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
+      <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="mb-8 text-center sm:text-left">
+        <div className="mb-6 sm:mb-8 text-center sm:text-left">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-200/60 text-slate-600 text-xs font-medium mb-3">
             <BookOpen size={14} />
             Kenangan Keluarga
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
+          <h1 className="text-xl sm:text-3xl font-bold text-slate-800">
             In Memoriam
           </h1>
           <p className="text-sm text-slate-500 mt-2 max-w-xl">

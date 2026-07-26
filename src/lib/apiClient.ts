@@ -212,6 +212,45 @@ export async function apiFormFetch<T>(
   return parseResponse<T>(res);
 }
 
+/** Binary/text download (e.g. CSV template) — not JSON-wrapped. */
+export async function apiBlobFetch(
+  path: string,
+  retry = true,
+): Promise<{ blob: Blob; filename: string | null }> {
+  const headers = new Headers();
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+
+  const res = await fetch(`${BASE}${path}`, { headers });
+
+  if (res.status === 401 && retry && refreshToken) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      return apiBlobFetch(path, false);
+    }
+  }
+
+  if (!res.ok) {
+    const body: unknown = await res.json().catch(() => null);
+    if (isApiError(body)) {
+      throw new ApiClientError(body.error.code, body.error.message);
+    }
+    throw new ApiClientError(
+      'INTERNAL_ERROR',
+      'Terjadi kesalahan. Coba lagi nanti.',
+    );
+  }
+
+  const disposition = res.headers.get('Content-Disposition');
+  const filenameMatch = disposition?.match(/filename\*?=(?:UTF-8''|")?([^\";]+)/i);
+  const filename = filenameMatch?.[1]
+    ? decodeURIComponent(filenameMatch[1].replace(/"/g, ''))
+    : null;
+
+  return { blob: await res.blob(), filename };
+}
+
 export async function loginRequest(
   code: string,
   remember: boolean,

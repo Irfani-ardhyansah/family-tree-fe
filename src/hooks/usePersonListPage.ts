@@ -10,7 +10,7 @@ import {
   fetchPersonTree,
   updatePerson as updatePersonApi,
 } from '@/lib/personApi';
-import type { PaginationMeta } from '@/types/api';
+import type { PaginationMeta, PersonListScope } from '@/types/api';
 import type { Person as LocalPerson } from '@/types/person';
 import {
   apiPersonToLocal,
@@ -21,6 +21,13 @@ type UsePersonListPageOptions = {
   focusPersonId: number | null;
   page: number;
   limit: number;
+  /**
+   * List-only. Omit / undefined = BE default (branch, no query param).
+   * Pass `family` only when admin opts into full-family list.
+   */
+  scope?: PersonListScope;
+  /** Debounced search string from UI — sent as `q` to the list API. */
+  q?: string;
 };
 
 function buildMockPagination(
@@ -43,6 +50,8 @@ export function usePersonListPage({
   focusPersonId,
   page,
   limit,
+  scope,
+  q,
 }: UsePersonListPageOptions) {
   const { source } = useDataSource();
   const { persons: mockAllPersons, addPerson, updatePerson: updateMockPerson, deletePerson } =
@@ -53,13 +62,24 @@ export function usePersonListPage({
   const [allPersons, setAllPersons] = useState<LocalPerson[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [rootPersonId, setRootPersonId] = useState<number | null>(null);
+  const [listScope, setListScope] = useState<PersonListScope>(scope ?? 'branch');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const mockDataset = useMemo(
-    () => (source === 'mock' ? visiblePersons : []),
-    [source, visiblePersons],
-  );
+  const searchQuery = q?.trim() ?? '';
+
+  const mockDataset = useMemo(() => {
+    if (source !== 'mock') return [];
+    const base = scope === 'family' ? mockAllPersons : visiblePersons;
+    if (!searchQuery) return base;
+    const needle = searchQuery.toLowerCase();
+    return base.filter(
+      (p) =>
+        p.fullName.toLowerCase().includes(needle) ||
+        (p.nickname ?? '').toLowerCase().includes(needle) ||
+        (p.generationLabel ?? '').toLowerCase().includes(needle),
+    );
+  }, [source, scope, mockAllPersons, visiblePersons, searchQuery]);
 
   const loadMockList = useCallback(() => {
     const total = mockDataset.length;
@@ -68,9 +88,10 @@ export function usePersonListPage({
     setAllPersons(mockAllPersons);
     setPagination(buildMockPagination(total, page, limit));
     setRootPersonId(null);
+    setListScope(scope ?? 'branch');
     setError(null);
     setIsLoading(false);
-  }, [mockDataset, mockAllPersons, page, limit]);
+  }, [mockDataset, mockAllPersons, page, limit, scope]);
 
   const loadTree = useCallback(async () => {
     if (source === 'mock' || focusPersonId == null) return;
@@ -96,10 +117,14 @@ export function usePersonListPage({
     setError(null);
 
     try {
-      const data = await fetchPersonList(page, limit);
+      const data = await fetchPersonList(page, limit, {
+        scope,
+        q: searchQuery || undefined,
+      });
       setPersons(data.persons.map(apiPersonToLocal));
       setPagination(data.pagination);
       setRootPersonId(data.rootPersonId);
+      setListScope(data.scope ?? scope ?? 'branch');
     } catch (err) {
       setError(
         err instanceof ApiClientError
@@ -109,7 +134,7 @@ export function usePersonListPage({
     } finally {
       setIsLoading(false);
     }
-  }, [source, focusPersonId, page, limit, loadMockList]);
+  }, [source, focusPersonId, page, limit, scope, searchQuery, loadMockList]);
 
   useEffect(() => {
     void loadTree();
@@ -182,16 +207,25 @@ export function usePersonListPage({
     allPersons.find((p) => p.isSelf)?.role ??
     persons.find((p) => p.isSelf)?.role;
 
+  const reload = useCallback(async () => {
+    if (source === 'mock') {
+      loadMockList();
+      return;
+    }
+    await Promise.all([loadList(), loadTree()]);
+  }, [source, loadMockList, loadList, loadTree]);
+
   return {
     source,
     persons,
     allPersons,
     pagination,
     rootPersonId,
+    scope: listScope,
     isLoading,
     error,
     selfRole,
-    reload: loadList,
+    reload,
     savePerson,
     removePerson,
   };
