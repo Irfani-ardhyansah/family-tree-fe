@@ -133,10 +133,18 @@ export type AuthPerson = Pick<
   allowedFocusPersons?: AllowedFocusPerson[];
 };
 
+export type ModuleStatusFromAuth = {
+  moduleId: string;
+  enabled: boolean;
+  updatedAt?: string;
+  updatedBy?: string | null;
+};
+
 export type LoginResponse = {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  sessionId?: string;
   person: AuthPerson;
 };
 
@@ -144,6 +152,9 @@ export type AuthMeResponse = AuthPerson & {
   familyId: number;
   readFocusPersonId?: number;
   allowedFocusPersonIds?: number[];
+  /** Bumped when admin toggles module access */
+  accessVersion?: number;
+  moduleStatuses?: ModuleStatusFromAuth[];
 };
 
 export type PersonOptionsResponse = {
@@ -179,6 +190,7 @@ export type RefreshResponse = {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  sessionId?: string;
 };
 
 export type EventType =

@@ -1,8 +1,9 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom';
 import { LauncherPage } from '@/app/launcher/LauncherPage';
 import { authRoutes } from '@/app/auth/routes';
 import { ProtectedRoute, PublicRoute } from '@/app/routes/guards';
 import { legacyRedirectRoutes } from '@/app/routes/legacy';
+import { adminRoutes } from '@/modules/admin/routes';
 import { familyCoreRoutes } from '@/modules/family-core/routes';
 import { familyRootsRoutes } from '@/modules/family-roots/routes';
 import { householdRoutes } from '@/modules/household/routes';
@@ -16,10 +17,17 @@ const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       { path: appPaths.launcher, element: <LauncherPage /> },
+      {
+        path: appPaths.inbox,
+        element: (
+          <Navigate to={`${appPaths.launcher}?notifications=1`} replace />
+        ),
+      },
       ...familyRootsRoutes,
       ...familyCoreRoutes,
       ...moneyTrackRoutes,
       ...householdRoutes,
+      ...adminRoutes,
       ...legacyRedirectRoutes,
     ],
   },

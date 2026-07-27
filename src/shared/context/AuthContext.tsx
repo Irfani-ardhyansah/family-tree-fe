@@ -15,6 +15,7 @@ import {
   logoutRequest,
   mapLoginError,
 } from '@/shared/lib/apiClient';
+import { disableWebPush } from '@/shared/lib/webPush';
 import { patchMeOption, fetchMeOptions } from '@/shared/lib/authOptionsApi';
 import {
   isValidLoginCodeFormat,
@@ -82,6 +83,8 @@ function mergeAuthPerson(
       [base.id, ...(base.spouseIds ?? [])],
     allowedFocusPersons:
       me.allowedFocusPersons ?? base.allowedFocusPersons ?? baseMe.allowedFocusPersons,
+    accessVersion: me.accessVersion ?? baseMe.accessVersion,
+    moduleStatuses: me.moduleStatuses ?? baseMe.moduleStatuses,
   };
 }
 
@@ -96,6 +99,7 @@ type AuthContextValue = {
     remember: boolean,
   ) => Promise<{ ok: true; personId: number } | { ok: false; message: string }>;
   logout: () => Promise<void>;
+  refreshPerson: () => Promise<void>;
   setReadFocusPersonId: (personId: number) => Promise<void>;
 };
 
@@ -171,9 +175,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    try {
+      await disableWebPush();
+    } catch {
+      // ignore push cleanup errors
+    }
     await logoutRequest();
     clearStoredAuthPerson();
     setPerson(null);
+  }, []);
+
+  const refreshPerson = useCallback(async () => {
+    const me = await fetchMe();
+    setPerson((prev) => {
+      const merged = prev ? mergeAuthPerson(prev, me) : me;
+      persistAuthPerson(merged);
+      return merged;
+    });
   }, []);
 
   const setReadFocusPersonId = useCallback(async (personId: number) => {
@@ -236,9 +254,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       readFocusPersonId,
       login,
       logout,
+      refreshPerson,
       setReadFocusPersonId,
     }),
-    [person, isInitializing, readFocusPersonId, login, logout, setReadFocusPersonId],
+    [
+      person,
+      isInitializing,
+      readFocusPersonId,
+      login,
+      logout,
+      refreshPerson,
+      setReadFocusPersonId,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

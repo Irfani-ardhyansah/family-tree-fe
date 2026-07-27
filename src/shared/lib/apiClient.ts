@@ -11,6 +11,7 @@ const BASE =
 
 const ACCESS_TOKEN_KEY = 'familyroots_access_token';
 const REFRESH_TOKEN_KEY = 'familyroots_refresh_token';
+const SESSION_ID_KEY = 'familyroots_session_id';
 const REMEMBER_KEY = 'familyroots_remember';
 
 export class ApiClientError extends Error {
@@ -83,11 +84,40 @@ export function persistTokens(
   }
 }
 
+function readStoredSessionId(): string | null {
+  try {
+    return (
+      sessionStorage.getItem(SESSION_ID_KEY) ??
+      localStorage.getItem(SESSION_ID_KEY)
+    );
+  } catch {
+    return null;
+  }
+}
+
+function persistSessionId(sessionId: string | null | undefined, remember: boolean) {
+  try {
+    if (!sessionId) {
+      sessionStorage.removeItem(SESSION_ID_KEY);
+      localStorage.removeItem(SESSION_ID_KEY);
+      return;
+    }
+    const storage = remember ? localStorage : sessionStorage;
+    const other = remember ? sessionStorage : localStorage;
+    storage.setItem(SESSION_ID_KEY, sessionId);
+    other.removeItem(SESSION_ID_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function clearStoredTokens() {
   try {
     sessionStorage.removeItem(ACCESS_TOKEN_KEY);
     sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    sessionStorage.removeItem(SESSION_ID_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(SESSION_ID_KEY);
     localStorage.removeItem(REMEMBER_KEY);
   } catch {
     // ignore storage errors
@@ -96,6 +126,7 @@ export function clearStoredTokens() {
 
 let accessToken: string | null = readStoredAccessToken();
 let refreshToken: string | null = readStoredRefreshToken();
+let sessionId: string | null = readStoredSessionId();
 
 export function getAccessToken(): string | null {
   return accessToken;
@@ -105,9 +136,19 @@ export function getRefreshToken(): string | null {
   return refreshToken;
 }
 
+export function getSessionId(): string | null {
+  return sessionId;
+}
+
 export function setTokens(access: string | null, refresh: string | null) {
   accessToken = access;
   refreshToken = refresh;
+}
+
+function applySessionIdFromAuth(next?: string | null) {
+  if (!next) return;
+  sessionId = next;
+  persistSessionId(next, readRemember());
 }
 
 async function parseResponse<T>(res: Response): Promise<T> {
@@ -116,6 +157,18 @@ async function parseResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     if (isApiError(body)) {
       throw new ApiClientError(body.error.code, body.error.message);
+    }
+    if (
+      typeof body === 'object' &&
+      body != null &&
+      'statusCode' in body &&
+      (body as { statusCode?: number }).statusCode === 404
+    ) {
+      const nestMessage = (body as { message?: unknown }).message;
+      throw new ApiClientError(
+        'NOT_FOUND',
+        typeof nestMessage === 'string' ? nestMessage : 'Not found',
+      );
     }
     throw new ApiClientError(
       'INTERNAL_ERROR',
@@ -154,10 +207,25 @@ async function refreshAccessToken(): Promise<boolean> {
     accessToken = data.accessToken;
     refreshToken = data.refreshToken;
     persistTokens(data.accessToken, data.refreshToken, readRemember());
+    applySessionIdFromAuth(data.sessionId);
     return true;
   } catch {
     return false;
   }
+}
+
+function withAuthHeaders(initHeaders?: HeadersInit, hasBody = false): Headers {
+  const headers = new Headers(initHeaders);
+  if (hasBody && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+  if (sessionId) {
+    headers.set('X-Session-Id', sessionId);
+  }
+  return headers;
 }
 
 export async function apiFetch<T>(
@@ -165,13 +233,7 @@ export async function apiFetch<T>(
   init: RequestInit = {},
   retry = true,
 ): Promise<T> {
-  const headers = new Headers(init.headers);
-  if (!headers.has('Content-Type') && init.body != null) {
-    headers.set('Content-Type', 'application/json');
-  }
-  if (accessToken) {
-    headers.set('Authorization', `Bearer ${accessToken}`);
-  }
+  const headers = withAuthHeaders(init.headers, init.body != null);
 
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
 
@@ -191,10 +253,7 @@ export async function apiFormFetch<T>(
   body: FormData,
   retry = true,
 ): Promise<T> {
-  const headers = new Headers();
-  if (accessToken) {
-    headers.set('Authorization', `Bearer ${accessToken}`);
-  }
+  const headers = withAuthHeaders();
 
   const res = await fetch(`${BASE}${path}`, { method: 'POST', headers, body });
 
@@ -217,10 +276,7 @@ export async function apiBlobFetch(
   path: string,
   retry = true,
 ): Promise<{ blob: Blob; filename: string | null }> {
-  const headers = new Headers();
-  if (accessToken) {
-    headers.set('Authorization', `Bearer ${accessToken}`);
-  }
+  const headers = withAuthHeaders();
 
   const res = await fetch(`${BASE}${path}`, { headers });
 
@@ -266,6 +322,7 @@ export async function loginRequest(
   accessToken = data.accessToken;
   refreshToken = data.refreshToken;
   persistTokens(data.accessToken, data.refreshToken, remember);
+  applySessionIdFromAuth(data.sessionId);
 
   return data;
 }
@@ -291,6 +348,7 @@ export async function logoutRequest(): Promise<void> {
   } finally {
     accessToken = null;
     refreshToken = null;
+    sessionId = null;
     clearStoredTokens();
   }
 }
@@ -298,6 +356,7 @@ export async function logoutRequest(): Promise<void> {
 export async function bootstrapSession(): Promise<AuthMeResponse | null> {
   accessToken = readStoredAccessToken();
   refreshToken = readStoredRefreshToken();
+  sessionId = readStoredSessionId();
 
   if (!accessToken && !refreshToken) {
     return null;
@@ -312,6 +371,7 @@ export async function bootstrapSession(): Promise<AuthMeResponse | null> {
     if (!refreshed) {
       accessToken = null;
       refreshToken = null;
+      sessionId = null;
       clearStoredTokens();
       return null;
     }
@@ -320,6 +380,7 @@ export async function bootstrapSession(): Promise<AuthMeResponse | null> {
   } catch {
     accessToken = null;
     refreshToken = null;
+    sessionId = null;
     clearStoredTokens();
     return null;
   }

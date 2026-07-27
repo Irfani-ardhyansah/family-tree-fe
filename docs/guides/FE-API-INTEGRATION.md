@@ -926,7 +926,7 @@ curl -s "http://localhost:3000/api/v1/persons?view=tree" \
 | Dokumen | Isi |
 |---|---|
 | [`PERSON-API-TREE.md`](./PERSON-API-TREE.md) | Detail pagination & tree graph |
-| [`BE-AUTH-API-PLAN.md`](../be-requests/done/BE-AUTH-API-PLAN.md) | Rencana BE lengkap + aturan login code |
+| [`BE-AUTH-API-PLAN.md`](../requests/from-fe/done/BE-AUTH-API-PLAN.md) | Rencana BE lengkap + aturan login code |
 | [`adr/001-auth-tokens.md`](./adr/001-auth-tokens.md) | JWT payload & refresh rotation (repo BE) |
 | [`DATABASE-DESIGN.md`](./DATABASE-DESIGN.md) | Schema DB (repo BE) |
 | [`../postman/README.md`](../postman/README.md) | Postman collection |

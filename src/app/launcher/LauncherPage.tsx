@@ -1,54 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  GitBranch,
-  Calendar,
-  BookOpen,
-  MapPin,
-  Home,
-  FileText,
-  Activity,
-  CreditCard,
-  Star,
-  Repeat,
-  Box,
-  ShoppingCart,
-  ChevronDown,
-  LogOut,
-  Coffee,
-} from 'react-feather';
+import { ChevronDown, LogOut, Home, Shield } from 'react-feather';
+import { NotificationBell } from '@/shared/components/ui/NotificationBell';
 import { useAuth } from '@/shared/context/AuthContext';
-import {
-  appPaths,
-  corePaths,
-  householdPaths,
-  moneyPaths,
-  rootsPaths,
-} from '@/shared/routes';
+import { MODULE_CATALOG, type ModuleDevStatus } from '@/shared/data/moduleCatalog';
+import { useIsAdmin } from '@/shared/hooks/useIsAdmin';
+import { adminPaths, appPaths } from '@/shared/routes';
 import { shortPersonName } from '@/shared/utils/personDisplayName';
 
-type ModuleStatus = 'in-dev' | 'planned' | 'ready';
-
-type ModuleFeature = {
-  label: string;
-  icon: typeof GitBranch;
-};
-
-type ModuleCard = {
-  id: string;
-  title: string;
-  subtitle: string;
-  to: string;
-  status: ModuleStatus;
-  accent: string;
-  iconWrap: string;
-  iconColor: string;
-  Icon: typeof GitBranch;
-  features: ModuleFeature[];
-};
-
 const STATUS_STYLES: Record<
-  ModuleStatus,
+  ModuleDevStatus,
   { label: string; className: string }
 > = {
   'in-dev': {
@@ -65,74 +26,6 @@ const STATUS_STYLES: Record<
   },
 };
 
-const MODULES: ModuleCard[] = [
-  {
-    id: 'roots',
-    title: 'Family Roots',
-    subtitle: 'Keluarga besar',
-    to: rootsPaths.home,
-    status: 'in-dev',
-    accent: 'border-t-emerald-500',
-    iconWrap: 'bg-emerald-500/15',
-    iconColor: 'text-emerald-400',
-    Icon: GitBranch,
-    features: [
-      { label: 'Silsilah keluarga', icon: GitBranch },
-      { label: 'Acara & gathering', icon: Calendar },
-      { label: 'Memoriam', icon: BookOpen },
-      { label: 'Peta alamat', icon: MapPin },
-    ],
-  },
-  {
-    id: 'core',
-    title: 'Family Core',
-    subtitle: 'Keluarga inti',
-    to: corePaths.home,
-    status: 'planned',
-    accent: 'border-t-sky-500',
-    iconWrap: 'bg-sky-500/15',
-    iconColor: 'text-sky-400',
-    Icon: Home,
-    features: [
-      { label: 'Dokumen penting', icon: FileText },
-      { label: 'Health tracker', icon: Activity },
-      { label: 'Family calendar', icon: Calendar },
-    ],
-  },
-  {
-    id: 'money',
-    title: 'Money Track',
-    subtitle: 'Pasangan',
-    to: moneyPaths.home,
-    status: 'planned',
-    accent: 'border-t-amber-500',
-    iconWrap: 'bg-amber-500/15',
-    iconColor: 'text-amber-400',
-    Icon: CreditCard,
-    features: [
-      { label: 'Budget planner', icon: Activity },
-      { label: 'Wishlist & goals', icon: Star },
-      { label: 'Utang / piutang', icon: Repeat },
-    ],
-  },
-  {
-    id: 'household',
-    title: 'Household',
-    subtitle: 'Pasangan',
-    to: householdPaths.home,
-    status: 'planned',
-    accent: 'border-t-violet-500',
-    iconWrap: 'bg-violet-500/15',
-    iconColor: 'text-violet-400',
-    Icon: Coffee,
-    features: [
-      { label: 'Inventory rumah', icon: Box },
-      { label: 'Resep & meal planner', icon: Coffee },
-      { label: 'Daftar belanja', icon: ShoppingCart },
-    ],
-  },
-];
-
 function getInitials(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
@@ -142,6 +35,7 @@ function getInitials(fullName: string): string {
 
 export function LauncherPage() {
   const { person, logout } = useAuth();
+  const isAdmin = useIsAdmin();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -153,6 +47,13 @@ export function LauncherPage() {
     () => getInitials(person?.fullName ?? displayName),
     [person?.fullName, displayName],
   );
+
+  const isModuleEnabled = useMemo(() => {
+    const map = new Map(
+      (person?.moduleStatuses ?? []).map((m) => [m.moduleId, m.enabled]),
+    );
+    return (moduleId: string) => map.get(moduleId) ?? true;
+  }, [person?.moduleStatuses]);
 
   const handleLogout = async () => {
     setMenuOpen(false);
@@ -180,6 +81,9 @@ export function LauncherPage() {
             </div>
           </div>
 
+          <div className="flex items-center gap-2">
+            <NotificationBell variant="dark" />
+
           <div className="relative">
             <button
               type="button"
@@ -197,6 +101,16 @@ export function LauncherPage() {
 
             {menuOpen && (
               <div className="absolute right-0 z-20 mt-2 w-44 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl">
+                {isAdmin && (
+                  <Link
+                    to={adminPaths.home}
+                    onClick={() => setMenuOpen(false)}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-teal-200 hover:bg-zinc-800"
+                  >
+                    <Shield size={14} />
+                    Admin Panel
+                  </Link>
+                )}
                 <button
                   type="button"
                   onClick={() => void handleLogout()}
@@ -207,6 +121,7 @@ export function LauncherPage() {
                 </button>
               </div>
             )}
+          </div>
           </div>
         </header>
 
@@ -220,15 +135,18 @@ export function LauncherPage() {
         </section>
 
         <section className="mt-8 grid grid-cols-1 gap-4 sm:mt-10 sm:grid-cols-2 sm:gap-5">
-          {MODULES.map((mod) => {
+          {MODULE_CATALOG.map((mod) => {
             const status = STATUS_STYLES[mod.status];
             const ModIcon = mod.Icon;
-            return (
-              <Link
-                key={mod.id}
-                to={mod.to}
-                className={`group relative rounded-3xl border border-zinc-800/90 border-t-4 ${mod.accent} bg-zinc-900/70 p-5 shadow-lg shadow-black/20 transition duration-200 hover:-translate-y-0.5 hover:border-zinc-700 hover:bg-zinc-900`}
-              >
+            const enabled = isModuleEnabled(mod.id);
+            const cardClass = `group relative rounded-3xl border border-zinc-800/90 border-t-4 ${mod.accent} bg-zinc-900/70 p-5 shadow-lg shadow-black/20 transition duration-200 ${
+              enabled
+                ? 'hover:-translate-y-0.5 hover:border-zinc-700 hover:bg-zinc-900'
+                : 'cursor-not-allowed opacity-55'
+            }`;
+
+            const body = (
+              <>
                 <div className="flex items-start justify-between gap-3">
                   <div
                     className={`flex h-12 w-12 items-center justify-center rounded-2xl ${mod.iconWrap}`}
@@ -236,17 +154,29 @@ export function LauncherPage() {
                     <ModIcon size={22} className={mod.iconColor} />
                   </div>
                   <span
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${status.className}`}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                      enabled
+                        ? status.className
+                        : 'bg-rose-900/80 text-rose-100'
+                    }`}
                   >
-                    {status.label}
+                    {enabled ? status.label : 'Nonaktif'}
                   </span>
                 </div>
 
                 <div className="mt-4">
-                  <h3 className="text-lg font-bold text-white group-hover:text-primary-200">
+                  <h3
+                    className={`text-lg font-bold text-white ${
+                      enabled ? 'group-hover:text-primary-200' : ''
+                    }`}
+                  >
                     {mod.title}
                   </h3>
-                  <p className="text-sm text-zinc-400">{mod.subtitle}</p>
+                  <p className="text-sm text-zinc-400">
+                    {enabled
+                      ? mod.subtitle
+                      : 'Modul dimatikan oleh admin keluarga'}
+                  </p>
                 </div>
 
                 <ul className="mt-5 space-y-2.5">
@@ -263,9 +193,48 @@ export function LauncherPage() {
                     </li>
                   ))}
                 </ul>
+              </>
+            );
+
+            return enabled ? (
+              <Link key={mod.id} to={mod.to} className={cardClass}>
+                {body}
               </Link>
+            ) : (
+              <div key={mod.id} className={cardClass} aria-disabled>
+                {body}
+              </div>
             );
           })}
+
+          {isAdmin && (
+            <Link
+              to={adminPaths.home}
+              className="group relative rounded-3xl border border-zinc-800/90 border-t-4 border-t-teal-500 bg-zinc-900/70 p-5 shadow-lg shadow-black/20 transition duration-200 hover:-translate-y-0.5 hover:border-zinc-700 hover:bg-zinc-900 sm:col-span-2"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-500/15">
+                  <Shield size={22} className="text-teal-400" />
+                </div>
+                <span className="rounded-full bg-teal-800/80 px-2.5 py-1 text-[11px] font-semibold text-teal-100">
+                  Admin only
+                </span>
+              </div>
+              <div className="mt-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-white group-hover:text-teal-200">
+                    Admin Panel
+                  </h3>
+                  <p className="text-sm text-zinc-400">
+                    Kontrol modul, audit, sesi, dan broadcast keluarga
+                  </p>
+                </div>
+                <span className="mt-3 text-sm font-semibold text-teal-400 sm:mt-0">
+                  Buka kontrol →
+                </span>
+              </div>
+            </Link>
+          )}
         </section>
       </div>
     </div>

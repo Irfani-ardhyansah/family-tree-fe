@@ -117,7 +117,7 @@ async function waitForImportJob(jobId: string, onProgress: (j: PersonImportJobRe
 }
 
 ## Referensi repo API
-- docs/be-requests/done/PERSONS-IMPORT-API.md (spek penuh)
+- docs/requests/from-fe/done/PERSONS-IMPORT-API.md (spek penuh)
 - docs/templates/persons-import-*.csv|json
 - docs/guides/FE-API-INTEGRATION.md § tree graph
 

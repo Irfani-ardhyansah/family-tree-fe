@@ -324,7 +324,7 @@ Enums:
 
 ```
 Kerjakan PART 1 schema + seeder FamilyRoots.
-Sumber data: docs/be-requests/done/BE-MOCK-SEEDER.md + docs/seed/mock-family-seed.json
+Sumber data: docs/requests/from-fe/done/BE-MOCK-SEEDER.md + docs/seed/mock-family-seed.json
 - Buat 1 family: family-ardhyansah-demo, rootPersonId = me
 - Import semua 95 persons (hormati fatherId/motherId/spouseIds)
 - Jangan simpan login code sebagai password; login code derived

@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { AuthLayout } from '@/shared/components/layouts/AuthLayout';
 import { useAuth } from '@/shared/context/AuthContext';
+import { useIsAdmin } from '@/shared/hooks/useIsAdmin';
 import { appPaths } from '@/shared/routes';
 
 function SessionLoading() {
@@ -35,4 +36,16 @@ export function PublicRoute() {
       <Outlet />
     </AuthLayout>
   );
+}
+
+export function AdminRoute() {
+  const { isInitializing } = useAuth();
+  const isAdmin = useIsAdmin();
+
+  if (isInitializing) return <SessionLoading />;
+  if (!isAdmin) {
+    return <Navigate to={appPaths.launcher} replace />;
+  }
+
+  return <Outlet />;
 }

@@ -123,7 +123,7 @@ Bahasa message error: Indonesia (selaras FE).
 
 **Prompt singkat untuk AI BE:**
 
-> Kerjakan hanya PART 1 dari `BE-AUTH-API-PLAN.md`: domain model + migration + seeder penuh. Pakai `docs/be-requests/done/BE-MOCK-SEEDER.md` dan `docs/seed/mock-family-seed.json`. Jangan buat endpoint auth dulu.
+> Kerjakan hanya PART 1 dari `BE-AUTH-API-PLAN.md`: domain model + migration + seeder penuh. Pakai `docs/requests/from-fe/done/BE-MOCK-SEEDER.md` dan `docs/seed/mock-family-seed.json`. Jangan buat endpoint auth dulu.
 
 ---
 

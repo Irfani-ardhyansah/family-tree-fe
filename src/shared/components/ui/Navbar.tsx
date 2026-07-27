@@ -18,6 +18,7 @@ import {
 } from 'react-feather';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useFamilyPerspective } from '@/modules/family-roots/context/FamilyPerspectiveContext';
+import { NotificationBell } from '@/shared/components/ui/NotificationBell';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useDataSource } from '@/shared/context/DataSourceContext';
 import { shortPersonName } from '@/shared/utils/personDisplayName';
@@ -235,6 +236,7 @@ export function Navbar() {
             <div className="hidden md:block">
               <PerspectiveSwitcher />
             </div>
+            <NotificationBell variant="light" />
             {loginName && (
               <div
                 className="hidden sm:flex flex-col items-end leading-tight px-1"

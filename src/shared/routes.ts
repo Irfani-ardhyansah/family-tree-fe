@@ -4,6 +4,7 @@ export const appPaths = {
   launcher: '/',
   login: '/login',
   register: '/register',
+  inbox: '/inbox',
 } as const;
 
 export const rootsPaths = {
@@ -30,9 +31,21 @@ export const householdPaths = {
   home: '/home',
 } as const;
 
+export const adminPaths = {
+  home: '/admin',
+  rbac: '/admin/rbac',
+  modules: '/admin/modules',
+  audit: '/admin/audit',
+  sessions: '/admin/sessions',
+  broadcast: '/admin/broadcast',
+  settings: '/admin/settings',
+  backup: '/admin/backup',
+} as const;
+
 export const modulePaths = {
   roots: rootsPaths.home,
   core: corePaths.home,
   money: moneyPaths.home,
   household: householdPaths.home,
+  admin: adminPaths.home,
 } as const;

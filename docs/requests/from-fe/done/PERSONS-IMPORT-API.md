@@ -10,7 +10,7 @@ Bulk import anggota keluarga agar **sekalian membentuk tree graph** (ayah, ibu, 
 
 Related:
 
-- [`PERSONS-IMPORT-FE-PROMPT.md`](../../prompts/PERSONS-IMPORT-FE-PROMPT.md) — prompt siap tempel untuk pengerjaan FE
+- [`PERSONS-IMPORT-FE-PROMPT.md`](../../../guides/PERSONS-IMPORT-FE-PROMPT.md) — prompt siap tempel untuk pengerjaan FE
 - [`FE-API-INTEGRATION.md`](../../guides/FE-API-INTEGRATION.md) — persons list/tree/CRUD
 - [`persons-import-template.csv`](../../templates/persons-import-template.csv)
 - [`persons-import-example.csv`](../../templates/persons-import-example.csv)
@@ -363,5 +363,5 @@ export type PersonImportJobResponse = {
 |-------|--------|
 | Template CSV/JSON | ✅ |
 | Migration + worker + endpoints | ✅ |
-| FE prompt | ✅ [`PERSONS-IMPORT-FE-PROMPT.md`](../../prompts/PERSONS-IMPORT-FE-PROMPT.md) |
+| FE prompt | ✅ [`PERSONS-IMPORT-FE-PROMPT.md`](../../../guides/PERSONS-IMPORT-FE-PROMPT.md) |
 | Postman | ⏳ opsional |
