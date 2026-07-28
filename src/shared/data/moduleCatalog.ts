@@ -40,6 +40,8 @@ export type ModuleCatalogItem = {
   accent: string;
   iconWrap: string;
   iconColor: string;
+  /** Optional title hover color on launcher card */
+  titleHover?: string;
   Icon: ComponentType<{ size?: number | string; className?: string }>;
   features: ModuleFeature[];
 };
@@ -55,6 +57,7 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
     accent: 'border-t-emerald-500',
     iconWrap: 'bg-emerald-500/15',
     iconColor: 'text-emerald-400',
+    titleHover: 'group-hover:text-emerald-300',
     Icon: GitBranch,
     features: [
       { label: 'Silsilah keluarga', icon: GitBranch },
@@ -73,6 +76,7 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
     accent: 'border-t-sky-500',
     iconWrap: 'bg-sky-500/15',
     iconColor: 'text-sky-400',
+    titleHover: 'group-hover:text-sky-300',
     Icon: Home,
     features: [
       { label: 'Dokumen penting', icon: FileText },
@@ -84,15 +88,17 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
     id: 'money',
     title: 'Money Track',
     subtitle: 'Pasangan',
-    description: 'Budget, wishlist, dan pencatatan utang/piutang pasangan.',
+    description:
+      'Pencatatan keuangan pasangan: transaksi, kantong, transfer, balancing.',
     to: moneyPaths.home,
-    status: 'planned',
-    accent: 'border-t-amber-500',
-    iconWrap: 'bg-amber-500/15',
-    iconColor: 'text-amber-400',
+    status: 'in-dev',
+    accent: 'border-t-slate-500',
+    iconWrap: 'bg-slate-500/20',
+    iconColor: 'text-slate-300',
+    titleHover: 'group-hover:text-slate-200',
     Icon: CreditCard,
     features: [
-      { label: 'Budget planner', icon: Activity },
+      { label: 'Dashboard & kantong', icon: Activity },
       { label: 'Wishlist & goals', icon: Star },
       { label: 'Utang / piutang', icon: Repeat },
     ],
@@ -107,6 +113,7 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
     accent: 'border-t-violet-500',
     iconWrap: 'bg-violet-500/15',
     iconColor: 'text-violet-400',
+    titleHover: 'group-hover:text-violet-300',
     Icon: Coffee,
     features: [
       { label: 'Inventory rumah', icon: Box },

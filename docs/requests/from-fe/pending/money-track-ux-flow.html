@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Money Track — UX Flow: Transaksi & Perpindahan Uang</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef3ea; --surface:#ffffff; --surface-soft:#f6f8f3; --border:#e0e6da;
+    --ink:#1f2a1f; --ink-soft:#5b6b57; --ink-faint:#8a9784;
+    --green:#4f7d47; --green-deep:#3c6136; --green-soft:#e6efe1;
+    --amber:#b9812f; --amber-soft:#f7ecd9;
+    --rose:#b5493f; --rose-soft:#f6e6e3;
+    --blue:#3d6f96; --blue-soft:#e3edf3;
+    --violet:#6a5a94; --violet-soft:#ece8f4;
+    --shadow:0 1px 2px rgba(31,42,31,.04), 0 8px 24px -12px rgba(31,42,31,.12);
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:'Plus Jakarta Sans',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  .mono{ font-family:'JetBrains Mono',monospace; letter-spacing:-0.02em; }
+
+  .switcher{ position:sticky; top:0; z-index:50; background:#16201a; padding:12px 20px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .switcher span{ color:#8fae86; font-size:12px; margin-right:6px; text-transform:uppercase; letter-spacing:.06em; }
+  .switcher button{ background:transparent; border:1px solid #33463a; color:#cfe0ca; padding:8px 15px; border-radius:999px; font-size:13px; cursor:pointer; font-family:inherit; font-weight:600; transition:.15s; }
+  .switcher button.active{ background:var(--green); border-color:var(--green); color:white; }
+  .switcher button:hover:not(.active){ border-color:#557d4a; }
+
+  .stage{ padding:8px 0 70px; }
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  .flow-header{ max-width:1400px; margin:0 auto; padding:22px 28px 4px; }
+  .flow-header h2{ margin:0 0 4px; font-size:19px; }
+  .flow-header p{ margin:0; color:var(--ink-soft); font-size:13.5px; max-width:720px; line-height:1.5; }
+  .flow-header .why{ display:inline-block; margin-top:10px; background:var(--amber-soft); color:#7a561f; font-size:12px; font-weight:600; padding:6px 12px; border-radius:9px; }
+
+  .flow-scroll{ display:flex; gap:0; align-items:flex-start; overflow-x:auto; padding:26px 28px 40px; scroll-snap-type:x proximity; }
+  .step{ flex-shrink:0; width:250px; scroll-snap-align:start; display:flex; flex-direction:column; align-items:center; }
+  .step-badge{ display:flex; align-items:center; gap:7px; margin-bottom:12px; }
+  .step-badge .num{ width:22px; height:22px; border-radius:50%; background:var(--green); color:white; font-size:11.5px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .step-badge .label{ font-size:12.5px; font-weight:700; color:var(--ink); }
+  .arrow-col{ flex-shrink:0; width:40px; display:flex; align-items:center; justify-content:center; padding-top:130px; color:var(--ink-faint); }
+
+  .step-caption{ margin-top:12px; font-size:12px; color:var(--ink-soft); line-height:1.5; text-align:left; width:100%; padding:0 2px; }
+  .step-caption b{ color:var(--ink); }
+
+  /* phone mini */
+  .phone-mini{ width:250px; background:#14180f; border-radius:26px; padding:8px; box-shadow:var(--shadow); }
+  .phone-screen{ background:var(--bg); border-radius:19px; overflow:hidden; height:500px; display:flex; flex-direction:column; position:relative; }
+  .p-notch{ height:18px; background:transparent; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .p-notch:before{ content:''; width:56px; height:10px; background:#14180f; border-radius:8px; }
+
+  /* shared bits */
+  .bar{ display:flex; align-items:center; gap:9px; padding:6px 14px 8px; flex-shrink:0; }
+  .bar .back{ width:26px; height:26px; border-radius:50%; background:var(--surface); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:12px; }
+  .bar h4{ margin:0; font-size:12.5px; font-weight:800; }
+  .bar .stepdot{ margin-left:auto; display:flex; gap:3px; }
+  .bar .stepdot i{ width:5px; height:5px; border-radius:50%; background:var(--border); display:block; }
+  .bar .stepdot i.on{ background:var(--green); width:12px; border-radius:3px; }
+
+  .type-toggle{ display:flex; margin:8px 14px 4px; background:var(--surface); border-radius:10px; padding:3px; border:1px solid var(--border); flex-shrink:0; }
+  .type-toggle button{ flex:1; border:none; background:transparent; padding:7px; border-radius:7px; font-weight:700; font-size:11px; color:var(--ink-soft); font-family:inherit; }
+  .type-toggle button.on-expense{ background:var(--rose); color:white; }
+  .type-toggle button.on-income{ background:var(--green); color:white; }
+
+  .amount-box{ text-align:center; padding:6px 14px 8px; flex-shrink:0; }
+  .amount-box .cur{ font-size:11px; color:var(--ink-faint); font-weight:700; }
+  .amount-box .val{ font-size:26px; font-weight:800; font-family:'JetBrains Mono',monospace; }
+  .amount-box .val .cursor{ display:inline-block; width:2px; height:20px; background:var(--green); vertical-align:middle; margin-left:2px; animation:blink 1s step-end infinite; }
+  @keyframes blink{ 50%{opacity:0;} }
+
+  .numpad{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:6px 14px; margin-top:auto; flex-shrink:0; }
+  .numpad button{ background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:9px 0; font-size:13px; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--ink); }
+  .numpad button.op{ background:var(--surface-soft); color:var(--ink-faint); }
+
+  .field-list{ padding:8px 14px; display:flex; flex-direction:column; gap:7px; }
+  .field{ background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:8px 10px; display:flex; align-items:center; gap:8px; }
+  .field.active{ border-color:var(--green); box-shadow:0 0 0 3px var(--green-soft); }
+  .field .f-icon{ width:22px; height:22px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:11px; }
+  .field .f-text{ flex:1; min-width:0; }
+  .field .f-label{ font-size:8.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.04em; font-weight:700; }
+  .field .f-value{ font-size:11px; font-weight:700; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .field .f-chev{ color:var(--ink-faint); font-size:11px; }
+
+  .cat-grid{ padding:6px 14px; display:grid; grid-template-columns:repeat(4,1fr); gap:7px; flex-shrink:0; }
+  .cat{ display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .cat .c-icon{ width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:13px; }
+  .cat.on .c-icon{ outline:2px solid var(--green); outline-offset:2px; }
+  .cat span{ font-size:8px; font-weight:600; color:var(--ink-soft); text-align:center; }
+
+  .sheet-title{ padding:10px 14px 2px; font-size:13px; font-weight:800; flex-shrink:0; }
+  .sheet-sub{ padding:0 14px 8px; font-size:10.5px; color:var(--ink-faint); flex-shrink:0; }
+
+  .pocket-pick{ padding:0 14px; display:flex; flex-direction:column; gap:6px; overflow-y:auto; }
+  .pocket-pick .pp{ display:flex; align-items:center; gap:8px; padding:9px 10px; border-radius:9px; border:1px solid var(--border); background:var(--surface); }
+  .pocket-pick .pp.on{ border-color:var(--green); background:var(--green-soft); }
+  .pocket-pick .pp .icon{ width:24px; height:24px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; }
+  .pocket-pick .pp .txt{ flex:1; }
+  .pocket-pick .pp .nm{ font-size:11px; font-weight:700; }
+  .pocket-pick .pp .bal{ font-size:9.5px; color:var(--ink-faint); }
+  .pocket-pick .pp .radio{ width:15px; height:15px; border-radius:50%; border:2px solid var(--border); flex-shrink:0; }
+  .pocket-pick .pp.on .radio{ border-color:var(--green); background:radial-gradient(circle,var(--green) 0 40%, transparent 42%); }
+
+  .save-bar{ margin-top:auto; padding:10px 14px 14px; flex-shrink:0; }
+  .save-btn{ width:100%; background:var(--green); color:white; border:none; padding:11px; border-radius:11px; font-weight:800; font-size:12px; font-family:inherit; box-shadow:0 8px 16px -6px rgba(79,125,71,.5); }
+
+  /* direction picker (transfer) */
+  .direction{ padding:12px 14px 4px; flex-shrink:0; }
+  .dir-row{ display:flex; align-items:center; justify-content:center; gap:10px; }
+  .dir-person{ display:flex; flex-direction:column; align-items:center; gap:5px; flex:1; }
+  .dir-avatar{ width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; color:white; font-size:15px; }
+  .dir-avatar.irfan{ background:var(--green); }
+  .dir-avatar.ayu{ background:#c06a5f; }
+  .dir-person span{ font-size:10.5px; font-weight:700; }
+  .dir-person small{ font-size:8.5px; color:var(--ink-faint); }
+  .dir-swap{ width:26px; height:26px; border-radius:50%; background:var(--surface); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--green-deep); flex-shrink:0; }
+
+  /* review screen */
+  .review-card{ margin:8px 14px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px; flex:1; }
+  .review-hero{ text-align:center; padding-bottom:10px; border-bottom:1px dashed var(--border); margin-bottom:10px; }
+  .review-hero .amt{ font-size:20px; font-weight:800; }
+  .review-hero .amt.neg{ color:var(--rose); }
+  .review-hero .amt.pos{ color:var(--green-deep); }
+  .review-hero .lbl{ font-size:10px; color:var(--ink-faint); font-weight:700; text-transform:uppercase; }
+  .review-row{ display:flex; justify-content:space-between; padding:6px 0; font-size:10.5px; }
+  .review-row .k{ color:var(--ink-faint); }
+  .review-row .v{ font-weight:700; }
+
+  .flow-diagram{ display:flex; align-items:center; justify-content:center; gap:8px; margin:6px 14px 10px; }
+  .fd-box{ flex:1; background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:8px; text-align:center; }
+  .fd-box .nm{ font-size:9.5px; font-weight:800; }
+  .fd-box .before{ font-size:8.5px; color:var(--ink-faint); text-decoration:line-through; }
+  .fd-box .after{ font-size:10.5px; font-weight:800; color:var(--green-deep); font-family:'JetBrains Mono',monospace; }
+  .fd-arrow{ color:var(--ink-faint); font-size:14px; flex-shrink:0; }
+
+  /* success */
+  .success-wrap{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; text-align:center; }
+  .success-check{ width:56px; height:56px; border-radius:50%; background:var(--green-soft); color:var(--green-deep); display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:14px; }
+  .success-wrap h3{ margin:0 0 6px; font-size:14px; }
+  .success-wrap p{ margin:0 0 16px; font-size:11px; color:var(--ink-soft); line-height:1.5; }
+  .success-balance{ background:var(--surface-soft); border-radius:9px; padding:9px 14px; font-size:10.5px; margin-bottom:16px; width:100%; }
+  .success-balance b{ display:block; font-size:13px; margin-top:2px; }
+  .success-actions{ display:flex; gap:7px; width:100%; }
+  .success-actions button{ flex:1; padding:9px; border-radius:9px; font-size:10.5px; font-weight:700; font-family:inherit; border:1px solid var(--border); background:var(--surface); }
+  .success-actions button.primary{ background:var(--green); color:white; border-color:var(--green); }
+
+  /* hub action sheet */
+  .hub-wrap{ position:relative; flex:1; }
+  .hub-dim{ position:absolute; inset:0; background:rgba(20,24,15,.45); }
+  .hub-sheet{ position:absolute; left:0; right:0; bottom:0; background:var(--surface); border-radius:20px 20px 0 0; padding:16px 16px 18px; box-shadow:0 -10px 30px rgba(0,0,0,.15); }
+  .hub-handle{ width:34px; height:4px; background:var(--border); border-radius:99px; margin:0 auto 12px; }
+  .hub-sheet h4{ margin:0 0 3px; font-size:13.5px; }
+  .hub-sheet .sub{ font-size:10.5px; color:var(--ink-faint); margin-bottom:12px; }
+  .hub-action{ display:flex; align-items:center; gap:11px; padding:10px 8px; border-radius:11px; margin-bottom:4px; }
+  .hub-action.hi{ background:var(--green-soft); }
+  .hub-action .ic{ width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .hub-action .tx b{ display:block; font-size:11.5px; }
+  .hub-action .tx span{ font-size:9.5px; color:var(--ink-faint); }
+  .fake-dash{ position:absolute; inset:0; padding:16px; }
+  .fake-dash .fbar{ height:14px; width:70%; background:var(--surface); border-radius:6px; margin-bottom:10px; opacity:.6; }
+  .fake-dash .fcard{ height:70px; background:var(--surface); border-radius:14px; margin-bottom:10px; opacity:.6; }
+
+  ::-webkit-scrollbar{ height:8px; }
+  ::-webkit-scrollbar-thumb{ background:#c9d4c0; border-radius:99px; }
+</style>
+</head>
+<body>
+
+<div class="switcher">
+  <span>UX Flow</span>
+  <button class="active" onclick="showPanel('hub', this)">0 · Hub Aksi Cepat</button>
+  <button onclick="showPanel('flow1', this)">1 · Catat Transaksi</button>
+  <button onclick="showPanel('flow2', this)">2 · Transfer ke Pasangan</button>
+  <button onclick="showPanel('flow3', this)">3 · Pindah Antar Kantong</button>
+  <button onclick="showPanel('flow4', this)">4 · Tarik Tunai</button>
+</div>
+
+<div class="stage">
+
+<!-- ============ HUB ============ -->
+<div class="panel active" id="hub">
+  <div class="flow-header">
+    <h2>0 · Hub Aksi Cepat (tombol + di dashboard)</h2>
+    <p>Satu tombol <b>+</b> untuk semua aksi uang keluar-masuk. Daripada bikin 4 menu terpisah yang bikin bingung, semua alur perpindahan uang mulai dari satu action sheet ini — user tinggal pilih niatnya, baru masuk ke flow spesifik.</p>
+  </div>
+  <div class="flow-scroll">
+    <div class="step">
+      <div class="step-badge"><span class="num">•</span><span class="label">Tap tombol + di dashboard</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="hub-wrap">
+          <div class="fake-dash">
+            <div class="fbar"></div>
+            <div class="fcard"></div>
+            <div class="fcard"></div>
+          </div>
+          <div class="hub-dim"></div>
+          <div class="hub-sheet">
+            <div class="hub-handle"></div>
+            <h4>Mau catat apa?</h4>
+            <div class="sub">Pilih salah satu untuk lanjut</div>
+            <div class="hub-action hi">
+              <div class="ic" style="background:var(--green);color:white;">📝</div>
+              <div class="tx"><b>Catat Transaksi</b><span>Pemasukan atau pengeluaran harian</span></div>
+            </div>
+            <div class="hub-action">
+              <div class="ic" style="background:var(--rose-soft);color:var(--rose);">🔁</div>
+              <div class="tx"><b>Transfer ke Pasangan</b><span>Kirim uang ke Ayu</span></div>
+            </div>
+            <div class="hub-action">
+              <div class="ic" style="background:var(--violet-soft);color:var(--violet);">⇆</div>
+              <div class="tx"><b>Pindah Antar Kantong</b><span>Geser saldo antar kantong sendiri</span></div>
+            </div>
+            <div class="hub-action">
+              <div class="ic" style="background:var(--amber-soft);color:var(--amber);">💵</div>
+              <div class="tx"><b>Tarik Tunai</b><span>Catat uang keluar jadi cash</span></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="step-caption">Item pertama (<b>Catat Transaksi</b>) di-highlight karena paling sering dipakai — mengurangi tap rata-rata untuk kasus paling umum.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FLOW 1: CATAT TRANSAKSI ============ -->
+<div class="panel" id="flow1">
+  <div class="flow-header">
+    <h2>1 · Catat Transaksi (Income / Expense)</h2>
+    <p>Fokus UX: <b>amount dulu, baru konteks</b>. Nominal adalah hal yang paling sering diinget user saat itu juga (habis bayar), jadi begitu masuk flow langsung numpad besar — bukan form panjang dari atas ke bawah.</p>
+  </div>
+  <div class="flow-scroll">
+
+    <div class="step">
+      <div class="step-badge"><span class="num">1</span><span class="label">Tipe + Nominal</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Catat Transaksi</h4><div class="stepdot"><i class="on"></i><i></i><i></i><i></i></div></div>
+        <div class="type-toggle"><button class="on-expense">Pengeluaran</button><button>Pemasukan</button></div>
+        <div class="amount-box"><div class="cur">Rp</div><div class="val mono">85.000<span class="cursor"></span></div></div>
+        <div class="numpad">
+          <button>1</button><button>2</button><button>3</button>
+          <button>4</button><button>5</button><button>6</button>
+          <button>7</button><button>8</button><button>9</button>
+          <button class="op">000</button><button>0</button><button class="op">⌫</button>
+        </div>
+        <div class="save-bar"><button class="save-btn">Lanjut</button></div>
+      </div></div>
+      <div class="step-caption">Toggle <b>Pengeluaran/Pemasukan</b> di atas, default ke Pengeluaran (kasus paling sering). Numpad custom, bukan keyboard sistem — lebih cepat & konsisten formatnya.</div>
+    </div>
+
+    <div class="arrow-col">→</div>
+
+    <div class="step">
+      <div class="step-badge"><span class="num">2</span><span class="label">Kategori</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Pilih Kategori</h4><div class="stepdot"><i></i><i class="on"></i><i></i><i></i></div></div>
+        <div class="sheet-sub" style="padding-top:6px;">Pengeluaran · Rp85.000</div>
+        <div class="cat-grid">
+          <div class="cat on"><div class="c-icon" style="background:#fbeee0;color:#b1652b;">🍜</div><span>Makan</span></div>
+          <div class="cat"><div class="c-icon" style="background:var(--blue-soft);color:var(--blue);">🚗</div><span>Transport</span></div>
+          <div class="cat"><div class="c-icon" style="background:var(--rose-soft);color:var(--rose);">🧾</div><span>Tagihan</span></div>
+          <div class="cat"><div class="c-icon" style="background:var(--violet-soft);color:var(--violet);">🎬</div><span>Hiburan</span></div>
+          <div class="cat"><div class="c-icon" style="background:var(--green-soft);color:var(--green-deep);">🛒</div><span>Belanja</span></div>
+          <div class="cat"><div class="c-icon" style="background:var(--amber-soft);color:var(--amber);">🏥</div><span>Kesehatan</span></div>
+          <div class="cat"><div class="c-icon" style="background:#e6e9f5;color:#4c5aa3;">📚</div><span>Pendidikan</span></div>
+          <div class="cat"><div class="c-icon" style="background:var(--surface-soft);color:var(--ink-soft);">➕</div><span>Lainnya</span></div>
+        </div>
+        <div class="save-bar"><button class="save-btn">Lanjut</button></div>
+      </div></div>
+      <div class="step-caption">Grid ikon, satu tap langsung lanjut (auto-advance) — kategori "Makan" ke-highlight duluan karena paling sering dipakai jam segini (bisa smart-order berdasar histori).</div>
+    </div>
+
+    <div class="arrow-col">→</div>
+
+    <div class="step">
+      <div class="step-badge"><span class="num">3</span><span class="label">Kantong, Tanggal, Catatan</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Detail Transaksi</h4><div class="stepdot"><i></i><i></i><i class="on"></i><i></i></div></div>
+        <div class="field-list">
+          <div class="field active"><div class="f-icon" style="background:var(--blue-soft);color:var(--blue);">💳</div><div class="f-text"><div class="f-label">Kantong</div><div class="f-value">Transaksi — Irfan (BCA)</div></div><div class="f-chev">›</div></div>
+          <div class="field"><div class="f-icon" style="background:var(--surface-soft);color:var(--ink-soft);">📅</div><div class="f-text"><div class="f-label">Tanggal</div><div class="f-value">Hari ini, 26 Jul</div></div><div class="f-chev">›</div></div>
+          <div class="field"><div class="f-icon" style="background:var(--surface-soft);color:var(--ink-soft);">✎</div><div class="f-text"><div class="f-label">Catatan</div><div class="f-value" style="color:var(--ink-faint);font-weight:500;">Opsional…</div></div></div>
+          <div class="field"><div class="f-icon" style="background:var(--surface-soft);color:var(--ink-soft);">📎</div><div class="f-text"><div class="f-label">Bukti</div><div class="f-value" style="color:var(--ink-faint);font-weight:500;">Lampirkan foto</div></div></div>
+        </div>
+        <div class="save-bar"><button class="save-btn">Review</button></div>
+      </div></div>
+      <div class="step-caption">Kantong <b>auto-terpilih</b> dari kantong terakhir dipakai. Tanggal default hari ini tapi bisa diubah (untuk transaksi yang telat dicatat). Catatan & bukti opsional, tidak menghalangi kecepatan input.</div>
+    </div>
+
+    <div class="arrow-col">→</div>
+
+    <div class="step">
+      <div class="step-badge"><span class="num">4</span><span class="label">Review</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Review</h4><div class="stepdot"><i></i><i></i><i></i><i class="on"></i></div></div>
+        <div class="review-card">
+          <div class="review-hero"><div class="lbl">Pengeluaran</div><div class="amt neg">-Rp85.000</div></div>
+          <div class="review-row"><span class="k">Kategori</span><span class="v">🍜 Makan</span></div>
+          <div class="review-row"><span class="k">Kantong</span><span class="v">Transaksi — Irfan</span></div>
+          <div class="review-row"><span class="k">Tanggal</span><span class="v">26 Jul 2026</span></div>
+          <div class="review-row"><span class="k">Catatan</span><span class="v">Makan siang</span></div>
+          <div class="review-row"><span class="k">Saldo setelah</span><span class="v mono">Rp8.365.000</span></div>
+        </div>
+        <div class="save-bar"><button class="save-btn">Simpan Transaksi</button></div>
+      </div></div>
+      <div class="step-caption">Ringkasan lengkap sebelum commit ke database — sekalian nampilin <b>estimasi saldo kantong setelah transaksi</b>, biar user sadar kalau angkanya janggal sebelum kepencet simpan.</div>
+    </div>
+
+    <div class="arrow-col">→</div>
+
+    <div class="step">
+      <div class="step-badge"><span class="num">5</span><span class="label">Selesai</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="success-wrap">
+          <div class="success-check">✓</div>
+          <h3>Transaksi tersimpan</h3>
+          <p>Pengeluaran Rp85.000 untuk Makan sudah tercatat di kantong Transaksi — Irfan.</p>
+          <div class="success-balance">Saldo Transaksi — Irfan<b class="mono">Rp8.365.000</b></div>
+          <div class="success-actions">
+            <button>Tambah Lagi</button>
+            <button class="primary">Selesai</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="step-caption"><b>Tambah Lagi</b> balik ke step 1 dengan kantong & tipe yang sama — penting buat kasus belanja bulanan yang dicatat item per item berturut-turut.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ FLOW 2: TRANSFER KE PASANGAN ============ -->
+<div class="panel" id="flow2">
+  <div class="flow-header">
+    <h2>2 · Transfer ke Pasangan</h2>
+    <p>Fokus UX: <b>arah transfer harus jelas secara visual</b> (siapa → siapa), dan review-nya menunjukkan dampak saldo di <b>kedua sisi sekaligus</b> — karena satu aksi ini menyentuh dua orang berbeda.</p>
+  </div>
+  <div class="flow-scroll">
+
+    <div class="step">
+      <div class="step-badge"><span class="num">1</span><span class="label">Arah & Kantong Asal</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Transfer ke Pasangan</h4><div class="stepdot"><i class="on"></i><i></i><i></i><i></i></div></div>
+        <div class="direction">
+          <div class="dir-row">
+            <div class="dir-person"><div class="dir-avatar irfan">I</div><span>Irfan</span><small>Pengirim</small></div>
+            <div class="dir-swap">⇄</div>
+            <div class="dir-person"><div class="dir-avatar ayu">A</div><span>Ayu</span><small>Penerima</small></div>
+          </div>
+        </div>
+        <div class="sheet-title" style="padding-top:10px;">Kirim dari kantong</div>
+        <div class="pocket-pick">
+          <div class="pp on"><div class="icon" style="background:var(--blue-soft);color:var(--blue);">💳</div><div class="txt"><div class="nm">Transaksi</div><div class="bal mono">Rp8.450.000</div></div><div class="radio"></div></div>
+          <div class="pp"><div class="icon" style="background:var(--amber-soft);color:var(--amber);">🏦</div><div class="txt"><div class="nm">Tabungan</div><div class="bal mono">Rp42.100.000</div></div><div class="radio"></div></div>
+        </div>
+        <div class="save-bar"><button class="save-btn">Lanjut</button></div>
+      </div></div>
+      <div class="step-caption">Tombol <b>⇄</b> di tengah membalik arah dengan satu tap — kepake banget karena transfer suami→istri dan istri→suami sama-sama sering terjadi.</div>
+    </div>
+
+    <div class="arrow-col">→</div>
+
+    <div class="step">
+      <div class="step-badge"><span class="num">2</span><span class="label">Nominal & Kantong Tujuan</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Nominal Transfer</h4><div class="stepdot"><i></i><i class="on"></i><i></i><i></i></div></div>
+        <div class="amount-box"><div class="cur">Rp</div><div class="val mono">3.000.000<span class="cursor"></span></div></div>
+        <div class="sheet-title">Masuk ke kantong Ayu</div>
+        <div class="pocket-pick">
+          <div class="pp on"><div class="icon" style="background:var(--blue-soft);color:var(--blue);">💳</div><div class="txt"><div class="nm">Transaksi</div><div class="bal mono">Rp5.900.000</div></div><div class="radio"></div></div>
+          <div class="pp"><div class="icon" style="background:var(--amber-soft);color:var(--amber);">🏦</div><div class="txt"><div class="nm">Tabungan</div><div class="bal mono">Rp38.300.000</div></div><div class="radio"></div></div>
+        </div>
+        <div class="save-bar"><button class="save-btn">Lanjut</button></div>
+      </div></div>
+      <div class="step-caption">Pengirim juga menentukan kantong tujuan di sisi penerima — karena tanpa approval (sesuai keputusanmu), transfer ini harus jelas & disengaja mendarat di kantong mana.</div>
+    </div>
+
+    <div class="arrow-col">→</div>
+
+    <div class="step">
+      <div class="step-badge"><span class="num">3</span><span class="label">Review Dua Sisi</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Review Transfer</h4><div class="stepdot"><i></i><i></i><i class="on"></i><i></i></div></div>
+        <div class="review-card">
+          <div class="review-hero"><div class="lbl">Transfer</div><div class="amt mono">Rp3.000.000</div></div>
+          <div class="flow-diagram">
+            <div class="fd-box"><div class="nm">Irfan · Transaksi</div><div class="before mono">Rp8.450.000</div><div class="after mono">Rp5.450.000</div></div>
+            <div class="fd-arrow">→</div>
+            <div class="fd-box"><div class="nm">Ayu · Transaksi</div><div class="before mono">Rp5.900.000</div><div class="after mono">Rp8.900.000</div></div>
+          </div>
+          <div class="review-row"><span class="k">Catatan</span><span class="v">Uang belanja bulan ini</span></div>
+          <div class="review-row"><span class="k">Tanggal</span><span class="v">26 Jul 2026</span></div>
+        </div>
+        <div class="save-bar"><button class="save-btn">Kirim Transfer</button></div>
+      </div></div>
+      <div class="step-caption">Diagram <b>sebelum → sesudah</b> untuk kedua kantong sekaligus — ini titik kritis karena transfer antar pasangan langsung efektif tanpa approval, jadi review harus benar-benar meyakinkan sebelum tap kirim.</div>
+    </div>
+
+    <div class="arrow-col">→</div>
+
+    <div class="step">
+      <div class="step-badge"><span class="num">4</span><span class="label">Selesai</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="success-wrap">
+          <div class="success-check">✓</div>
+          <h3>Transfer berhasil</h3>
+          <p>Rp3.000.000 terkirim dari kantong Transaksi Irfan ke kantong Transaksi Ayu.</p>
+          <div class="success-balance">Saldo Transaksi — Irfan sekarang<b class="mono">Rp5.450.000</b></div>
+          <div class="success-actions">
+            <button>Transfer Lagi</button>
+            <button class="primary">Selesai</button>
+          </div>
+        </div>
+      </div></div>
+      <div class="step-caption">Transaksi transfer otomatis muncul di <b>Aktivitas Terbaru</b> kedua pihak — ini menggantikan kebutuhan approval, transparansi terjadi lewat visibilitas log, bukan lewat gate persetujuan.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ FLOW 3: PINDAH ANTAR KANTONG ============ -->
+<div class="panel" id="flow3">
+  <div class="flow-header">
+    <h2>3 · Pindah Antar Kantong (Milik Sendiri)</h2>
+    <p>Fokus UX: mirip transfer, tapi <b>tanpa pemilihan orang</b> — cukup pilih kantong asal & tujuan dari daftar kantong sendiri, termasuk opsi ke Kantong Bersama.</p>
+  </div>
+  <div class="flow-scroll">
+
+    <div class="step">
+      <div class="step-badge"><span class="num">1</span><span class="label">Kantong Asal</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Pindah Antar Kantong</h4><div class="stepdot"><i class="on"></i><i></i><i></i><i></i></div></div>
+        <div class="sheet-title">Dari kantong</div>
+        <div class="sheet-sub">Pilih sumber dana</div>
+        <div class="pocket-pick">
+          <div class="pp on"><div class="icon" style="background:var(--blue-soft);color:var(--blue);">💳</div><div class="txt"><div class="nm">Transaksi</div><div class="bal mono">Rp8.450.000</div></div><div class="radio"></div></div>
+          <div class="pp"><div class="icon" style="background:var(--amber-soft);color:var(--amber);">🏦</div><div class="txt"><div class="nm">Tabungan</div><div class="bal mono">Rp42.100.000</div></div><div class="radio"></div></div>
+          <div class="pp"><div class="icon" style="background:var(--violet-soft);color:var(--violet);">📈</div><div class="txt"><div class="nm">Investasi</div><div class="bal mono">Rp45.650.000</div></div><div class="radio"></div></div>
+        </div>
+        <div class="save-bar"><button class="save-btn">Lanjut</button></div>
+      </div></div>
+      <div class="step-caption">Daftar hanya menampilkan kantong milik user yang sedang aktif (Irfan) — tidak ada pilihan orang di flow ini, beda dari Transfer ke Pasangan.</div>
+    </div>
+
+    <div class="arrow-col">→</div>
+
+    <div class="step">
+      <div class="step-badge"><span class="num">2</span><span class="label">Kantong Tujuan</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Ke Kantong</h4><div class="stepdot"><i></i><i class="on"></i><i></i><i></i></div></div>
+        <div class="sheet-title">Ke kantong</div>
+        <div class="sheet-sub">Kantong asal disembunyikan dari pilihan</div>
+        <div class="pocket-pick">
+          <div class="pp on"><div class="icon" style="background:var(--amber-soft);color:var(--amber);">🏦</div><div class="txt"><div class="nm">Tabungan</div><div class="bal mono">Rp42.100.000</div></div><div class="radio"></div></div>
+          <div class="pp"><div class="icon" style="background:var(--violet-soft);color:var(--violet);">📈</div><div class="txt"><div class="nm">Investasi</div><div class="bal mono">Rp45.650.000</div></div><div class="radio"></div></div>
+          <div class="pp"><div class="icon" style="background:var(--violet-soft);color:#6a5a94;">👨‍👩‍👧</div><div class="txt"><div class="nm">Kantong Bersama — Dana Darurat</div><div class="bal mono">Rp34.500.000</div></div><div class="radio"></div></div>
+        </div>
+        <div class="save-bar"><button class="save-btn">Lanjut</button></div>
+      </div></div>
+      <div class="step-caption"><b>Kantong Bersama</b> muncul sebagai opsi tujuan — ini jalur resmi buat "nabung ke dana keluarga", konsisten dengan keputusan menambahkan joint pocket.</div>
+    </div>
+
+    <div class="arrow-col">→</div>
+
+    <div class="step">
+      <div class="step-badge"><span class="num">3</span><span class="label">Nominal & Catatan</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Nominal</h4><div class="stepdot"><i></i><i></i><i class="on"></i><i></i></div></div>
+        <div class="amount-box"><div class="cur">Rp</div><div class="val mono">2.000.000<span class="cursor"></span></div></div>
+        <div class="field-list">
+          <div class="field"><div class="f-icon" style="background:var(--surface-soft);color:var(--ink-soft);">✎</div><div class="f-text"><div class="f-label">Catatan</div><div class="f-value">Nabung rutin bulanan</div></div></div>
+        </div>
+        <div class="save-bar"><button class="save-btn">Review</button></div>
+      </div></div>
+      <div class="step-caption">Karena kantong sudah dipilih di step sebelumnya, layar ini cuma fokus ke satu hal: nominal. Ini pola numpad yang sama dipakai ulang dari Flow 1 — konsisten di seluruh app.</div>
+    </div>
+
+    <div class="arrow-col">→</div>
+
+    <div class="step">
+      <div class="step-badge"><span class="num">4</span><span class="label">Review & Selesai</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Review</h4><div class="stepdot"><i></i><i></i><i></i><i class="on"></i></div></div>
+        <div class="review-card">
+          <div class="review-hero"><div class="lbl">Pindah Kantong</div><div class="amt mono">Rp2.000.000</div></div>
+          <div class="flow-diagram">
+            <div class="fd-box"><div class="nm">Transaksi</div><div class="before mono">Rp8.450.000</div><div class="after mono">Rp6.450.000</div></div>
+            <div class="fd-arrow">→</div>
+            <div class="fd-box"><div class="nm">Tabungan</div><div class="before mono">Rp42.100.000</div><div class="after mono">Rp44.100.000</div></div>
+          </div>
+          <div class="review-row"><span class="k">Total saldo Irfan</span><span class="v">Tidak berubah</span></div>
+        </div>
+        <div class="save-bar"><button class="save-btn">Pindahkan Saldo</button></div>
+      </div></div>
+      <div class="step-caption">Baris <b>"Total saldo tidak berubah"</b> sengaja ditegaskan — bedanya dengan Transfer ke Pasangan, aksi ini murni redistribusi internal, bukan mengurangi kekayaan si user.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ FLOW 4: TARIK TUNAI ============ -->
+<div class="panel" id="flow4">
+  <div class="flow-header">
+    <h2>4 · Tarik Tunai (Cash Withdrawal)</h2>
+    <p>Fokus UX: menjawab masalah "lupa tanggal & jumlah tarik tunai" — flow dibuat <b>sesingkat mungkin (3 step)</b> karena aksi ini biasanya dicatat buru-buru setelah dari ATM, dan <b>tanggal wajib dicek</b> karena sering dicatat telat/lupa.</p>
+  </div>
+  <div class="flow-scroll">
+
+    <div class="step">
+      <div class="step-badge"><span class="num">1</span><span class="label">Sumber & Nominal</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Tarik Tunai</h4><div class="stepdot"><i class="on"></i><i></i><i></i></div></div>
+        <div class="amount-box"><div class="cur">Rp</div><div class="val mono">500.000<span class="cursor"></span></div></div>
+        <div class="sheet-title">Dari rekening / kantong</div>
+        <div class="pocket-pick">
+          <div class="pp on"><div class="icon" style="background:var(--blue-soft);color:var(--blue);">🏧</div><div class="txt"><div class="nm">BCA — Transaksi</div><div class="bal mono">Rp8.450.000</div></div><div class="radio"></div></div>
+          <div class="pp"><div class="icon" style="background:var(--amber-soft);color:var(--amber);">🏧</div><div class="txt"><div class="nm">Jago — Tabungan</div><div class="bal mono">Rp42.100.000</div></div><div class="radio"></div></div>
+        </div>
+        <div class="save-bar"><button class="save-btn">Lanjut</button></div>
+      </div></div>
+      <div class="step-caption">Nominal & sumber dana dalam satu layar yang sama — dua hal ini paling gampang diinget persis saat itu juga, jadi digabung biar cepat.</div>
+    </div>
+
+    <div class="arrow-col">→</div>
+
+    <div class="step">
+      <div class="step-badge"><span class="num">2</span><span class="label">Tanggal & Catatan</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Kapan ditarik?</h4><div class="stepdot"><i></i><i class="on"></i><i></i></div></div>
+        <div class="field-list" style="margin-top:8px;">
+          <div class="field active" style="padding:14px 10px;"><div class="f-icon" style="background:var(--green-soft);color:var(--green-deep);">📅</div><div class="f-text"><div class="f-label">Tanggal Penarikan</div><div class="f-value" style="font-size:13px;">24 Juli 2026</div></div><div class="f-chev">›</div></div>
+          <div class="field"><div class="f-icon" style="background:var(--surface-soft);color:var(--ink-soft);">✎</div><div class="f-text"><div class="f-label">Catatan</div><div class="f-value" style="color:var(--ink-faint);font-weight:500;">mis. "Buat bayar tukang"</div></div></div>
+        </div>
+        <div class="sheet-sub" style="padding-top:10px;">💡 Bukan hari ini? Geser tanggal ke belakang — wajar kalau baru sempat dicatat beberapa hari kemudian.</div>
+        <div class="save-bar"><button class="save-btn">Review</button></div>
+      </div></div>
+      <div class="step-caption">Tanggal <b>tidak default diam-diam ke "hari ini"</b> tanpa disorot — field ini justru ditonjolkan (bukan disembunyikan di form panjang) karena inilah akar masalah yang mau diselesaikan.</div>
+    </div>
+
+    <div class="arrow-col">→</div>
+
+    <div class="step">
+      <div class="step-badge"><span class="num">3</span><span class="label">Review & Selesai</span></div>
+      <div class="phone-mini"><div class="phone-screen">
+        <div class="p-notch"></div>
+        <div class="bar"><div class="back">←</div><h4>Review</h4><div class="stepdot"><i></i><i></i><i class="on"></i></div></div>
+        <div class="review-card" style="margin-top:8px;">
+          <div class="review-hero"><div class="lbl">Tarik Tunai</div><div class="amt mono">Rp500.000</div></div>
+          <div class="flow-diagram">
+            <div class="fd-box"><div class="nm">BCA · Transaksi</div><div class="before mono">Rp8.450.000</div><div class="after mono">Rp7.950.000</div></div>
+            <div class="fd-arrow">→</div>
+            <div class="fd-box"><div class="nm">💵 Cash — Irfan</div><div class="before mono">Rp450.000</div><div class="after mono">Rp950.000</div></div>
+          </div>
+          <div class="review-row"><span class="k">Tanggal</span><span class="v">24 Jul 2026</span></div>
+        </div>
+        <div class="save-bar"><button class="save-btn">Catat Penarikan</button></div>
+      </div></div>
+      <div class="step-caption">Diagram menegaskan uang <b>tidak hilang</b>, cuma pindah wujud dari saldo bank ke saldo Cash — supaya user tidak salah kira ini sebagai "pengeluaran".</div>
+    </div>
+
+  </div>
+</div>
+
+</div>
+
+<script>
+  function showPanel(id, btn){
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.querySelectorAll('.switcher button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+</script>
+
+</body>
+</html>

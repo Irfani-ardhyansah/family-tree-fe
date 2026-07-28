@@ -10,9 +10,10 @@ docs/
 │   ├── from-fe/            # Request spek dari FE → BE
 │   │   ├── done/
 │   │   └── pending/
-│   └── from-be/            # Spek / prompt dari BE → FE
-│       ├── done/
-│       └── pending/
+│   ├── from-be/            # Spek / prompt dari BE → FE
+│   │   ├── done/
+│   │   └── pending/
+│   └── to-be/              # Kontrak API target (belum diimplementasi BE)
 ├── seed/
 └── templates/
 ```
@@ -35,6 +36,12 @@ docs/
 
 ---
 
+## Requests to-be (kontrak target)
+
+| File | Modul |
+|------|--------|
+| [`requests/to-be/MONEY-TRACK-API.md`](./requests/to-be/MONEY-TRACK-API.md) | Money Track API — siap dikerjakan BE |
+
 ## Requests from FE — done
 
 | File | Modul |
@@ -51,13 +58,18 @@ docs/
 
 ## Requests from FE — pending
 
-Belum ada. Taruh spek baru di `requests/from-fe/pending/`.
+| File | Modul |
+|------|--------|
+| [`requests/from-fe/pending/PRD-Money-Track.md`](./requests/from-fe/pending/PRD-Money-Track.md) | PRD Money Track |
+| [`requests/from-fe/pending/money-track-mockup.html`](./requests/from-fe/pending/money-track-mockup.html) | Mockup UI |
+| [`requests/from-fe/pending/money-track-ux-flow.html`](./requests/from-fe/pending/money-track-ux-flow.html) | UX flow input uang |
 
 ## Requests from BE — done
 
 | File | Modul |
 |------|--------|
 | [`requests/from-be/done/WEB-PUSH-FE-PROMPT.md`](./requests/from-be/done/WEB-PUSH-FE-PROMPT.md) | Web Push (VAPID) — FE wired |
+| [`requests/from-be/done/SECONDARY-PASSWORD-FE-PROMPT.md`](./requests/from-be/done/SECONDARY-PASSWORD-FE-PROMPT.md) | Password kedua (Admin / Money / Household) |
 
 ## Requests from BE — pending
 

@@ -127,6 +127,16 @@ export function clearStoredTokens() {
 let accessToken: string | null = readStoredAccessToken();
 let refreshToken: string | null = readStoredRefreshToken();
 let sessionId: string | null = readStoredSessionId();
+let moduleUnlockToken: string | null = null;
+let moduleUnlockExpiresAt = 0;
+/** Saat bootstrap, jangan fire event redirect — AuthContext yang handle. */
+let suppressSessionExpiredEvent = false;
+
+export const SECONDARY_UNLOCK_REQUIRED_EVENT =
+  'familyroots:secondary-unlock-required';
+
+/** Token access/refresh tidak valid — AuthContext harus clear person + arahkan ke login. */
+export const SESSION_EXPIRED_EVENT = 'familyroots:session-expired';
 
 export function getAccessToken(): string | null {
   return accessToken;
@@ -145,10 +155,104 @@ export function setTokens(access: string | null, refresh: string | null) {
   refreshToken = refresh;
 }
 
-function applySessionIdFromAuth(next?: string | null) {
-  if (!next) return;
-  sessionId = next;
-  persistSessionId(next, readRemember());
+export function setModuleUnlockToken(token: string, expiresInSeconds: number) {
+  moduleUnlockToken = token;
+  // skew 5s supaya tidak kirim token hampir expired
+  moduleUnlockExpiresAt = Date.now() + Math.max(0, expiresInSeconds) * 1000 - 5000;
+}
+
+export function clearModuleUnlockToken() {
+  moduleUnlockToken = null;
+  moduleUnlockExpiresAt = 0;
+}
+
+export function getModuleUnlockToken(): string | null {
+  if (!moduleUnlockToken) return null;
+  if (Date.now() >= moduleUnlockExpiresAt) {
+    clearModuleUnlockToken();
+    return null;
+  }
+  return moduleUnlockToken;
+}
+
+export function hasValidModuleUnlock(): boolean {
+  return getModuleUnlockToken() != null;
+}
+
+function needsModuleUnlockHeader(path: string): boolean {
+  const p = path.split('?')[0] ?? path;
+  return (
+    p.startsWith('/admin') ||
+    p.startsWith('/money') ||
+    p.startsWith('/household')
+  );
+}
+
+function applySessionIdFromAuth(next?: string | number | null) {
+  if (next == null || next === '') return;
+  sessionId = String(next);
+  persistSessionId(sessionId, readRemember());
+}
+
+function notifySecondaryUnlockRequired() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(SECONDARY_UNLOCK_REQUIRED_EVENT));
+  }
+}
+
+function notifySessionExpired() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
+}
+
+/** Hapus token lokal + beri tahu UI untuk kembali ke login. */
+export function invalidateLocalSession(options?: { silent?: boolean }) {
+  const hadSession = accessToken != null || refreshToken != null;
+  accessToken = null;
+  refreshToken = null;
+  sessionId = null;
+  clearModuleUnlockToken();
+  clearStoredTokens();
+  if (
+    hadSession &&
+    !options?.silent &&
+    !suppressSessionExpiredEvent
+  ) {
+    notifySessionExpired();
+  }
+}
+
+/** Coba refresh setelah 401. Hanya invalidate jika refresh gagal / tidak ada refresh token. */
+async function recoverFromUnauthorized(retry: boolean): Promise<boolean> {
+  if (!retry) {
+    // Sudah pernah refresh + retry; 401 kedua bisa jadi error bisnis
+    // (mis. password kedua salah) — jangan anggap sesi mati.
+    return false;
+  }
+
+  if (refreshToken) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) return true;
+    invalidateLocalSession();
+    return false;
+  }
+
+  if (accessToken) {
+    invalidateLocalSession();
+  }
+  return false;
+}
+
+function handleSecondaryUnlockError(error: unknown) {
+  if (
+    error instanceof ApiClientError &&
+    (error.code === 'SECONDARY_UNLOCK_REQUIRED' ||
+      error.code === 'SECONDARY_UNLOCK_INVALID')
+  ) {
+    clearModuleUnlockToken();
+    notifySecondaryUnlockRequired();
+  }
 }
 
 async function parseResponse<T>(res: Response): Promise<T> {
@@ -214,7 +318,11 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
-function withAuthHeaders(initHeaders?: HeadersInit, hasBody = false): Headers {
+function withAuthHeaders(
+  path: string,
+  initHeaders?: HeadersInit,
+  hasBody = false,
+): Headers {
   const headers = new Headers(initHeaders);
   if (hasBody && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
@@ -225,6 +333,12 @@ function withAuthHeaders(initHeaders?: HeadersInit, hasBody = false): Headers {
   if (sessionId) {
     headers.set('X-Session-Id', sessionId);
   }
+  if (needsModuleUnlockHeader(path)) {
+    const unlock = getModuleUnlockToken();
+    if (unlock) {
+      headers.set('X-Module-Unlock', unlock);
+    }
+  }
   return headers;
 }
 
@@ -233,18 +347,23 @@ export async function apiFetch<T>(
   init: RequestInit = {},
   retry = true,
 ): Promise<T> {
-  const headers = withAuthHeaders(init.headers, init.body != null);
+  const headers = withAuthHeaders(path, init.headers, init.body != null);
 
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
 
-  if (res.status === 401 && retry && refreshToken) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
+  if (res.status === 401) {
+    const recovered = await recoverFromUnauthorized(retry);
+    if (recovered) {
       return apiFetch<T>(path, init, false);
     }
   }
 
-  return parseResponse<T>(res);
+  try {
+    return await parseResponse<T>(res);
+  } catch (error) {
+    handleSecondaryUnlockError(error);
+    throw error;
+  }
 }
 
 /** Multipart upload — do not set Content-Type (browser sets boundary). */
@@ -253,13 +372,13 @@ export async function apiFormFetch<T>(
   body: FormData,
   retry = true,
 ): Promise<T> {
-  const headers = withAuthHeaders();
+  const headers = withAuthHeaders(path);
 
   const res = await fetch(`${BASE}${path}`, { method: 'POST', headers, body });
 
-  if (res.status === 401 && retry && refreshToken) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
+  if (res.status === 401) {
+    const recovered = await recoverFromUnauthorized(retry);
+    if (recovered) {
       return apiFormFetch<T>(path, body, false);
     }
   }
@@ -268,7 +387,12 @@ export async function apiFormFetch<T>(
     return undefined as T;
   }
 
-  return parseResponse<T>(res);
+  try {
+    return await parseResponse<T>(res);
+  } catch (error) {
+    handleSecondaryUnlockError(error);
+    throw error;
+  }
 }
 
 /** Binary/text download (e.g. CSV template) — not JSON-wrapped. */
@@ -276,13 +400,13 @@ export async function apiBlobFetch(
   path: string,
   retry = true,
 ): Promise<{ blob: Blob; filename: string | null }> {
-  const headers = withAuthHeaders();
+  const headers = withAuthHeaders(path);
 
   const res = await fetch(`${BASE}${path}`, { headers });
 
-  if (res.status === 401 && retry && refreshToken) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
+  if (res.status === 401) {
+    const recovered = await recoverFromUnauthorized(retry);
+    if (recovered) {
       return apiBlobFetch(path, false);
     }
   }
@@ -290,7 +414,9 @@ export async function apiBlobFetch(
   if (!res.ok) {
     const body: unknown = await res.json().catch(() => null);
     if (isApiError(body)) {
-      throw new ApiClientError(body.error.code, body.error.message);
+      const err = new ApiClientError(body.error.code, body.error.message);
+      handleSecondaryUnlockError(err);
+      throw err;
     }
     throw new ApiClientError(
       'INTERNAL_ERROR',
@@ -349,6 +475,7 @@ export async function logoutRequest(): Promise<void> {
     accessToken = null;
     refreshToken = null;
     sessionId = null;
+    clearModuleUnlockToken();
     clearStoredTokens();
   }
 }
@@ -357,32 +484,46 @@ export async function bootstrapSession(): Promise<AuthMeResponse | null> {
   accessToken = readStoredAccessToken();
   refreshToken = readStoredRefreshToken();
   sessionId = readStoredSessionId();
+  // unlock token sengaja memory-only — refresh tab = harus verify lagi
 
   if (!accessToken && !refreshToken) {
     return null;
   }
 
-  try {
-    if (accessToken) {
-      return await fetchMe();
-    }
+  const BOOTSTRAP_TIMEOUT_MS = 12_000;
+  suppressSessionExpiredEvent = true;
 
-    const refreshed = await refreshAccessToken();
-    if (!refreshed) {
-      accessToken = null;
-      refreshToken = null;
-      sessionId = null;
-      clearStoredTokens();
+  try {
+    const me = await Promise.race([
+      (async () => {
+        if (accessToken) {
+          return await fetchMe();
+        }
+
+        const refreshed = await refreshAccessToken();
+        if (!refreshed) {
+          invalidateLocalSession({ silent: true });
+          return null;
+        }
+
+        return await fetchMe();
+      })(),
+      new Promise<null>((resolve) => {
+        globalThis.setTimeout(() => resolve(null), BOOTSTRAP_TIMEOUT_MS);
+      }),
+    ]);
+
+    if (me == null && (getAccessToken() || getRefreshToken())) {
+      invalidateLocalSession({ silent: true });
       return null;
     }
 
-    return await fetchMe();
+    return me;
   } catch {
-    accessToken = null;
-    refreshToken = null;
-    sessionId = null;
-    clearStoredTokens();
+    invalidateLocalSession({ silent: true });
     return null;
+  } finally {
+    suppressSessionExpiredEvent = false;
   }
 }
 

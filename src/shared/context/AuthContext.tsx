@@ -10,10 +10,12 @@ import {
 import type { AuthMeResponse, AuthPerson } from '@/shared/types/api';
 import {
   bootstrapSession,
+  clearModuleUnlockToken,
   fetchMe,
   loginRequest,
   logoutRequest,
   mapLoginError,
+  SESSION_EXPIRED_EVENT,
 } from '@/shared/lib/apiClient';
 import { disableWebPush } from '@/shared/lib/webPush';
 import { patchMeOption, fetchMeOptions } from '@/shared/lib/authOptionsApi';
@@ -21,6 +23,7 @@ import {
   isValidLoginCodeFormat,
   normalizeLoginCode,
 } from '@/shared/utils/loginCode';
+import { appPaths } from '@/shared/routes';
 
 const AUTH_PERSON_KEY = 'familyroots_auth_person';
 
@@ -85,6 +88,7 @@ function mergeAuthPerson(
       me.allowedFocusPersons ?? base.allowedFocusPersons ?? baseMe.allowedFocusPersons,
     accessVersion: me.accessVersion ?? baseMe.accessVersion,
     moduleStatuses: me.moduleStatuses ?? baseMe.moduleStatuses,
+    secondaryPassword: me.secondaryPassword ?? baseMe.secondaryPassword,
   };
 }
 
@@ -94,6 +98,10 @@ type AuthContextValue = {
   userId: number | null;
   person: AuthMeResponse | null;
   readFocusPersonId: number | null;
+  /** Belum pernah set password kedua */
+  mustSetupSecondaryPassword: boolean;
+  /** Password kedua sudah diset */
+  hasSecondaryPassword: boolean;
   login: (
     code: string,
     remember: boolean,
@@ -101,6 +109,10 @@ type AuthContextValue = {
   logout: () => Promise<void>;
   refreshPerson: () => Promise<void>;
   setReadFocusPersonId: (personId: number) => Promise<void>;
+  /** Update status secondary password di person state lokal */
+  setSecondaryPasswordStatus: (
+    status: NonNullable<AuthMeResponse['secondaryPassword']>,
+  ) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -116,8 +128,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const me = await bootstrapSession();
         if (!cancelled) {
-          const stored = readStoredAuthPerson();
-          setPerson(me && stored ? mergeAuthPerson(stored, me) : me ?? stored);
+          if (me) {
+            const stored = readStoredAuthPerson();
+            setPerson(stored ? mergeAuthPerson(stored, me) : me);
+          } else {
+            clearStoredAuthPerson();
+            setPerson(null);
+          }
         }
       } finally {
         if (!cancelled) {
@@ -131,6 +148,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const onSessionExpired = () => {
+      clearModuleUnlockToken();
+      clearStoredAuthPerson();
+      setPerson(null);
+      // Hard redirect — hindari state router kosong / blank setelah sesi mati
+      const path = window.location.pathname;
+      if (path !== appPaths.login && path !== appPaths.register) {
+        window.location.replace(appPaths.login);
+      }
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () =>
+      window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
   }, []);
 
   const login = useCallback(async (rawCode: string, remember: boolean) => {
@@ -156,11 +189,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const fullMe = await fetchMe();
-        const merged = mergeAuthPerson(data.person, fullMe);
+        const merged = mergeAuthPerson(data.person, {
+          ...fullMe,
+          secondaryPassword:
+            fullMe.secondaryPassword ?? data.secondaryPassword,
+        });
         setPerson(merged);
         persistAuthPerson(merged);
       } catch {
-        const fallback = { ...data.person, familyId: 0 };
+        const fallback: AuthMeResponse = {
+          ...data.person,
+          familyId: 0,
+          secondaryPassword: data.secondaryPassword,
+        };
         setPerson(fallback);
         persistAuthPerson(fallback);
       }
@@ -181,9 +222,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ignore push cleanup errors
     }
     await logoutRequest();
+    clearModuleUnlockToken();
     clearStoredAuthPerson();
     setPerson(null);
   }, []);
+
+  const setSecondaryPasswordStatus = useCallback(
+    (status: NonNullable<AuthMeResponse['secondaryPassword']>) => {
+      setPerson((prev) => {
+        if (!prev) return prev;
+        const merged: AuthMeResponse = {
+          ...prev,
+          secondaryPassword: status,
+        };
+        persistAuthPerson(merged);
+        return merged;
+      });
+    },
+    [],
+  );
 
   const refreshPerson = useCallback(async () => {
     const me = await fetchMe();
@@ -244,6 +301,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const readFocusPersonId = person?.readFocusPersonId ?? person?.id ?? null;
+  const mustSetupSecondaryPassword =
+    person?.secondaryPassword?.mustSetup === true;
+  const hasSecondaryPassword = person?.secondaryPassword?.isSet === true;
 
   const value = useMemo(
     () => ({
@@ -252,19 +312,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userId: person?.id ?? null,
       person,
       readFocusPersonId,
+      mustSetupSecondaryPassword,
+      hasSecondaryPassword,
       login,
       logout,
       refreshPerson,
       setReadFocusPersonId,
+      setSecondaryPasswordStatus,
     }),
     [
       person,
       isInitializing,
       readFocusPersonId,
+      mustSetupSecondaryPassword,
+      hasSecondaryPassword,
       login,
       logout,
       refreshPerson,
       setReadFocusPersonId,
+      setSecondaryPasswordStatus,
     ],
   );
 

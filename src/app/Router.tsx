@@ -10,6 +10,7 @@ import { householdRoutes } from '@/modules/household/routes';
 import { moneyTrackRoutes } from '@/modules/money-track/routes';
 import { AuthProvider } from '@/shared/context/AuthContext';
 import { DataSourceProvider } from '@/shared/context/DataSourceContext';
+import { SecondaryPasswordGateProvider } from '@/shared/context/SecondaryPasswordGateContext';
 import { appPaths } from '@/shared/routes';
 
 const router = createBrowserRouter([
@@ -29,6 +30,7 @@ const router = createBrowserRouter([
       ...householdRoutes,
       ...adminRoutes,
       ...legacyRedirectRoutes,
+      { path: '*', element: <Navigate to={appPaths.launcher} replace /> },
     ],
   },
   {
@@ -40,9 +42,11 @@ const router = createBrowserRouter([
 export function AppRouter() {
   return (
     <AuthProvider>
-      <DataSourceProvider>
-        <RouterProvider router={router} />
-      </DataSourceProvider>
+      <SecondaryPasswordGateProvider>
+        <DataSourceProvider>
+          <RouterProvider router={router} />
+        </DataSourceProvider>
+      </SecondaryPasswordGateProvider>
     </AuthProvider>
   );
 }

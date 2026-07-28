@@ -1,12 +1,15 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ChevronDown, LogOut, Home, Shield } from 'react-feather';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronDown, Home, Key, LogOut, Shield } from 'react-feather';
 import { NotificationBell } from '@/shared/components/ui/NotificationBell';
 import { useAuth } from '@/shared/context/AuthContext';
+import { useSecondaryPasswordGate } from '@/shared/context/SecondaryPasswordGateContext';
 import { MODULE_CATALOG, type ModuleDevStatus } from '@/shared/data/moduleCatalog';
 import { useIsAdmin } from '@/shared/hooks/useIsAdmin';
 import { adminPaths, appPaths } from '@/shared/routes';
 import { shortPersonName } from '@/shared/utils/personDisplayName';
+
+const SENSITIVE_MODULE_IDS = new Set(['money', 'household']);
 
 const STATUS_STYLES: Record<
   ModuleDevStatus,
@@ -34,10 +37,13 @@ function getInitials(fullName: string): string {
 }
 
 export function LauncherPage() {
-  const { person, logout } = useAuth();
+  const { person, logout, mustSetupSecondaryPassword, hasSecondaryPassword } =
+    useAuth();
+  const { ensureUnlocked, openChangePassword } = useSecondaryPasswordGate();
   const isAdmin = useIsAdmin();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const setupPrompted = useRef(false);
 
   const displayName = useMemo(
     () => (person ? shortPersonName(person, person.fullName) : 'Pengguna'),
@@ -54,6 +60,17 @@ export function LauncherPage() {
     );
     return (moduleId: string) => map.get(moduleId) ?? true;
   }, [person?.moduleStatuses]);
+
+  useEffect(() => {
+    if (!mustSetupSecondaryPassword || setupPrompted.current) return;
+    setupPrompted.current = true;
+    void ensureUnlocked();
+  }, [mustSetupSecondaryPassword, ensureUnlocked]);
+
+  const openModule = async (to: string) => {
+    const ok = await ensureUnlocked();
+    if (ok) navigate(to);
+  };
 
   const handleLogout = async () => {
     setMenuOpen(false);
@@ -100,16 +117,32 @@ export function LauncherPage() {
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 z-20 mt-2 w-44 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl">
+              <div className="absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl">
                 {isAdmin && (
-                  <Link
-                    to={adminPaths.home}
-                    onClick={() => setMenuOpen(false)}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void openModule(adminPaths.home);
+                    }}
                     className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-teal-200 hover:bg-zinc-800"
                   >
                     <Shield size={14} />
                     Admin Panel
-                  </Link>
+                  </button>
+                )}
+                {hasSecondaryPassword && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      openChangePassword();
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-zinc-200 hover:bg-zinc-800"
+                  >
+                    <Key size={14} />
+                    Ganti password kedua
+                  </button>
                 )}
                 <button
                   type="button"
@@ -167,7 +200,9 @@ export function LauncherPage() {
                 <div className="mt-4">
                   <h3
                     className={`text-lg font-bold text-white ${
-                      enabled ? 'group-hover:text-primary-200' : ''
+                      enabled
+                        ? (mod.titleHover ?? 'group-hover:text-primary-200')
+                        : ''
                     }`}
                   >
                     {mod.title}
@@ -187,7 +222,7 @@ export function LauncherPage() {
                     >
                       <FeatureIcon
                         size={15}
-                        className="flex-shrink-0 text-zinc-500"
+                        className={`flex-shrink-0 ${mod.iconColor}`}
                       />
                       {label}
                     </li>
@@ -196,21 +231,44 @@ export function LauncherPage() {
               </>
             );
 
-            return enabled ? (
-              <Link key={mod.id} to={mod.to} className={cardClass}>
+            if (!enabled) {
+              return (
+                <div key={mod.id} className={cardClass} aria-disabled>
+                  {body}
+                </div>
+              );
+            }
+
+            if (SENSITIVE_MODULE_IDS.has(mod.id)) {
+              return (
+                <button
+                  key={mod.id}
+                  type="button"
+                  onClick={() => void openModule(mod.to)}
+                  className={`${cardClass} w-full text-left`}
+                >
+                  {body}
+                </button>
+              );
+            }
+
+            return (
+              <button
+                key={mod.id}
+                type="button"
+                onClick={() => navigate(mod.to)}
+                className={`${cardClass} w-full text-left`}
+              >
                 {body}
-              </Link>
-            ) : (
-              <div key={mod.id} className={cardClass} aria-disabled>
-                {body}
-              </div>
+              </button>
             );
           })}
 
           {isAdmin && (
-            <Link
-              to={adminPaths.home}
-              className="group relative rounded-3xl border border-zinc-800/90 border-t-4 border-t-teal-500 bg-zinc-900/70 p-5 shadow-lg shadow-black/20 transition duration-200 hover:-translate-y-0.5 hover:border-zinc-700 hover:bg-zinc-900 sm:col-span-2"
+            <button
+              type="button"
+              onClick={() => void openModule(adminPaths.home)}
+              className="group relative w-full rounded-3xl border border-zinc-800/90 border-t-4 border-t-teal-500 bg-zinc-900/70 p-5 text-left shadow-lg shadow-black/20 transition duration-200 hover:-translate-y-0.5 hover:border-zinc-700 hover:bg-zinc-900 sm:col-span-2"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-500/15">
@@ -233,7 +291,7 @@ export function LauncherPage() {
                   Buka kontrol →
                 </span>
               </div>
-            </Link>
+            </button>
           )}
         </section>
       </div>

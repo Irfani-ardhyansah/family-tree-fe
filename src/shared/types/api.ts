@@ -140,12 +140,21 @@ export type ModuleStatusFromAuth = {
   updatedBy?: string | null;
 };
 
+export type SensitiveModuleId = 'admin' | 'money' | 'household';
+
+export type SecondaryPasswordStatus = {
+  isSet: boolean;
+  mustSetup: boolean;
+  unlocks: SensitiveModuleId[];
+};
+
 export type LoginResponse = {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
-  sessionId?: string;
+  sessionId?: string | number;
   person: AuthPerson;
+  secondaryPassword?: SecondaryPasswordStatus;
 };
 
 export type AuthMeResponse = AuthPerson & {
@@ -155,6 +164,7 @@ export type AuthMeResponse = AuthPerson & {
   /** Bumped when admin toggles module access */
   accessVersion?: number;
   moduleStatuses?: ModuleStatusFromAuth[];
+  secondaryPassword?: SecondaryPasswordStatus;
 };
 
 export type PersonOptionsResponse = {

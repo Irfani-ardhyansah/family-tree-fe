@@ -1,16 +1,42 @@
-import { Outlet, type RouteObject } from 'react-router-dom';
-import { ModuleShellLayout } from '@/app/layouts/ModuleShellLayout';
-import { MoneyTrackPage } from '@/modules/money-track/pages/MoneyTrackPage';
+import type { RouteObject } from 'react-router-dom';
+import { SensitiveModuleRoute } from '@/app/routes/SensitiveModuleRoute';
+import { MoneyTrackLayout } from '@/modules/money-track/layout/MoneyTrackLayout';
+import { BalancingPage } from '@/modules/money-track/pages/BalancingPage';
+import { DashboardPage } from '@/modules/money-track/pages/DashboardPage';
+import { DebtsPage } from '@/modules/money-track/pages/DebtsPage';
+import {
+  NewCashPage,
+  NewMovePage,
+  NewTransactionPage,
+  NewTransferPage,
+} from '@/modules/money-track/pages/NewFlowPages';
+import { PocketsPage } from '@/modules/money-track/pages/PocketsPage';
+import { SetupPage } from '@/modules/money-track/pages/SetupPage';
+import { TransactionsPage } from '@/modules/money-track/pages/TransactionsPage';
+import { WishlistPage } from '@/modules/money-track/pages/WishlistPage';
 import { moneyPaths } from '@/shared/routes';
 
 export const moneyTrackRoutes: RouteObject[] = [
   {
-    path: moneyPaths.home,
-    element: (
-      <ModuleShellLayout moduleName="Money Track">
-        <Outlet />
-      </ModuleShellLayout>
-    ),
-    children: [{ index: true, element: <MoneyTrackPage /> }],
+    element: <SensitiveModuleRoute />,
+    children: [
+      {
+        path: moneyPaths.home,
+        element: <MoneyTrackLayout />,
+        children: [
+          { index: true, element: <DashboardPage /> },
+          { path: 'transactions', element: <TransactionsPage /> },
+          { path: 'pockets', element: <PocketsPage /> },
+          { path: 'wishlist', element: <WishlistPage /> },
+          { path: 'debts', element: <DebtsPage /> },
+          { path: 'balancing', element: <BalancingPage /> },
+          { path: 'setup', element: <SetupPage /> },
+          { path: 'new/transaction', element: <NewTransactionPage /> },
+          { path: 'new/transfer', element: <NewTransferPage /> },
+          { path: 'new/move', element: <NewMovePage /> },
+          { path: 'new/cash', element: <NewCashPage /> },
+        ],
+      },
+    ],
   },
 ];

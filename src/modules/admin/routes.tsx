@@ -1,5 +1,6 @@
 import type { RouteObject } from 'react-router-dom';
 import { AdminRoute } from '@/app/routes/guards';
+import { SensitiveModuleRoute } from '@/app/routes/SensitiveModuleRoute';
 import { AdminLayout } from '@/modules/admin/layout/AdminLayout';
 import { AuditLogPage } from '@/modules/admin/pages/AuditLogPage';
 import { BackupExportPage } from '@/modules/admin/pages/BackupExportPage';
@@ -15,17 +16,22 @@ export const adminRoutes: RouteObject[] = [
     element: <AdminRoute />,
     children: [
       {
-        path: adminPaths.home,
-        element: <AdminLayout />,
+        element: <SensitiveModuleRoute />,
         children: [
-          { index: true, element: <DashboardPage /> },
-          // RBAC Modul — disembunyikan sementara (page tetap di pages/RbacModulPage.tsx)
-          { path: 'modules', element: <StatusModulPage /> },
-          { path: 'audit', element: <AuditLogPage /> },
-          { path: 'sessions', element: <SessionManagementPage /> },
-          { path: 'broadcast', element: <BroadcastPage /> },
-          { path: 'settings', element: <SettingsPage /> },
-          { path: 'backup', element: <BackupExportPage /> },
+          {
+            path: adminPaths.home,
+            element: <AdminLayout />,
+            children: [
+              { index: true, element: <DashboardPage /> },
+              // RBAC Modul — disembunyikan sementara
+              { path: 'modules', element: <StatusModulPage /> },
+              { path: 'audit', element: <AuditLogPage /> },
+              { path: 'sessions', element: <SessionManagementPage /> },
+              { path: 'broadcast', element: <BroadcastPage /> },
+              { path: 'settings', element: <SettingsPage /> },
+              { path: 'backup', element: <BackupExportPage /> },
+            ],
+          },
         ],
       },
     ],

@@ -173,12 +173,9 @@ function NavItem({
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { logout, person } = useAuth();
+  const { logout } = useAuth();
   const { canUseMock } = useDataSource();
   const navigate = useNavigate();
-  const loginName = person
-    ? shortPersonName(person, person.fullName)
-    : null;
 
   const handleLogout = async () => {
     setMobileOpen(false);
@@ -237,19 +234,6 @@ export function Navbar() {
               <PerspectiveSwitcher />
             </div>
             <NotificationBell variant="light" />
-            {loginName && (
-              <div
-                className="hidden sm:flex flex-col items-end leading-tight px-1"
-                title={person?.fullName}
-              >
-                <span className="text-[10px] text-gray-400 font-medium">
-                  Login sebagai
-                </span>
-                <span className="text-xs font-semibold text-brand-700 max-w-[8rem] truncate">
-                  {loginName}
-                </span>
-              </div>
-            )}
             <button
               type="button"
               onClick={handleLogout}
@@ -282,17 +266,6 @@ export function Navbar() {
       {/* Mobile menu */}
       {mobileOpen && (
         <div className="lg:hidden border-t border-gray-100 bg-white px-3 sm:px-4 py-4 space-y-4 shadow-lg max-h-[calc(100dvh-3.5rem)] overflow-y-auto">
-          {loginName && (
-            <div className="px-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                Login sebagai
-              </p>
-              <p className="text-sm font-semibold text-brand-700" title={person?.fullName}>
-                {person?.fullName ?? loginName}
-              </p>
-            </div>
-          )}
-
           {canUseMock && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1">

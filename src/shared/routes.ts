@@ -25,6 +25,16 @@ export const corePaths = {
 
 export const moneyPaths = {
   home: '/money',
+  transactions: '/money/transactions',
+  pockets: '/money/pockets',
+  wishlist: '/money/wishlist',
+  debts: '/money/debts',
+  balancing: '/money/balancing',
+  setup: '/money/setup',
+  newTransaction: '/money/new/transaction',
+  newTransfer: '/money/new/transfer',
+  newMove: '/money/new/move',
+  newCash: '/money/new/cash',
 } as const;
 
 export const householdPaths = {
