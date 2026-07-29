@@ -50,8 +50,9 @@ export type MoneyActivityItem = {
 
 export type MoneyAlert = {
   id: string;
-  message: string;
-  href: string;
+  title: string;
+  body: string;
+  href?: string;
 };
 
 export type MoneyDashboardMock = {

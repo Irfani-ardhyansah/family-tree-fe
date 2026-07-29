@@ -1,5 +1,4 @@
 import type { MoneyDashboardMock } from '@/modules/money-track/types';
-import { moneyPaths } from '@/shared/routes';
 
 /** Static mock for layout verification — replace with API later. */
 export const moneyDashboardMock: MoneyDashboardMock = {
@@ -131,9 +130,9 @@ export const moneyDashboardMock: MoneyDashboardMock = {
   alerts: [
     {
       id: 'alert-1',
-      message:
-        'Kantong Transaksi — Irfan tidak sinkron Rp 120.000 dengan saldo riil.',
-      href: moneyPaths.balancing,
+      title: 'Piutang Budi jatuh tempo',
+      body: 'Sisa piutang Rp 800.000',
+      href: '/money/debts/d1',
     },
   ],
 };

@@ -28,7 +28,9 @@ export function MoneyModalsHost() {
     case 'cash':
       return <CashWithdrawalModal onClose={closeModal} />;
     case 'account':
-      return <AccountModal onClose={closeModal} />;
+      return (
+        <AccountModal onClose={closeModal} payload={activeModal.payload} />
+      );
     case 'pocket':
       return (
         <PocketModal onClose={closeModal} payload={activeModal.payload} />

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plus } from 'react-feather';
+import { Link } from 'react-router-dom';
 import { DataSourceBanner } from '@/modules/money-track/components/DataSourceBanner';
 import {
   FilterChip,
@@ -8,6 +9,7 @@ import {
 } from '@/modules/money-track/components/PageChrome';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
 import { formatIdr } from '@/modules/money-track/types';
+import { moneyPaths } from '@/shared/routes';
 
 type StatusFilter = 'all' | 'open' | 'partial' | 'paid';
 type DirectionFilter = 'all' | 'utang' | 'piutang';
@@ -139,7 +141,7 @@ export function DebtsPage() {
                           : 'bg-money-rose-soft text-money-rose'
                       }`}
                     >
-                      {row.direction === 'piutang' ? 'Piutang' : 'Utang'}
+                      {row.directionLabel}
                     </span>
                     <span
                       className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${statusTone(row.status)}`}
@@ -164,7 +166,7 @@ export function DebtsPage() {
                     {formatIdr(row.remaining)}
                   </div>
                   <div className="text-[11px] text-money-faint">
-                    sisa dari {formatIdr(row.amount)}
+                    {row.remainingLabel} dari {formatIdr(row.amount)}
                   </div>
                 </div>
               </div>
@@ -182,8 +184,8 @@ export function DebtsPage() {
                 </div>
               </div>
 
-              {row.status !== 'paid' ? (
-                <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
+                {row.status !== 'paid' ? (
                   <button
                     type="button"
                     onClick={() =>
@@ -196,14 +198,14 @@ export function DebtsPage() {
                   >
                     Catat pembayaran
                   </button>
-                  <button
-                    type="button"
-                    className="rounded-full border border-money-border px-3 py-1.5 text-[12px] font-bold text-money-muted hover:bg-money-soft"
-                  >
-                    Detail
-                  </button>
-                </div>
-              ) : null}
+                ) : null}
+                <Link
+                  to={moneyPaths.debtDetail(row.id)}
+                  className="rounded-full border border-money-border px-3 py-1.5 text-[12px] font-bold text-money-muted hover:bg-money-soft"
+                >
+                  Detail
+                </Link>
+              </div>
             </MoneyCard>
           );
         })}

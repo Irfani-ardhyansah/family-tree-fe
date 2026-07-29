@@ -310,10 +310,21 @@ export function DashboardPage() {
             >
               <span aria-hidden>⚠</span>
               <span>
-                {alert.message}{' '}
-                <Link to={alert.href} className="font-bold underline">
-                  Balancing sekarang
-                </Link>
+                <span className="font-bold">{alert.title}</span>
+                {alert.body ? (
+                  <>
+                    {' — '}
+                    {alert.body}
+                  </>
+                ) : null}
+                {alert.href ? (
+                  <>
+                    {' '}
+                    <Link to={alert.href} className="font-bold underline">
+                      Lihat detail
+                    </Link>
+                  </>
+                ) : null}
               </span>
             </div>
           ))}

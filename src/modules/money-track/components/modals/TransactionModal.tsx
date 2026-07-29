@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
 import { formatIdr } from '@/modules/money-track/types';
 import {
@@ -14,20 +14,17 @@ import {
   OptionCard,
   SuccessPanel,
 } from '@/modules/money-track/components/modals/MoneyModalShell';
-import {
-  EXPENSE_CATEGORIES,
-  INCOME_CATEGORIES,
-  todayLabel,
-} from '@/modules/money-track/components/modals/modalTypes';
+import { todayLabel } from '@/modules/money-track/components/modals/modalTypes';
 
 type TxType = 'expense' | 'income';
 
 export function TransactionModal({ onClose }: { onClose: () => void }) {
-  const { data, accounts, appendTransaction, dataSource } = useMoneyTrackUi();
+  const { data, accounts, categories, appendTransaction, dataSource } =
+    useMoneyTrackUi();
   const [step, setStep] = useState(1);
   const [txType, setTxType] = useState<TxType>('expense');
   const [digits, setDigits] = useState('85000');
-  const [categoryId, setCategoryId] = useState('makan');
+  const [categoryId, setCategoryId] = useState('');
   const [pocketId, setPocketId] = useState('');
   const [note, setNote] = useState('');
   const [dateLabel, setDateLabel] = useState(todayLabel());
@@ -51,11 +48,24 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
   const selectedPocket =
     pocketOptions.find((p) => p.id === pocketId) ?? pocketOptions[0];
 
-  const categories =
-    txType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+  const typedCategories = useMemo(
+    () =>
+      categories
+        .filter((c) => c.type === txType)
+        .slice()
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
+    [categories, txType],
+  );
+
   const category =
-    categories.find((c) => c.id === categoryId) ?? categories[0];
+    typedCategories.find((c) => c.id === categoryId) ?? typedCategories[0];
   const amount = Number(digits.replace(/\D/g, '')) || 0;
+
+  useEffect(() => {
+    if (!typedCategories.some((c) => c.id === categoryId)) {
+      setCategoryId(typedCategories[0]?.id ?? '');
+    }
+  }, [typedCategories, categoryId]);
 
   const pushDigit = (d: string) => {
     setDigits((prev) => {
@@ -66,17 +76,20 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
 
   const handleSave = () => {
     const pocket = selectedPocket;
-    if (!pocket || amount <= 0) return;
+    if (!pocket || amount <= 0 || !category) return;
     appendTransaction({
       id: `t-${Date.now()}`,
       dateLabel,
+      dateIso: new Date().toISOString().slice(0, 10),
       title: note.trim() || category.name,
       category: category.name,
+      categoryId: category.id,
       person: pocket.person,
       personId:
         data.persons.find((p) => p.name === pocket.person)?.id ??
         data.loginPersonId,
       pocket: pocket.label,
+      pocketId: pocket.id,
       kind: txType,
       amount,
     });
@@ -88,7 +101,7 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
       <MoneyModalShell title="Catat Transaksi" onClose={onClose}>
         <SuccessPanel
           title="Transaksi tersimpan"
-          body={`${txType === 'expense' ? 'Pengeluaran' : 'Pemasukan'} ${formatIdr(amount)} untuk ${category.name} sudah tercatat${dataSource === 'dummy' ? ' (dummy)' : ''}.`}
+          body={`${txType === 'expense' ? 'Pengeluaran' : 'Pemasukan'} ${formatIdr(amount)} untuk ${category?.name ?? '—'} sudah tercatat${dataSource === 'dummy' ? ' (dummy)' : ''}.`}
           balanceLabel={selectedPocket ? `Saldo ${selectedPocket.label}` : undefined}
           balanceValue={
             selectedPocket
@@ -136,14 +149,16 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
           ) : null}
           <div className="flex-1">
             <MoneyPrimaryButton
-              disabled={step === 1 && amount <= 0}
+              disabled={
+                (step === 1 && amount <= 0) ||
+                (step === 2 && typedCategories.length === 0)
+              }
               onClick={() => {
                 if (step === 1) {
                   if (!pocketId && pocketOptions[0]) {
                     setPocketId(pocketOptions[0].id);
                   }
-                  if (txType === 'income') setCategoryId(INCOME_CATEGORIES[0].id);
-                  else setCategoryId(EXPENSE_CATEGORIES[0].id);
+                  setCategoryId(typedCategories[0]?.id ?? '');
                   setStep(2);
                   return;
                 }
@@ -205,31 +220,38 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
       )}
 
       {step === 2 && (
-        <div className="grid grid-cols-4 gap-2.5">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => setCategoryId(cat.id)}
-              className="flex flex-col items-center gap-1.5"
-            >
-              <span
-                className={[
-                  'flex h-12 w-12 items-center justify-center rounded-[14px] text-lg',
-                  categoryId === cat.id
-                    ? 'outline outline-2 outline-offset-2 outline-money-brown'
-                    : '',
-                  'bg-money-soft',
-                ].join(' ')}
+        typedCategories.length === 0 ? (
+          <p className="py-8 text-center text-[13px] text-money-faint">
+            Belum ada kategori {txType === 'expense' ? 'pengeluaran' : 'pemasukan'}.
+            Tambah dulu di menu Kategori.
+          </p>
+        ) : (
+          <div className="grid grid-cols-4 gap-2.5">
+            {typedCategories.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setCategoryId(cat.id)}
+                className="flex flex-col items-center gap-1.5"
               >
-                {cat.emoji}
-              </span>
-              <span className="text-[10px] font-semibold text-money-muted">
-                {cat.name}
-              </span>
-            </button>
-          ))}
-        </div>
+                <span
+                  className={[
+                    'flex h-12 w-12 items-center justify-center rounded-[14px] text-lg',
+                    categoryId === cat.id
+                      ? 'outline outline-2 outline-offset-2 outline-money-brown'
+                      : '',
+                    'bg-money-soft',
+                  ].join(' ')}
+                >
+                  {cat.icon || '🏷️'}
+                </span>
+                <span className="text-[10px] font-semibold text-money-muted">
+                  {cat.name}
+                </span>
+              </button>
+            ))}
+          </div>
+        )
       )}
 
       {step === 3 && (
@@ -282,7 +304,10 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
               {formatIdr(amount)}
             </div>
           </div>
-          <ReviewRow k="Kategori" v={`${category.emoji} ${category.name}`} />
+          <ReviewRow
+            k="Kategori"
+            v={`${category?.icon || '🏷️'} ${category?.name ?? '—'}`}
+          />
           <ReviewRow k="Kantong" v={selectedPocket?.label ?? '—'} />
           <ReviewRow k="Tanggal" v={dateLabel} />
           <ReviewRow k="Catatan" v={note || '—'} />

@@ -1,4 +1,12 @@
 import { useState } from 'react';
+import {
+  archiveMoneyPocket,
+  createMoneyAccount,
+  createMoneyPocket,
+  deleteMoneyAccount,
+  updateMoneyAccount,
+  updateMoneyPocket,
+} from '@/modules/money-track/api/moneyApi';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
 import { formatIdr } from '@/modules/money-track/types';
 import {
@@ -6,10 +14,12 @@ import {
   FieldLabel,
   FieldSelect,
   FieldTextarea,
+  MoneyAmountInput,
 } from '@/modules/money-track/components/modals/MoneyFormFields';
 import {
   MoneyModalShell,
   MoneyPrimaryButton,
+  MoneySecondaryButton,
   SuccessPanel,
 } from '@/modules/money-track/components/modals/MoneyModalShell';
 import {
@@ -17,20 +27,51 @@ import {
   todayLabel,
   type MoneyModalPayload,
 } from '@/modules/money-track/components/modals/modalTypes';
+import { ApiClientError } from '@/shared/lib/apiClient';
 
-export function AccountModal({ onClose }: { onClose: () => void }) {
-  const { data, appendAccount, dataSource } = useMoneyTrackUi();
-  const [personId, setPersonId] = useState(data.persons[0]?.id ?? '');
-  const [name, setName] = useState('');
-  const [type, setType] = useState('bank');
+export function AccountModal({
+  onClose,
+  payload,
+}: {
+  onClose: () => void;
+  payload?: MoneyModalPayload;
+}) {
+  const {
+    data,
+    accounts,
+    appendAccount,
+    patchAccount,
+    removeAccount,
+    dataSource,
+    refreshApi,
+  } = useMoneyTrackUi();
+  const editingId = payload?.accountId;
+  const editing = Boolean(editingId);
+  const existing = editing
+    ? accounts.find((a) => a.id === editingId)
+    : undefined;
+
+  const [personId, setPersonId] = useState(
+    payload?.personId ?? data.persons[0]?.id ?? '',
+  );
+  const [name, setName] = useState(payload?.accountName ?? '');
+  const [type, setType] = useState(payload?.accountType ?? 'bank');
   const [done, setDone] = useState(false);
+  const [doneAction, setDoneAction] = useState<'save' | 'delete'>('save');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isCash = (existing?.type ?? type) === 'cash';
 
   if (done) {
     return (
-      <MoneyModalShell title="Tambah Account" onClose={onClose}>
+      <MoneyModalShell
+        title={editing ? 'Edit Account' : 'Tambah Account'}
+        onClose={onClose}
+      >
         <SuccessPanel
-          title="Account ditambahkan"
-          body={`${name} tersimpan${dataSource === 'dummy' ? ' di dummy' : ''}.`}
+          title={doneAction === 'delete' ? 'Account dihapus' : 'Account tersimpan'}
+          body={`${name}${dataSource === 'dummy' ? ' (dummy)' : ''}.`}
           onDone={onClose}
         />
       </MoneyModalShell>
@@ -39,41 +80,159 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
 
   return (
     <MoneyModalShell
-      title="Tambah Account"
-      subtitle="Bank, e-wallet, atau cash"
+      title={editing ? 'Edit Account' : 'Tambah Account'}
+      subtitle={
+        editing
+          ? isCash
+            ? 'Account cash — hapus tidak diizinkan'
+            : 'Ubah nama atau hapus account'
+          : 'Bank, e-wallet, atau cash'
+      }
       onClose={onClose}
       footer={
-        <MoneyPrimaryButton
-          disabled={!name.trim() || !personId}
-          onClick={() => {
-            const person = data.persons.find((p) => p.id === personId);
-            appendAccount({
-              id: `acc-${Date.now()}`,
-              personId,
-              personName: person?.name ?? '—',
-              name: name.trim(),
-              type: type as 'bank' | 'ewallet' | 'cash',
-              pockets: [],
-            });
-            setDone(true);
-          }}
-        >
-          Simpan Account
-        </MoneyPrimaryButton>
+        <div className="flex gap-2">
+          {editing && !isCash ? (
+            <div className="w-28">
+              <MoneySecondaryButton
+                disabled={saving}
+                onClick={() => {
+                  void (async () => {
+                    if (
+                      !window.confirm(
+                        `Hapus account "${name}"? Semua pocket harus sudah di-archive/hapus dulu.`,
+                      )
+                    ) {
+                      return;
+                    }
+                    setSaving(true);
+                    setError(null);
+                    try {
+                      if (dataSource === 'api') {
+                        await deleteMoneyAccount(editingId!);
+                        await refreshApi();
+                      } else {
+                        removeAccount(editingId!);
+                      }
+                      setDoneAction('delete');
+                      setDone(true);
+                    } catch (err) {
+                      setError(
+                        err instanceof ApiClientError
+                          ? err.message
+                          : 'Gagal menghapus account.',
+                      );
+                    } finally {
+                      setSaving(false);
+                    }
+                  })();
+                }}
+              >
+                Hapus
+              </MoneySecondaryButton>
+            </div>
+          ) : null}
+          <div className="flex-1">
+            <MoneyPrimaryButton
+              disabled={
+                !name.trim() ||
+                saving ||
+                (!editing && (!personId || data.persons.length === 0))
+              }
+              onClick={() => {
+                void (async () => {
+                  setSaving(true);
+                  setError(null);
+                  try {
+                    const trimmed = name.trim();
+                    if (editing) {
+                      if (dataSource === 'api') {
+                        await updateMoneyAccount(editingId!, {
+                          name: trimmed,
+                          bankName:
+                            (existing?.type ?? type) === 'bank'
+                              ? trimmed
+                              : undefined,
+                        });
+                        await refreshApi();
+                      } else {
+                        patchAccount(editingId!, { name: trimmed });
+                      }
+                    } else {
+                      const person = data.persons.find((p) => p.id === personId);
+                      if (dataSource === 'api') {
+                        await createMoneyAccount({
+                          personId,
+                          name: trimmed,
+                          type: type as 'bank' | 'ewallet' | 'cash',
+                          bankName: type === 'bank' ? trimmed : null,
+                        });
+                        await refreshApi();
+                      } else {
+                        appendAccount({
+                          id: `acc-${Date.now()}`,
+                          personId,
+                          personName: person?.name ?? '—',
+                          name: trimmed,
+                          type: type as 'bank' | 'ewallet' | 'cash',
+                          pockets: [],
+                        });
+                      }
+                    }
+                    setDoneAction('save');
+                    setDone(true);
+                  } catch (err) {
+                    setError(
+                      err instanceof ApiClientError
+                        ? err.message
+                        : editing
+                          ? 'Gagal mengubah account.'
+                          : 'Gagal menambah account.',
+                    );
+                  } finally {
+                    setSaving(false);
+                  }
+                })();
+              }}
+            >
+              {saving ? 'Menyimpan…' : editing ? 'Simpan Perubahan' : 'Simpan Account'}
+            </MoneyPrimaryButton>
+          </div>
+        </div>
       }
     >
       <div className="space-y-3">
-        <div>
-          <FieldLabel>Pemilik</FieldLabel>
-          <FieldSelect
-            value={personId}
-            onChange={setPersonId}
-            options={data.persons.map((p) => ({
-              value: p.id,
-              label: p.name,
-            }))}
-          />
-        </div>
+        {error ? (
+          <div className="rounded-[10px] border border-money-rose/30 bg-money-rose-soft px-3 py-2 text-[12.5px] font-semibold text-money-rose">
+            {error}
+          </div>
+        ) : null}
+        {!editing && data.persons.length === 0 ? (
+          <p className="text-[12.5px] text-money-faint">
+            Belum ada person Money Track. Selesaikan setup dulu.
+          </p>
+        ) : null}
+        {!editing ? (
+          <div>
+            <FieldLabel>Pemilik</FieldLabel>
+            <FieldSelect
+              value={personId}
+              onChange={setPersonId}
+              options={data.persons.map((p) => ({
+                value: p.id,
+                label: p.name,
+              }))}
+            />
+          </div>
+        ) : (
+          <div className="rounded-[10px] bg-money-soft px-3 py-2 text-[12.5px] text-money-muted">
+            Pemilik: <b className="text-money-ink">{existing?.personName ?? '—'}</b>
+            {' · '}
+            Tipe:{' '}
+            <b className="capitalize text-money-ink">
+              {existing?.type === 'ewallet' ? 'E-wallet' : existing?.type}
+            </b>
+          </div>
+        )}
         <div>
           <FieldLabel>Nama</FieldLabel>
           <FieldInput
@@ -82,18 +241,20 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
             placeholder="mis. BCA, GoPay"
           />
         </div>
-        <div>
-          <FieldLabel>Tipe</FieldLabel>
-          <FieldSelect
-            value={type}
-            onChange={setType}
-            options={[
-              { value: 'bank', label: 'Bank' },
-              { value: 'ewallet', label: 'E-wallet' },
-              { value: 'cash', label: 'Cash' },
-            ]}
-          />
-        </div>
+        {!editing ? (
+          <div>
+            <FieldLabel>Tipe</FieldLabel>
+            <FieldSelect
+              value={type}
+              onChange={setType}
+              options={[
+                { value: 'bank', label: 'Bank' },
+                { value: 'ewallet', label: 'E-wallet' },
+                { value: 'cash', label: 'Cash' },
+              ]}
+            />
+          </div>
+        ) : null}
       </div>
     </MoneyModalShell>
   );
@@ -106,21 +267,58 @@ export function PocketModal({
   onClose: () => void;
   payload?: MoneyModalPayload;
 }) {
-  const { accounts, appendPocket, dataSource } = useMoneyTrackUi();
+  const {
+    accounts,
+    appendPocket,
+    patchPocket,
+    removePocket,
+    dataSource,
+    refreshApi,
+    data,
+  } = useMoneyTrackUi();
+  const editingId = payload?.pocketId;
+  const editing = Boolean(editingId);
+  const creatableAccounts = accounts.filter((a) => a.type !== 'cash');
+
   const [accountId, setAccountId] = useState(
-    payload?.accountId ?? accounts[0]?.id ?? '',
+    payload?.accountId ?? creatableAccounts[0]?.id ?? accounts[0]?.id ?? '',
   );
-  const [name, setName] = useState('Transaksi');
-  const [category, setCategory] = useState('transaksi');
-  const [goal, setGoal] = useState('');
+  const [name, setName] = useState(
+    editing ? (payload?.pocketName ?? '') : 'Transaksi',
+  );
+  const [category, setCategory] = useState(
+    payload?.pocketCategory ?? 'transaksi',
+  );
+  const [ownerType, setOwnerType] = useState<'person' | 'joint'>('person');
+  const [goal, setGoal] = useState(
+    payload?.pocketGoalAmount != null && payload.pocketGoalAmount > 0
+      ? String(payload.pocketGoalAmount)
+      : '',
+  );
   const [done, setDone] = useState(false);
+  const [doneAction, setDoneAction] = useState<'save' | 'delete'>('save');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const selectedAccount =
+    accounts.find((a) => a.id === accountId) ?? creatableAccounts[0];
+  const isCashAccount = selectedAccount?.type === 'cash';
+  const isSystem = Boolean(payload?.pocketIsSystem);
+  const canDelete = editing
+    ? Boolean(payload?.pocketCanDelete)
+    : true;
 
   if (done) {
     return (
-      <MoneyModalShell title="Tambah Pocket" onClose={onClose}>
+      <MoneyModalShell
+        title={editing ? 'Edit Pocket' : 'Tambah Pocket'}
+        onClose={onClose}
+      >
         <SuccessPanel
-          title="Pocket ditambahkan"
-          body={`${name} tersimpan${dataSource === 'dummy' ? ' di dummy' : ''}.`}
+          title={
+            doneAction === 'delete' ? 'Pocket dihapus' : 'Pocket tersimpan'
+          }
+          body={`${name}${dataSource === 'dummy' ? ' (dummy)' : ''}.`}
           onDone={onClose}
         />
       </MoneyModalShell>
@@ -129,45 +327,195 @@ export function PocketModal({
 
   return (
     <MoneyModalShell
-      title="Tambah Pocket"
-      subtitle="Kantong logis di dalam account"
+      title={editing ? 'Edit Pocket' : 'Tambah Pocket'}
+      subtitle={
+        editing
+          ? isSystem
+            ? 'Pocket sistem — nama/kategori terkunci; hapus tidak diizinkan'
+            : !canDelete
+              ? 'Ubah detail. Hapus tidak tersedia (saldo harus 0).'
+              : 'Ubah detail atau hapus pocket'
+          : payload?.accountName
+            ? `Di account ${payload.accountName}`
+            : 'Kantong logis di dalam account'
+      }
       onClose={onClose}
       footer={
-        <MoneyPrimaryButton
-          disabled={!name.trim() || !accountId}
-          onClick={() => {
-            const goalAmount = goal ? parseIdrDigits(goal) : undefined;
-            appendPocket(accountId, {
-              id: `p-${Date.now()}`,
-              name: name.trim(),
-              category: category as 'transaksi' | 'tabungan' | 'investasi' | 'custom',
-              balance: 0,
-              ...(goalAmount
-                ? { goalAmount, goalPct: 0 }
-                : {}),
-            });
-            setDone(true);
-          }}
-        >
-          Simpan Pocket
-        </MoneyPrimaryButton>
+        <div className="flex gap-2">
+          {editing && canDelete ? (
+            <div className="w-28">
+              <MoneySecondaryButton
+                disabled={saving}
+                onClick={() => {
+                  void (async () => {
+                    if (
+                      !window.confirm(
+                        `Hapus pocket "${name}"? Pocket akan di-archive dan bisa dipulihkan nanti.`,
+                      )
+                    ) {
+                      return;
+                    }
+                    setSaving(true);
+                    setError(null);
+                    try {
+                      if (dataSource === 'api') {
+                        await archiveMoneyPocket(editingId!);
+                        await refreshApi();
+                      } else {
+                        removePocket(accountId, editingId!);
+                      }
+                      setDoneAction('delete');
+                      setDone(true);
+                    } catch (err) {
+                      setError(
+                        err instanceof ApiClientError
+                          ? err.message
+                          : 'Gagal menghapus pocket.',
+                      );
+                    } finally {
+                      setSaving(false);
+                    }
+                  })();
+                }}
+              >
+                Hapus
+              </MoneySecondaryButton>
+            </div>
+          ) : null}
+          <div className="flex-1">
+            <MoneyPrimaryButton
+              disabled={
+                !name.trim() ||
+                saving ||
+                (!editing &&
+                  (!accountId ||
+                    isCashAccount ||
+                    creatableAccounts.length === 0))
+              }
+              onClick={() => {
+                void (async () => {
+                  setSaving(true);
+                  setError(null);
+                  try {
+                    const trimmed = name.trim();
+                    const goalAmount = goal ? parseIdrDigits(goal) : null;
+                    const cat = category as
+                      | 'transaksi'
+                      | 'tabungan'
+                      | 'investasi'
+                      | 'custom';
+
+                    if (editing) {
+                      if (dataSource === 'api') {
+                        await updateMoneyPocket(editingId!, {
+                          ...(isSystem ? {} : { name: trimmed, category: cat }),
+                          goalAmount,
+                        });
+                        await refreshApi();
+                      } else {
+                        patchPocket(accountId, editingId!, {
+                          ...(isSystem ? {} : { name: trimmed, category: cat }),
+                          ...(goalAmount
+                            ? { goalAmount, goalPct: 0 }
+                            : { goalAmount: undefined, goalPct: undefined }),
+                        });
+                      }
+                    } else {
+                      if (dataSource === 'api') {
+                        await createMoneyPocket({
+                          accountId,
+                          name: trimmed,
+                          category: cat,
+                          ownerType:
+                            data.mode === 'couple' ? ownerType : 'person',
+                          goalAmount,
+                        });
+                        await refreshApi();
+                      } else {
+                        appendPocket(accountId, {
+                          id: `p-${Date.now()}`,
+                          name: trimmed,
+                          category: cat,
+                          balance: 0,
+                          canDelete: true,
+                          ...(goalAmount ? { goalAmount, goalPct: 0 } : {}),
+                          ...(ownerType === 'joint' ? { joint: true } : {}),
+                        });
+                      }
+                    }
+                    setDoneAction('save');
+                    setDone(true);
+                  } catch (err) {
+                    setError(
+                      err instanceof ApiClientError
+                        ? err.message
+                        : editing
+                          ? 'Gagal mengubah pocket.'
+                          : 'Gagal menambah pocket.',
+                    );
+                  } finally {
+                    setSaving(false);
+                  }
+                })();
+              }}
+            >
+              {saving
+                ? 'Menyimpan…'
+                : editing
+                  ? 'Simpan Perubahan'
+                  : 'Simpan Pocket'}
+            </MoneyPrimaryButton>
+          </div>
+        </div>
       }
     >
       <div className="space-y-3">
+        {error ? (
+          <div className="rounded-[10px] border border-money-rose/30 bg-money-rose-soft px-3 py-2 text-[12.5px] font-semibold text-money-rose">
+            {error}
+          </div>
+        ) : null}
+        {!editing && creatableAccounts.length === 0 ? (
+          <p className="text-[12.5px] text-money-faint">
+            Belum ada account bank/e-wallet. Tambah account dulu (bukan cash).
+          </p>
+        ) : null}
         <div>
           <FieldLabel>Account</FieldLabel>
-          <FieldSelect
-            value={accountId}
-            onChange={setAccountId}
-            options={accounts.map((a) => ({
-              value: a.id,
-              label: `${a.personName} · ${a.name}`,
-            }))}
-          />
+          {editing ? (
+            <div className="rounded-[10px] bg-money-soft px-3 py-2.5 text-[13.5px] font-semibold text-money-ink">
+              {selectedAccount
+                ? `${selectedAccount.personName} · ${selectedAccount.name}`
+                : payload?.accountName ?? '—'}
+            </div>
+          ) : (
+            <FieldSelect
+              value={accountId}
+              onChange={setAccountId}
+              options={creatableAccounts.map((a) => ({
+                value: a.id,
+                label: `${a.personName} · ${a.name}`,
+              }))}
+            />
+          )}
+          {!editing && isCashAccount ? (
+            <p className="mt-1 text-[11.5px] text-money-rose">
+              Account cash tidak bisa ditambah pocket manual.
+            </p>
+          ) : null}
         </div>
         <div>
           <FieldLabel>Nama kantong</FieldLabel>
-          <FieldInput value={name} onChange={setName} />
+          <FieldInput
+            value={name}
+            onChange={setName}
+            placeholder="mis. Transaksi"
+          />
+          {editing && isSystem ? (
+            <p className="mt-1 text-[11.5px] text-money-faint">
+              Nama pocket sistem tidak bisa diubah di API (simpan hanya goal).
+            </p>
+          ) : null}
         </div>
         <div>
           <FieldLabel>Kategori</FieldLabel>
@@ -182,13 +530,25 @@ export function PocketModal({
             ]}
           />
         </div>
+        {!editing && data.mode === 'couple' ? (
+          <div>
+            <FieldLabel>Kepemilikan</FieldLabel>
+            <FieldSelect
+              value={ownerType}
+              onChange={(v) => setOwnerType(v as 'person' | 'joint')}
+              options={[
+                { value: 'person', label: 'Pribadi (ikut pemilik account)' },
+                { value: 'joint', label: 'Bersama (joint)' },
+              ]}
+            />
+          </div>
+        ) : null}
         <div>
           <FieldLabel>Goal (opsional)</FieldLabel>
-          <FieldInput
+          <MoneyAmountInput
             value={goal}
             onChange={setGoal}
-            placeholder="mis. 50000000"
-            inputMode="numeric"
+            placeholder="mis. 50.000.000"
           />
         </div>
       </div>
@@ -267,11 +627,10 @@ export function WishlistModal({ onClose }: { onClose: () => void }) {
         </div>
         <div>
           <FieldLabel>Estimasi harga</FieldLabel>
-          <FieldInput
+          <MoneyAmountInput
             value={price}
             onChange={setPrice}
-            placeholder="2500000"
-            inputMode="numeric"
+            placeholder="mis. 2.500.000"
           />
         </div>
         <div>
@@ -352,11 +711,14 @@ export function DebtModal({ onClose }: { onClose: () => void }) {
               id: `d-${Date.now()}`,
               counterparty: counterparty.trim(),
               direction: direction as 'utang' | 'piutang',
+              directionLabel: direction === 'piutang' ? 'Piutang' : 'Utang',
               person: person?.name ?? '',
               personId,
               amount: amt,
               paidTotal: 0,
               remaining: amt,
+              remainingLabel:
+                direction === 'piutang' ? 'Sisa piutang' : 'Sisa utang',
               status: 'open',
               dateLabel: todayLabel(),
               dueLabel: due || '—',
@@ -392,11 +754,10 @@ export function DebtModal({ onClose }: { onClose: () => void }) {
         </div>
         <div>
           <FieldLabel>Jumlah</FieldLabel>
-          <FieldInput
+          <MoneyAmountInput
             value={amount}
             onChange={setAmount}
-            inputMode="numeric"
-            placeholder="1000000"
+            placeholder="mis. 1.000.000"
           />
         </div>
         <div>
@@ -436,10 +797,8 @@ export function DebtPaymentModal({
 }) {
   const { debts, appendDebtPayment, dataSource } = useMoneyTrackUi();
   const debt = debts.find((d) => d.id === payload?.debtId) ?? debts[0];
-  const [amount, setAmount] = useState(
-    debt ? String(Math.min(200_000, debt.remaining)) : '',
-  );
-  const [note, setNote] = useState('Cicilan');
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
   const [done, setDone] = useState(false);
 
   if (!debt) {
@@ -468,7 +827,7 @@ export function DebtPaymentModal({
   return (
     <MoneyModalShell
       title="Catat Pembayaran"
-      subtitle={`${debt.direction} · ${debt.counterparty} · sisa ${formatIdr(debt.remaining)}`}
+      subtitle={`${debt.directionLabel} · ${debt.counterparty} · ${debt.remainingLabel} ${formatIdr(debt.remaining)}`}
       onClose={onClose}
       footer={
         <MoneyPrimaryButton
@@ -488,15 +847,19 @@ export function DebtPaymentModal({
       <div className="space-y-3">
         <div>
           <FieldLabel>Jumlah bayar</FieldLabel>
-          <FieldInput
+          <MoneyAmountInput
             value={amount}
             onChange={setAmount}
-            inputMode="numeric"
+            placeholder="mis. 200.000"
           />
         </div>
         <div>
           <FieldLabel>Catatan</FieldLabel>
-          <FieldInput value={note} onChange={setNote} />
+          <FieldInput
+            value={note}
+            onChange={setNote}
+            placeholder="mis. Cicilan 1"
+          />
         </div>
       </div>
     </MoneyModalShell>
@@ -512,7 +875,9 @@ export function AdjustmentModal({
 }) {
   const { applyAdjustment, dataSource } = useMoneyTrackUi();
   const recorded = payload?.recorded ?? 0;
-  const [actual, setActual] = useState(String(payload?.actual ?? recorded));
+  const [actual, setActual] = useState(
+    String(payload?.actual ?? recorded).replace(/\D/g, ''),
+  );
   const [note, setNote] = useState('');
   const [done, setDone] = useState(false);
   const actualN = parseIdrDigits(actual);
@@ -563,7 +928,11 @@ export function AdjustmentModal({
         </div>
         <div>
           <FieldLabel>Saldo riil</FieldLabel>
-          <FieldInput value={actual} onChange={setActual} inputMode="numeric" />
+          <MoneyAmountInput
+            value={actual}
+            onChange={setActual}
+            placeholder="mis. 8.330.000"
+          />
         </div>
         <div>
           <FieldLabel>Catatan (wajib)</FieldLabel>

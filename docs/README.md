@@ -40,7 +40,7 @@ docs/
 
 | File | Modul |
 |------|--------|
-| [`requests/to-be/MONEY-TRACK-API.md`](./requests/to-be/MONEY-TRACK-API.md) | Money Track API — siap dikerjakan BE |
+| [`requests/to-be/MONEY-TRACK-API.md`](./requests/to-be/MONEY-TRACK-API.md) | Money Track API — BE shipped, FE read wiring |
 
 ## Requests from FE — done
 
@@ -55,6 +55,7 @@ docs/
 | [`requests/from-fe/done/PERSONS-IMPORT-API.md`](./requests/from-fe/done/PERSONS-IMPORT-API.md) | Bulk import persons |
 | [`requests/from-fe/done/ADMIN-PANEL-API.md`](./requests/from-fe/done/ADMIN-PANEL-API.md) | Admin Panel API v1 |
 | [`requests/from-fe/done/NOTIFICATIONS-INBOX-API.md`](./requests/from-fe/done/NOTIFICATIONS-INBOX-API.md) | Notifikasi inbox (modal + badge) |
+| [`requests/from-fe/done/MONEY-TRANSACTIONS-FILTER-API.md`](./requests/from-fe/done/MONEY-TRANSACTIONS-FILTER-API.md) | Filter transaksi + `/money/activity` |
 
 ## Requests from FE — pending
 

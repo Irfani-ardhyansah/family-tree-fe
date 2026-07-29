@@ -1,4 +1,8 @@
 import type { HTMLAttributes, ReactNode } from 'react';
+import {
+  formatInputIdr,
+  sanitizeIdrDigits,
+} from '@/modules/money-track/components/modals/modalTypes';
 
 export function FieldLabel({ children }: { children: ReactNode }) {
   return (
@@ -29,6 +33,38 @@ export function FieldInput({
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       className="w-full rounded-[10px] border border-money-border bg-money-soft px-3 py-2.5 text-[13.5px] font-semibold text-money-ink outline-none placeholder:font-medium placeholder:text-money-faint focus:border-money-brown focus:bg-money-surface"
+    />
+  );
+}
+
+/**
+ * Money input: displays id-ID thousand separators, stores digit-only in `value`/`onChange`.
+ */
+export function MoneyAmountInput({
+  value,
+  onChange,
+  placeholder = '0',
+  className = '',
+}: {
+  /** Digit-only string, e.g. "200000" — never include separators in state. */
+  value: string;
+  onChange: (digits: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={formatInputIdr(value)}
+      placeholder={placeholder}
+      onChange={(e) => onChange(sanitizeIdrDigits(e.target.value))}
+      className={[
+        'font-money-mono w-full rounded-[10px] border border-money-border bg-money-soft px-3 py-2.5 text-[13.5px] font-semibold text-money-ink outline-none placeholder:font-medium placeholder:font-sans placeholder:text-money-faint focus:border-money-brown focus:bg-money-surface',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
     />
   );
 }

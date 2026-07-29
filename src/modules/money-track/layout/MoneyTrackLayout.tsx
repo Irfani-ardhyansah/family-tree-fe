@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { to: moneyPaths.home, label: 'Dashboard', end: true },
   { to: moneyPaths.transactions, label: 'Transaksi', end: false },
   { to: moneyPaths.pockets, label: 'Kantong', end: false },
+  { to: moneyPaths.categories, label: 'Kategori', end: false },
   { to: moneyPaths.wishlist, label: 'Wishlist', end: false },
   { to: moneyPaths.debts, label: 'Utang Piutang', end: false },
   { to: moneyPaths.balancing, label: 'Balancing', end: false },

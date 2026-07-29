@@ -67,11 +67,14 @@ export function TransferModal({ onClose }: { onClose: () => void }) {
     appendTransaction({
       id: `t-${Date.now()}`,
       dateLabel: todayLabel(),
+      dateIso: new Date().toISOString().slice(0, 10),
       title: `Transfer ke ${toPerson?.name ?? 'pasangan'}`,
       category: 'Transfer',
+      categoryId: null,
       person: fromPerson?.name ?? '',
       personId: fromPersonId,
       pocket: `${fromPocket.label} → ${toPocket.label}`,
+      pocketId: fromPocket.id,
       kind: 'transfer',
       amount,
     });
@@ -279,11 +282,14 @@ export function MovePocketModal({ onClose }: { onClose: () => void }) {
     appendTransaction({
       id: `t-${Date.now()}`,
       dateLabel: todayLabel(),
+      dateIso: new Date().toISOString().slice(0, 10),
       title: 'Pindah antar kantong',
       category: 'Pindah kantong',
+      categoryId: null,
       person: person?.name ?? '',
       personId,
       pocket: `${from.label} → ${to.label}`,
+      pocketId: from.id,
       kind: 'transfer',
       amount,
     });
@@ -429,11 +435,14 @@ export function CashWithdrawalModal({ onClose }: { onClose: () => void }) {
     appendTransaction({
       id: `t-${Date.now()}`,
       dateLabel,
+      dateIso: new Date().toISOString().slice(0, 10),
       title: 'Tarik tunai ATM',
       category: 'Cash',
+      categoryId: null,
       person: source.person,
       personId: source.personId ?? data.loginPersonId,
       pocket: `${source.label} → Cash`,
+      pocketId: source.id,
       kind: 'cash_withdrawal',
       amount,
     });

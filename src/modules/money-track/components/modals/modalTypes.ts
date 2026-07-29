@@ -15,8 +15,13 @@ export type MoneyModalPayload = {
   debtLabel?: string;
   pocketId?: string;
   pocketName?: string;
+  pocketCategory?: string;
+  pocketGoalAmount?: number | null;
+  pocketIsSystem?: boolean;
+  pocketCanDelete?: boolean;
   accountId?: string;
   accountName?: string;
+  accountType?: 'bank' | 'ewallet' | 'cash';
   personId?: string;
   personName?: string;
   recorded?: number;
@@ -56,10 +61,16 @@ export function todayLabel(): string {
 }
 
 export function formatInputIdr(digits: string): string {
-  const n = Number(digits.replace(/\D/g, '')) || 0;
-  return n.toLocaleString('id-ID');
+  const raw = digits.replace(/\D/g, '');
+  if (!raw) return '';
+  return Number(raw).toLocaleString('id-ID');
 }
 
 export function parseIdrDigits(value: string): number {
   return Number(value.replace(/\D/g, '')) || 0;
+}
+
+/** Keep digit-only string for form state (display formatting is separate). */
+export function sanitizeIdrDigits(value: string): string {
+  return value.replace(/\D/g, '');
 }

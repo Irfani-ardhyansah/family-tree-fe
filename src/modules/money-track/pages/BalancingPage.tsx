@@ -4,6 +4,10 @@ import {
   MoneyCard,
   PageHeader,
 } from '@/modules/money-track/components/PageChrome';
+import {
+  formatInputIdr,
+  sanitizeIdrDigits,
+} from '@/modules/money-track/components/modals/modalTypes';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
 import { formatIdr } from '@/modules/money-track/types';
 
@@ -159,13 +163,14 @@ export function BalancingPage() {
                     <input
                       type="text"
                       inputMode="numeric"
-                      value={Number(actuals[row.id] || 0).toLocaleString('id-ID')}
+                      value={formatInputIdr(actuals[row.id] ?? '')}
+                      placeholder="0"
                       onChange={(e) => {
-                        const digits = e.target.value.replace(/\D/g, '');
+                        const digits = sanitizeIdrDigits(e.target.value);
                         setActuals((prev) => ({ ...prev, [row.id]: digits }));
                       }}
                       className={[
-                        'font-money-mono w-full rounded-lg border px-2.5 py-1.5 text-[13.5px] font-bold outline-none lg:text-right',
+                        'font-money-mono w-full rounded-lg border px-2.5 py-1.5 text-[13.5px] font-bold outline-none placeholder:font-medium placeholder:text-money-faint lg:text-right',
                         hasDiff
                           ? 'border-money-amber bg-money-amber-soft/40 focus:border-money-amber'
                           : 'border-money-border bg-money-soft focus:border-money-brown',

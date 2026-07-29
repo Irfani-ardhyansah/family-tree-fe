@@ -6,6 +6,7 @@ export {
   FieldLabel,
   FieldSelect,
   FieldTextarea,
+  MoneyAmountInput,
 } from '@/modules/money-track/components/modals/MoneyFormFields';
 
 type MoneyModalShellProps = {
@@ -124,15 +125,18 @@ export function MoneyPrimaryButton({
 export function MoneySecondaryButton({
   children,
   onClick,
+  disabled,
 }: {
   children: ReactNode;
   onClick?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-[11px] border border-money-border bg-money-surface px-4 py-3 text-[13px] font-bold text-money-muted hover:bg-money-soft"
+      disabled={disabled}
+      className="w-full rounded-[11px] border border-money-border bg-money-surface px-4 py-3 text-[13px] font-bold text-money-muted hover:bg-money-soft disabled:cursor-not-allowed disabled:opacity-45"
     >
       {children}
     </button>
