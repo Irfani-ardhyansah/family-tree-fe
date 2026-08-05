@@ -108,6 +108,7 @@ Pocket          id, accountId, ownerType (person|joint),
                 category (transaksi|tabungan|investasi|custom),
                 name, goalAmount?, goalDate?, archivedAt?
 Category        id, name, type (income|expense), icon?, sortOrder, isSystem?
+                // icon FE: id Feather MIT (mis. "coffee", "truck") — emoji lama tetap diterima
 Transaction     id, pocketId, categoryId?, type, amount, date, note?,
                 attachmentMediaId?, createdByPersonId
 Transfer        id, kind (interpersonal|interpocket), fromPocketId, toPocketId,
@@ -145,9 +146,15 @@ Cash withdrawal: kurangi sumber → tambah cash account person (bukan expense).
     { "id": 1, "name": "Irfan", "role": "husband", "userId": 10 }
   ],
   "coupleLinkedAt": "2026-07-01T00:00:00.000Z",
-  "needsOpeningBalances": false
+  "needsOpeningBalances": false,
+  "hasSampleData": true
 }
 ```
+
+| Field | Arti |
+|-------|------|
+| `needsOpeningBalances` | Workspace masih perlu input opening balance (batch / pocket pending) |
+| `hasSampleData` | Workspace masih berisi **seed/data contoh**. FE tampilkan tombol **Hapus Data Contoh** hanya jika `true`. Setelah wipe sukses → permanen `false` (meski user isi data real kemudian). |
 
 ### 3.2 Bootstrap persons
 
@@ -190,7 +197,7 @@ Usulan: joint pockets → archived read-only (BE finalkan aturan).
 | `GET` | `/money/accounts?personId=` |
 | `POST` | `/money/accounts` |
 | `PATCH` | `/money/accounts/:id` |
-| `DELETE` | `/money/accounts/:id` → `409` jika masih punya pocket aktif / saldo ≠ 0 |
+| `DELETE` | `/money/accounts/:id?cascade=true` |
 
 ```json
 {
@@ -202,7 +209,14 @@ Usulan: joint pockets → archived read-only (BE finalkan aturan).
 ```
 
 `type`: `bank` | `ewallet` | `cash`  
-Account `cash`: **satu per person**, auto-create saat setup — tidak boleh dihapus.
+Account `cash`: **satu per person**, auto-create saat setup — **boleh dihapus** jika user konfirmasi cascade.
+
+| Query | Nilai | Arti |
+|-------|-------|------|
+| `cascade=true` | disarankan FE selalu kirim | Hapus account **beserta** pocket (aktif+archived), transaksi/transfer/cash-withdrawal terkait, dll. di dalam account itu |
+| tanpa cascade / `false` | | `409 CONFLICT` jika masih ada pocket / data terkait |
+
+**FE:** tombol Hapus di modal account selalu tampil (termasuk cash). Konfirmasi menjelaskan cascade delete.
 
 ---
 
@@ -213,10 +227,13 @@ Account `cash`: **satu per person**, auto-create saat setup — tidak boleh diha
 | `GET` | `/money/pockets?personId=&ownerType=&includeArchived=` |
 | `POST` | `/money/pockets` |
 | `PATCH` | `/money/pockets/:id` |
+| `DELETE` | `/money/pockets/:id` — hard delete pocket + data terkait; tidak bisa dipulihkan |
 | `POST` | `/money/pockets/:id/archive` |
 | `POST` | `/money/pockets/:id/unarchive` — set `archivedAt` kembali ke `null` |
 
 `includeArchived=true` — sertakan pocket dengan `archivedAt != null` (default: hanya aktif).
+
+**Hapus pocket (FE):** selalu pakai `DELETE` (bukan archive). Archive/unarchive tetap tersedia bila BE butuh soft-hide terpisah.
 
 ```json
 {
@@ -245,6 +262,8 @@ Account `cash`: **satu per person**, auto-create saat setup — tidak boleh diha
 
 **Seed expense:** Makan, Transport, Tagihan, Hiburan, Belanja, Kesehatan, Pendidikan, Lainnya  
 **Seed income:** Gaji, Bonus, Freelance, Hasil Investasi, Lainnya
+
+**Icon:** string id Feather MIT di FE (mis. `"coffee"`, `"truck"`). Emoji lama dari seed/mock tetap diterima sebagai fallback tampilan.
 
 ---
 
@@ -342,6 +361,28 @@ List/detail transaksi menyertakan enrichment: `categoryName`, `categoryIcon`, `p
 
 `kind` di activity: `all` \| `income` \| `expense` \| `transfer` \| `cash_withdrawal`.
 
+Untuk **transfer** / **cash_withdrawal**, item activity sebaiknya include kantong kedua sisi:
+
+```json
+{
+  "id": "transfer-12",
+  "kind": "transfer",
+  "title": "Uang belanja",
+  "pocketId": 101,
+  "pocketLabel": "Transaksi · BCA",
+  "fromPocketLabel": "Transaksi · BCA",
+  "toPocketId": 201,
+  "toPocketLabel": "Transaksi · Seabank",
+  "amount": 3000000,
+  "date": "2026-08-01",
+  "signed": "neutral",
+  "link": "/money/transactions"
+}
+```
+
+FE menampilkan kolom kantong sebagai `asal → tujuan`.  
+`cash_withdrawal`: `toPocketLabel` boleh `"Cash"` / nama cash account.
+
 ```json
 {
   "pocketId": 101,
@@ -381,8 +422,11 @@ Response boleh include `balanceAfter`.
 | `interpocket` | Pocket person sama, atau personal ↔ joint |
 
 Atomic (satu record, update kedua sisi).  
-`GET /money/transfers/:id`  
+`GET /money/transfers/:id` — detail (+ enrichment nama pocket/account/person bila ada)  
+`PATCH /money/transfers/:id` — update `kind` / `fromPocketId` / `toPocketId` / `amount` / `date` / `note` (reverse saldo lama + apply baru)  
 `DELETE /money/transfers/:id` — reverse + audit
+
+**Tanggal:** selalu kirim/simpan sebagai **date-only** `YYYY-MM-DD` (bukan datetime UTC). Parsing UTC midnight menyebabkan tanggal mundur 1 hari di WIB.
 
 ---
 
@@ -402,7 +446,9 @@ Atomic (satu record, update kedua sisi).
 ```
 
 `toCashAccountId` diisi BE (cash account owner `fromAccount`).  
+`GET /money/cash-withdrawals/:id` — detail  
 `GET /money/cash-withdrawals?from=&to=&page=`  
+`PATCH /money/cash-withdrawals/:id` — update `fromAccountId` / `fromPocketId` / `amount` / `date` / `note` (recompute saldo)  
 `DELETE /money/cash-withdrawals/:id`
 
 ---

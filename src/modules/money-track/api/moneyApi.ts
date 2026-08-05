@@ -1,5 +1,10 @@
 import { apiFetch, ApiClientError } from '@/shared/lib/apiClient';
 import { buildQuery } from '@/shared/lib/apiQuery';
+import {
+  formatDateOnlyLabel,
+  toDateOnlyIso,
+} from '@/modules/money-track/lib/dateOnly';
+import type { MoneyDataSource } from '@/modules/money-track/lib/dataSource';
 import type {
   MoneyActivityItem,
   MoneyDashboardMock,
@@ -8,7 +13,6 @@ import type {
   MoneyPersonRole,
   MoneyPocketCategory,
 } from '@/modules/money-track/types';
-import type { MoneyDataSource } from '@/modules/money-track/lib/dataSource';
 
 export type MoneySetupResponse = {
   isConfigured: boolean;
@@ -22,6 +26,11 @@ export type MoneySetupResponse = {
   }>;
   coupleLinkedAt: string | null;
   needsOpeningBalances: boolean;
+  /**
+   * true = workspace masih berisi seed/data contoh → FE tampilkan "Hapus Data Contoh".
+   * false/undefined = sudah real / sudah di-wipe → tombol disembunyikan.
+   */
+  hasSampleData?: boolean;
 };
 
 export type MoneyDashboardApi = {
@@ -125,8 +134,13 @@ export type MoneyActivityApi = {
   categoryId: number | null;
   personId: number | null;
   personName: string | null;
+  /** Label kantong utama / asal (transfer & cash: sumber). */
   pocketLabel: string;
   pocketId: number | null;
+  /** Transfer / cash: kantong tujuan (cash account label untuk tarik tunai). */
+  toPocketId?: number | null;
+  toPocketLabel?: string | null;
+  fromPocketLabel?: string | null;
   amount: number;
   date: string;
   signed: 'pos' | 'neg' | 'neutral';
@@ -294,10 +308,15 @@ export type MoneyUiTx = {
   categoryId: string | null;
   person: string;
   personId: string;
+  /** Tampilan kantong; transfer/cash: "asal → tujuan". */
   pocket: string;
   pocketId: string;
+  toPocketId?: string | null;
+  toPocketLabel?: string | null;
   kind: 'income' | 'expense' | 'transfer' | 'cash_withdrawal';
   amount: number;
+  /** Raw ledger type when relevant (opening_balance / adjustment). */
+  entryType?: 'opening_balance' | 'adjustment' | null;
 };
 
 export type MoneyUiWish = {
@@ -348,28 +367,28 @@ function sid(value: unknown): string {
 }
 
 function formatDateLabel(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return new Intl.DateTimeFormat('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(d);
+  return formatDateOnlyLabel(dateStr);
 }
 
 function formatGoalDateLabel(dateStr: string | null): string | null {
   if (!dateStr) return null;
-  const d = new Date(`${dateStr}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return dateStr;
+  const iso = toDateOnlyIso(dateStr);
+  const parts = iso.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return dateStr;
+  const [y, m] = parts;
   return new Intl.DateTimeFormat('id-ID', {
     month: 'short',
     year: 'numeric',
-  }).format(d);
+  }).format(new Date(y, m - 1, 1));
 }
 
 function isDueSoon(dueDate: string | null): boolean {
   if (!dueDate) return false;
-  const due = new Date(`${dueDate}T00:00:00`);
+  const iso = toDateOnlyIso(dueDate);
+  const parts = iso.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return false;
+  const [y, m, d] = parts;
+  const due = new Date(y, m - 1, d);
   if (Number.isNaN(due.getTime())) return false;
   const now = new Date();
   const diffMs = due.getTime() - now.getTime();
@@ -501,8 +520,12 @@ export async function updateMoneyAccount(
 
 export async function deleteMoneyAccount(
   id: string,
+  options?: { cascade?: boolean },
 ): Promise<{ deleted: true }> {
-  return apiFetch<{ deleted: true }>(`/money/accounts/${id}`, {
+  const query = buildQuery({
+    cascade: options?.cascade === false ? undefined : 'true',
+  });
+  return apiFetch<{ deleted: true }>(`/money/accounts/${id}${query}`, {
     method: 'DELETE',
   });
 }
@@ -554,6 +577,14 @@ export async function updateMoneyPocket(
   });
 }
 
+export async function deleteMoneyPocket(
+  id: string,
+): Promise<{ deleted: true }> {
+  return apiFetch<{ deleted: true }>(`/money/pockets/${id}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function archiveMoneyPocket(
   id: string,
 ): Promise<MoneyPocketApi> {
@@ -567,6 +598,256 @@ export async function unarchiveMoneyPocket(
 ): Promise<MoneyPocketApi> {
   return apiFetch<MoneyPocketApi>(`/money/pockets/${id}/unarchive`, {
     method: 'POST',
+  });
+}
+
+/** Ambil numeric id dari activity/list id (mis. "txn-12" → "12"). */
+export function moneyEntityApiId(id: string): string {
+  const match = id.match(/(\d+)/);
+  return match?.[1] ?? id;
+}
+
+export async function createMoneyTransaction(input: {
+  pocketId: string;
+  categoryId?: string | null;
+  type: 'income' | 'expense' | 'opening_balance' | 'adjustment';
+  amount: number;
+  date: string;
+  note?: string | null;
+  attachmentMediaId?: string | null;
+}): Promise<MoneyTransactionApi> {
+  return apiFetch<MoneyTransactionApi>('/money/transactions', {
+    method: 'POST',
+    body: JSON.stringify({
+      pocketId: Number(input.pocketId) || input.pocketId,
+      categoryId:
+        input.categoryId != null && input.categoryId !== ''
+          ? Number(input.categoryId) || input.categoryId
+          : null,
+      type: input.type,
+      amount: input.amount,
+      date: toDateOnlyIso(input.date),
+      note: input.note ?? null,
+      attachmentMediaId: input.attachmentMediaId ?? null,
+    }),
+  });
+}
+
+export async function updateMoneyTransaction(
+  id: string,
+  input: {
+    pocketId?: string;
+    categoryId?: string | null;
+    type?: 'income' | 'expense' | 'opening_balance' | 'adjustment';
+    amount?: number;
+    date?: string;
+    note?: string | null;
+    attachmentMediaId?: string | null;
+  },
+): Promise<MoneyTransactionApi> {
+  const apiId = moneyEntityApiId(id);
+  return apiFetch<MoneyTransactionApi>(`/money/transactions/${apiId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      ...(input.pocketId != null
+        ? { pocketId: Number(input.pocketId) || input.pocketId }
+        : {}),
+      ...(input.categoryId !== undefined
+        ? {
+            categoryId:
+              input.categoryId != null && input.categoryId !== ''
+                ? Number(input.categoryId) || input.categoryId
+                : null,
+          }
+        : {}),
+      ...(input.type != null ? { type: input.type } : {}),
+      ...(input.amount != null ? { amount: input.amount } : {}),
+      ...(input.date != null ? { date: toDateOnlyIso(input.date) } : {}),
+      ...(input.note !== undefined ? { note: input.note } : {}),
+      ...(input.attachmentMediaId !== undefined
+        ? { attachmentMediaId: input.attachmentMediaId }
+        : {}),
+    }),
+  });
+}
+
+export async function deleteMoneyTransaction(
+  id: string,
+): Promise<{ deleted: true }> {
+  const apiId = moneyEntityApiId(id);
+  return apiFetch<{ deleted: true }>(`/money/transactions/${apiId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function createMoneyTransfer(input: {
+  kind: 'interpersonal' | 'interpocket';
+  fromPocketId: string;
+  toPocketId: string;
+  amount: number;
+  date: string;
+  note?: string | null;
+}): Promise<{ id: number }> {
+  return apiFetch<{ id: number }>('/money/transfers', {
+    method: 'POST',
+    body: JSON.stringify({
+      kind: input.kind,
+      fromPocketId: Number(input.fromPocketId) || input.fromPocketId,
+      toPocketId: Number(input.toPocketId) || input.toPocketId,
+      amount: input.amount,
+      date: toDateOnlyIso(input.date),
+      note: input.note ?? null,
+    }),
+  });
+}
+
+export type MoneyTransferApi = {
+  id: number;
+  kind: 'interpersonal' | 'interpocket';
+  fromPocketId: number;
+  toPocketId: number;
+  amount: number;
+  date: string;
+  note: string | null;
+  fromPocketName?: string | null;
+  toPocketName?: string | null;
+  fromAccountName?: string | null;
+  toAccountName?: string | null;
+  fromPersonId?: number | null;
+  toPersonId?: number | null;
+  fromPersonName?: string | null;
+  toPersonName?: string | null;
+};
+
+export async function fetchMoneyTransfer(
+  id: string,
+): Promise<MoneyTransferApi> {
+  const apiId = moneyEntityApiId(id);
+  return apiFetch<MoneyTransferApi>(`/money/transfers/${apiId}`);
+}
+
+export async function updateMoneyTransfer(
+  id: string,
+  input: {
+    kind?: 'interpersonal' | 'interpocket';
+    fromPocketId?: string;
+    toPocketId?: string;
+    amount?: number;
+    date?: string;
+    note?: string | null;
+  },
+): Promise<{ id: number }> {
+  const apiId = moneyEntityApiId(id);
+  return apiFetch<{ id: number }>(`/money/transfers/${apiId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      ...(input.kind != null ? { kind: input.kind } : {}),
+      ...(input.fromPocketId != null
+        ? {
+            fromPocketId:
+              Number(input.fromPocketId) || input.fromPocketId,
+          }
+        : {}),
+      ...(input.toPocketId != null
+        ? { toPocketId: Number(input.toPocketId) || input.toPocketId }
+        : {}),
+      ...(input.amount != null ? { amount: input.amount } : {}),
+      ...(input.date != null ? { date: toDateOnlyIso(input.date) } : {}),
+      ...(input.note !== undefined ? { note: input.note } : {}),
+    }),
+  });
+}
+
+export async function deleteMoneyTransfer(
+  id: string,
+): Promise<{ deleted: true }> {
+  const apiId = moneyEntityApiId(id);
+  return apiFetch<{ deleted: true }>(`/money/transfers/${apiId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function createMoneyCashWithdrawal(input: {
+  fromAccountId: string;
+  fromPocketId: string;
+  amount: number;
+  date: string;
+  note?: string | null;
+  attachmentMediaId?: string | null;
+}): Promise<{ id: number }> {
+  return apiFetch<{ id: number }>('/money/cash-withdrawals', {
+    method: 'POST',
+    body: JSON.stringify({
+      fromAccountId: Number(input.fromAccountId) || input.fromAccountId,
+      fromPocketId: Number(input.fromPocketId) || input.fromPocketId,
+      amount: input.amount,
+      date: toDateOnlyIso(input.date),
+      note: input.note ?? null,
+      attachmentMediaId: input.attachmentMediaId ?? null,
+    }),
+  });
+}
+
+export type MoneyCashWithdrawalApi = {
+  id: number;
+  fromAccountId: number;
+  fromPocketId: number | null;
+  toCashAccountId: number;
+  amount: number;
+  date: string;
+  note: string | null;
+  fromPocketName?: string | null;
+  fromAccountName?: string | null;
+  personId?: number | null;
+  personName?: string | null;
+};
+
+export async function fetchMoneyCashWithdrawal(
+  id: string,
+): Promise<MoneyCashWithdrawalApi> {
+  const apiId = moneyEntityApiId(id);
+  return apiFetch<MoneyCashWithdrawalApi>(`/money/cash-withdrawals/${apiId}`);
+}
+
+export async function updateMoneyCashWithdrawal(
+  id: string,
+  input: {
+    fromAccountId?: string;
+    fromPocketId?: string;
+    amount?: number;
+    date?: string;
+    note?: string | null;
+  },
+): Promise<{ id: number }> {
+  const apiId = moneyEntityApiId(id);
+  return apiFetch<{ id: number }>(`/money/cash-withdrawals/${apiId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      ...(input.fromAccountId != null
+        ? {
+            fromAccountId:
+              Number(input.fromAccountId) || input.fromAccountId,
+          }
+        : {}),
+      ...(input.fromPocketId != null
+        ? {
+            fromPocketId:
+              Number(input.fromPocketId) || input.fromPocketId,
+          }
+        : {}),
+      ...(input.amount != null ? { amount: input.amount } : {}),
+      ...(input.date != null ? { date: toDateOnlyIso(input.date) } : {}),
+      ...(input.note !== undefined ? { note: input.note } : {}),
+    }),
+  });
+}
+
+export async function deleteMoneyCashWithdrawal(
+  id: string,
+): Promise<{ deleted: true }> {
+  const apiId = moneyEntityApiId(id);
+  return apiFetch<{ deleted: true }>(`/money/cash-withdrawals/${apiId}`, {
+    method: 'DELETE',
   });
 }
 
@@ -643,18 +924,39 @@ export async function fetchMoneyActivity(params?: {
   };
 }
 
+function activityPocketDisplay(row: MoneyActivityApi): string {
+  const from =
+    row.fromPocketLabel?.trim() ||
+    row.pocketLabel?.trim() ||
+    '';
+  const to = row.toPocketLabel?.trim() || '';
+
+  if (row.kind === 'transfer' || row.kind === 'cash_withdrawal') {
+    // Sudah berbentuk "A → B" dari BE
+    if (from.includes('→') || from.includes('->')) return from;
+    if (from && to) return `${from} → ${to}`;
+    if (row.kind === 'cash_withdrawal' && from && !to) {
+      return `${from} → Cash`;
+    }
+  }
+  return from || '—';
+}
+
 export function mapActivityToUiTx(row: MoneyActivityApi): MoneyUiTx {
+  const dateIso = toDateOnlyIso(row.date);
   return {
     id: row.id,
-    dateLabel: formatDateLabel(row.date),
-    dateIso: row.date,
+    dateLabel: formatDateLabel(dateIso),
+    dateIso,
     title: row.title,
     category: row.categoryName ?? (row.kind === 'transfer' ? 'Transfer' : row.kind === 'cash_withdrawal' ? 'Cash' : '—'),
     categoryId: row.categoryId != null ? sid(row.categoryId) : null,
     person: row.personName ?? '—',
     personId: row.personId != null ? sid(row.personId) : '',
-    pocket: row.pocketLabel,
+    pocket: activityPocketDisplay(row),
     pocketId: row.pocketId != null ? sid(row.pocketId) : '',
+    toPocketId: row.toPocketId != null ? sid(row.toPocketId) : null,
+    toPocketLabel: row.toPocketLabel ?? null,
     kind: row.kind,
     amount: row.amount,
   };
@@ -683,6 +985,25 @@ export async function fetchMoneyBalancing(): Promise<MoneyBalancingApi[]> {
     '/money/balancing',
   );
   return Array.isArray(data) ? data : (data.items ?? []);
+}
+
+export async function submitOpeningBalances(input: {
+  date: string;
+  items: Array<{ pocketId: string | number; amount: number }>;
+}): Promise<{ created: number }> {
+  return apiFetch<{ created: number }>('/money/opening-balances', {
+    method: 'POST',
+    body: JSON.stringify({
+      date: input.date,
+      items: input.items.map((item) => ({
+        pocketId:
+          typeof item.pocketId === 'string'
+            ? Number(item.pocketId) || item.pocketId
+            : item.pocketId,
+        amount: item.amount,
+      })),
+    }),
+  });
 }
 
 export function buildAccountsUi(
@@ -717,8 +1038,8 @@ export function buildAccountsUi(
           : undefined,
       joint: p.ownerType === 'joint',
       isSystem: p.isSystem,
-      canDelete:
-        p.canArchive ?? (!p.isSystem && !p.archivedAt && p.balance === 0),
+      // UI selalu tampilkan aksi hapus; BE yang menolak bila perlu.
+      canDelete: p.canArchive !== false,
     })),
   }));
 }
@@ -796,10 +1117,11 @@ export function buildTransactionsUi(
           ? `${pocket.name} · ${pocket.account.name}`
           : `Pocket ${row.pocketId}`;
 
+    const dateIso = toDateOnlyIso(row.date);
     return {
       id: sid(row.id),
-      dateLabel: formatDateLabel(row.date),
-      dateIso: row.date,
+      dateLabel: formatDateLabel(dateIso),
+      dateIso,
       title: row.note?.trim() || category,
       category,
       categoryId,
@@ -809,6 +1131,10 @@ export function buildTransactionsUi(
       pocketId: sid(row.pocketId),
       kind,
       amount: row.amount,
+      entryType:
+        row.type === 'opening_balance' || row.type === 'adjustment'
+          ? row.type
+          : null,
     };
   });
 }
@@ -898,6 +1224,30 @@ export function isMoneyNotConfigured(error: unknown): boolean {
   );
 }
 
+export type MoneyWorkspaceResetMode = 'wipe' | 'reseed';
+
+export type MoneyWorkspaceResetResult = {
+  mode: MoneyWorkspaceResetMode;
+  keepSetup: boolean;
+  deleted: Record<string, number>;
+  reseeded: boolean;
+};
+
+/** Hapus / reseed data Money Track di database (workspace login). Non-prod only di BE. */
+export async function resetMoneyWorkspace(input: {
+  mode: MoneyWorkspaceResetMode;
+  keepSetup?: boolean;
+}): Promise<MoneyWorkspaceResetResult> {
+  return apiFetch<MoneyWorkspaceResetResult>('/money/workspace/reset', {
+    method: 'POST',
+    body: JSON.stringify({
+      mode: input.mode,
+      keepSetup: input.keepSetup ?? true,
+      confirm: 'RESET_MONEY_WORKSPACE',
+    }),
+  });
+}
+
 export type MoneyBundle = {
   dataSource: MoneyDataSource;
   setup: MoneySetupResponse;
@@ -909,6 +1259,8 @@ export type MoneyBundle = {
   debts: MoneyUiDebt[];
   balancing: MoneyUiBalancing[];
   categories: MoneyUiCategory[];
+  /** Pocket IDs yang sudah punya transaksi opening_balance di BE. */
+  openingPocketIds: string[];
 };
 
 export async function loadMoneyApiBundle(): Promise<MoneyBundle> {
@@ -948,6 +1300,7 @@ export async function loadMoneyApiBundle(): Promise<MoneyBundle> {
       debts: [],
       balancing: [],
       categories: [],
+      openingPocketIds: [],
     };
   }
 
@@ -962,6 +1315,7 @@ export async function loadMoneyApiBundle(): Promise<MoneyBundle> {
     debts,
     balancing,
     categories,
+    openingTx,
   ] = await Promise.all([
       fetchMoneyDashboard({ scope: 'all' }),
       fetchMoneyAccounts(),
@@ -971,11 +1325,17 @@ export async function loadMoneyApiBundle(): Promise<MoneyBundle> {
       fetchMoneyDebts(),
       fetchMoneyBalancing(),
       fetchMoneyCategories(),
+      fetchMoneyTransactions({ type: 'opening_balance', pageSize: 200 }).catch(
+        () => [] as MoneyTransactionApi[],
+      ),
     ]);
 
   const dashboard = mapDashboardToUi(dashboardApi);
   const persons = dashboard.persons.map((p) => ({ id: p.id, name: p.name }));
   const categoryUi = categories.map(mapCategoryToUi);
+  const openingPocketIds = [
+    ...new Set(openingTx.map((row) => sid(row.pocketId))),
+  ];
 
   return {
     dataSource: 'api',
@@ -988,5 +1348,6 @@ export async function loadMoneyApiBundle(): Promise<MoneyBundle> {
     debts: buildDebtsUi(debts, persons),
     balancing: buildBalancingUi(balancing, persons),
     categories: categoryUi,
+    openingPocketIds,
   };
 }

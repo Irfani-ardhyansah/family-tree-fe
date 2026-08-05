@@ -145,25 +145,67 @@ export function MoneySecondaryButton({
 
 export function AmountDisplay({
   digits,
+  onChange,
   tone = 'default',
+  autoFocus = true,
 }: {
   digits: string;
+  /** Jika diisi, nominal bisa diketik keyboard (selain numpad). */
+  onChange?: (digits: string) => void;
   tone?: 'default' | 'expense' | 'income';
+  autoFocus?: boolean;
 }) {
-  const n = Number(digits.replace(/\D/g, '')) || 0;
   const color =
     tone === 'expense'
       ? 'text-money-rose'
       : tone === 'income'
         ? 'text-money-brown-deep'
         : 'text-money-ink';
+  const display = (() => {
+    const raw = digits.replace(/\D/g, '');
+    if (!raw) return '';
+    return Number(raw).toLocaleString('id-ID');
+  })();
+
   return (
     <div className="py-2 text-center">
       <div className="text-[12px] font-bold text-money-faint">Rp</div>
-      <div className={`font-money-mono text-[32px] font-extrabold tracking-tight ${color}`}>
-        {n.toLocaleString('id-ID')}
-        <span className="ml-0.5 inline-block h-5 w-0.5 animate-pulse bg-money-brown align-middle" />
-      </div>
+      {onChange ? (
+        <input
+          type="text"
+          inputMode="numeric"
+          autoFocus={autoFocus}
+          value={display}
+          placeholder="0"
+          aria-label="Nominal"
+          onChange={(e) => {
+            const next = e.target.value
+              .replace(/\D/g, '')
+              .replace(/^0+(?=\d)/, '')
+              .slice(0, 12);
+            onChange(next);
+          }}
+          onKeyDown={(e) => {
+            if (
+              e.key.length === 1 &&
+              !/\d/.test(e.key) &&
+              !e.metaKey &&
+              !e.ctrlKey &&
+              !e.altKey
+            ) {
+              e.preventDefault();
+            }
+          }}
+          className={`font-money-mono w-full bg-transparent text-center text-[32px] font-extrabold tracking-tight outline-none placeholder:text-money-faint ${color}`}
+        />
+      ) : (
+        <div
+          className={`font-money-mono text-[32px] font-extrabold tracking-tight ${color}`}
+        >
+          {display || '0'}
+          <span className="ml-0.5 inline-block h-5 w-0.5 animate-pulse bg-money-brown align-middle" />
+        </div>
+      )}
     </div>
   );
 }

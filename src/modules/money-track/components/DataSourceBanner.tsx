@@ -1,10 +1,22 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
 import { moneyPaths } from '@/shared/routes';
 
 /** Banner + hint when switching Dummy ↔ API. */
 export function DataSourceBanner() {
-  const { dataSource, apiReady, apiLoading, apiError, setup } = useMoneyTrackUi();
+  const location = useLocation();
+  const {
+    dataSource,
+    apiReady,
+    apiLoading,
+    apiError,
+    setup,
+    needsOpeningBalancesUi,
+    accounts,
+  } = useMoneyTrackUi();
+
+  const onOpeningPage = location.pathname === moneyPaths.opening;
+  const pocketCount = accounts.reduce((n, a) => n + a.pockets.length, 0);
 
   if (dataSource === 'dummy') {
     return (
@@ -42,9 +54,31 @@ export function DataSourceBanner() {
   }
 
   return (
-    <div className="mb-4 rounded-[10px] border border-money-blue/25 bg-money-blue-soft px-4 py-2.5 text-[12.5px] text-money-blue">
-      Mode <b>API</b>
-      {apiReady ? ' — data dari backend.' : ' — menunggu data workspace.'}
+    <div className="mb-4 space-y-2">
+      <div className="rounded-[10px] border border-money-blue/25 bg-money-blue-soft px-4 py-2.5 text-[12.5px] text-money-blue">
+        Mode <b>API</b>
+        {apiReady ? ' — data dari backend.' : ' — menunggu data workspace.'}
+      </div>
+      {needsOpeningBalancesUi && !onOpeningPage ? (
+        <div className="rounded-[10px] border border-money-amber/35 bg-money-amber-soft px-4 py-2.5 text-[12.5px] text-[#7a561f]">
+          {pocketCount === 0 ? (
+            <>
+              Data contoh sudah dihapus. Tambah account &amp; pocket dulu, lalu isi{' '}
+              <Link to={moneyPaths.opening} className="font-bold underline">
+                Saldo Awal
+              </Link>
+              .
+            </>
+          ) : (
+            <>
+              Langkah berikutnya: isi saldo riil per kantong.{' '}
+              <Link to={moneyPaths.opening} className="font-bold underline">
+                Buka Saldo Awal
+              </Link>
+            </>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

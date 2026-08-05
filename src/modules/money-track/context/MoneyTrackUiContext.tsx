@@ -18,8 +18,13 @@ import {
 } from '@/modules/money-track/components/modals/modalTypes';
 import {
   emptyMoneyDashboard,
+  addMoneyOpeningPocketIds,
+  clearMoneyOpeningPocketIds,
   readMoneyDataSource,
+  readMoneyOpeningPocketIds,
+  readMoneySampleDataCleared,
   writeMoneyDataSource,
+  writeMoneySampleDataCleared,
   type MoneyDataSource,
 } from '@/modules/money-track/lib/dataSource';
 import { moneyDashboardMock } from '@/modules/money-track/mocks/dashboardMock';
@@ -36,6 +41,8 @@ import {
   isMoneyNotConfigured,
   loadMoneyApiBundle,
   mapCategoryToUi,
+  resetMoneyWorkspace,
+  submitOpeningBalances as submitOpeningBalancesApi,
   unarchiveMoneyPocket,
   updateMoneyCategory,
   type MoneySetupResponse,
@@ -46,6 +53,7 @@ import {
   type MoneyUiDebt,
   type MoneyUiTx,
   type MoneyUiWish,
+  type MoneyWorkspaceResetMode,
 } from '@/modules/money-track/api/moneyApi';
 import type { MoneyDashboardMock, MoneyScope } from '@/modules/money-track/types';
 import { ApiClientError } from '@/shared/lib/apiClient';
@@ -100,10 +108,15 @@ type MoneyTrackUiContextValue = {
   apiError: string | null;
   setup: MoneySetupResponse | null;
   refreshApi: () => Promise<void>;
+  /** Naik tiap kali transaksi/activity berubah — list Transaksi refetch. */
+  activityTick: number;
+  bumpActivity: () => void;
   activeModal: MoneyModalState;
   openModal: (type: MoneyModalType, payload?: MoneyModalPayload) => void;
   closeModal: () => void;
   appendTransaction: (row: TxRow) => void;
+  patchTransaction: (id: string, patch: Partial<TxRow>) => void;
+  removeTransaction: (id: string) => void;
   appendAccount: (row: AccRow) => void;
   appendPocket: (accountId: string, pocket: PocketRow) => void;
   patchAccount: (accountId: string, patch: { name: string }) => void;
@@ -129,6 +142,36 @@ type MoneyTrackUiContextValue = {
     input: { name?: string; icon?: string | null },
   ) => Promise<CatRow>;
   removeCategory: (id: string) => Promise<void>;
+  /** true setelah "Hapus Data Contoh" sukses (local fallback). */
+  sampleDataCleared: boolean;
+  /**
+   * Tampilkan tombol Hapus Data Contoh.
+   * Prefer flag API `setup.hasSampleData`; fallback localStorage.
+   */
+  showWipeSampleButton: boolean;
+  /** Pocket yang belum punya opening balance (siap diisi di halaman Saldo Awal). */
+  pendingOpeningPockets: Array<{
+    id: string;
+    name: string;
+    accountName: string;
+    personName: string;
+    personId: string;
+    balance: number;
+  }>;
+  /** true jika masih ada pocket pending + workflow saldo awal aktif. */
+  needsOpeningBalancesUi: boolean;
+  submitOpeningBalances: (input: {
+    date: string;
+    items: Array<{ pocketId: string; amount: number }>;
+  }) => Promise<void>;
+  /**
+   * Hapus data contoh Money Track di database (workspace login).
+   * Hanya relevan di mode API. Setelah sukses, refresh bundle + sembunyikan tombol.
+   */
+  resetApiWorkspace: (input?: {
+    mode?: MoneyWorkspaceResetMode;
+    keepSetup?: boolean;
+  }) => Promise<void>;
 };
 
 const MoneyTrackUiContext = createContext<MoneyTrackUiContextValue | null>(
@@ -180,6 +223,17 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
   const [apiDebts, setApiDebts] = useState<DebtRow[]>([]);
   const [apiBalancing, setApiBalancing] = useState<BalRow[]>([]);
   const [apiCategories, setApiCategories] = useState<CatRow[]>([]);
+  const [apiOpeningPocketIds, setApiOpeningPocketIds] = useState<string[]>([]);
+  const [localOpeningPocketIds, setLocalOpeningPocketIds] = useState<string[]>(
+    () => readMoneyOpeningPocketIds(),
+  );
+  const [sampleDataCleared, setSampleDataCleared] = useState(() =>
+    readMoneySampleDataCleared(),
+  );
+  const [activityTick, setActivityTick] = useState(0);
+  const bumpActivity = useCallback(() => {
+    setActivityTick((n) => n + 1);
+  }, []);
   const [setup, setSetup] = useState<MoneySetupResponse | null>(null);
   const [apiReady, setApiReady] = useState(false);
   const [apiLoading, setApiLoading] = useState(false);
@@ -208,7 +262,14 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
       setApiDebts(bundle.debts);
       setApiBalancing(bundle.balancing);
       setApiCategories(bundle.categories);
+      setApiOpeningPocketIds(bundle.openingPocketIds);
       setApiReady(bundle.setup.isConfigured);
+      // Tombol wipe: BE false → sembunyi permanen.
+      // Jangan reset local cleared saat BE masih true (bisa lag setelah wipe).
+      if (bundle.setup.hasSampleData === false) {
+        writeMoneySampleDataCleared(true);
+        setSampleDataCleared(true);
+      }
     } catch (error) {
       if (isMoneyNotConfigured(error)) {
         setSetup({
@@ -217,6 +278,7 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
           persons: [],
           coupleLinkedAt: null,
           needsOpeningBalances: false,
+          hasSampleData: false,
         });
         setApiDashboard(emptyMoneyDashboard);
         setApiAccounts([]);
@@ -226,6 +288,7 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
         setApiDebts([]);
         setApiBalancing([]);
         setApiCategories([]);
+        setApiOpeningPocketIds([]);
         setApiReady(false);
         setApiError(null);
       } else {
@@ -273,8 +336,95 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
 
   const closeModal = useCallback(() => setActiveModal(null), []);
 
-  const appendTransaction = useCallback((row: TxRow) => {
-    setDummyTx((prev) => [row, ...prev]);
+  const resetApiWorkspace = useCallback(
+    async (input?: {
+      mode?: MoneyWorkspaceResetMode;
+      keepSetup?: boolean;
+    }) => {
+      if (dataSource !== 'api') {
+        throw new Error('Hapus data contoh hanya tersedia di mode API.');
+      }
+      setApiLoading(true);
+      setApiError(null);
+      try {
+        await resetMoneyWorkspace({
+          mode: input?.mode ?? 'wipe',
+          keepSetup: input?.keepSetup ?? true,
+        });
+        if ((input?.mode ?? 'wipe') === 'wipe') {
+          writeMoneySampleDataCleared(true);
+          setSampleDataCleared(true);
+          clearMoneyOpeningPocketIds();
+          setLocalOpeningPocketIds([]);
+          setSetup((prev) =>
+            prev ? { ...prev, hasSampleData: false } : prev,
+          );
+        }
+        await refreshApi();
+      } catch (error) {
+        setApiError(
+          error instanceof ApiClientError
+            ? error.message
+            : 'Gagal menghapus data Money Track di database.',
+        );
+        throw error;
+      } finally {
+        setApiLoading(false);
+      }
+    },
+    [dataSource, refreshApi],
+  );
+
+  const appendTransaction = useCallback(
+    (row: TxRow) => {
+      setDummyTx((prev) => [row, ...prev]);
+      setDummyAccounts((prev) =>
+        prev.map((acc) => ({
+          ...acc,
+          pockets: acc.pockets.map((p) => {
+            if (p.id !== row.pocketId) return p;
+            const delta =
+              row.kind === 'income'
+                ? row.amount
+                : row.kind === 'expense'
+                  ? -row.amount
+                  : 0;
+            return { ...p, balance: p.balance + delta };
+          }),
+        })),
+      );
+      setActivityTick((n) => n + 1);
+    },
+    [],
+  );
+
+  const patchTransaction = useCallback((id: string, patch: Partial<TxRow>) => {
+    setDummyTx((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+    );
+    setActivityTick((n) => n + 1);
+  }, []);
+
+  const removeTransaction = useCallback((id: string) => {
+    setDummyTx((prev) => {
+      const target = prev.find((row) => row.id === id);
+      if (target && (target.kind === 'income' || target.kind === 'expense')) {
+        const delta =
+          target.kind === 'income' ? -target.amount : target.amount;
+        setDummyAccounts((accounts) =>
+          accounts.map((acc) => ({
+            ...acc,
+            pockets: acc.pockets.map((p) =>
+              p.id === target.pocketId
+                ? { ...p, balance: p.balance + delta }
+                : p,
+            ),
+          })),
+        );
+      }
+      return prev.filter((row) => row.id !== id);
+    });
+    setActivityTick((n) => n + 1);
   }, []);
 
   const appendAccount = useCallback((row: AccRow) => {
@@ -325,36 +475,16 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
   );
 
   const removePocket = useCallback((accountId: string, pocketId: string) => {
-    let archived: ArchivedPocketRow | null = null;
-    setDummyAccounts((prev) => {
-      const acc = prev.find((a) => a.id === accountId);
-      const pocket = acc?.pockets.find((p) => p.id === pocketId);
-      if (acc && pocket) {
-        archived = {
-          id: pocket.id,
-          name: pocket.name,
-          category: pocket.category,
-          balance: pocket.balance,
-          accountId: acc.id,
-          accountName: acc.name,
-          personId: acc.personId,
-          personName: acc.personName,
-          joint: Boolean(pocket.joint),
-          archivedAt: new Date().toISOString(),
-        };
-      }
-      return prev.map((row) =>
+    setDummyAccounts((prev) =>
+      prev.map((row) =>
         row.id !== accountId
           ? row
           : {
               ...row,
               pockets: row.pockets.filter((p) => p.id !== pocketId),
             },
-      );
-    });
-    if (archived) {
-      setDummyArchivedPockets((rows) => [archived!, ...rows]);
-    }
+      ),
+    );
   }, []);
 
   const restorePocket = useCallback(
@@ -384,7 +514,7 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
                     balance: archived.balance,
                     joint: archived.joint,
                     isSystem: false,
-                    canDelete: archived.balance === 0,
+                    canDelete: true,
                   },
                 ],
               },
@@ -537,6 +667,110 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
     return person?.name ?? 'Person';
   }, [data, scope, dataSource, apiLoading]);
 
+  const openingPocketIdSet = useMemo(() => {
+    const set = new Set<string>([
+      ...localOpeningPocketIds,
+      ...apiOpeningPocketIds,
+    ]);
+    for (const tx of transactions) {
+      if (tx.entryType === 'opening_balance' || tx.category === 'Opening') {
+        set.add(tx.pocketId);
+      }
+    }
+    return set;
+  }, [localOpeningPocketIds, apiOpeningPocketIds, transactions]);
+
+  const pendingOpeningPockets = useMemo(() => {
+    const list: Array<{
+      id: string;
+      name: string;
+      accountName: string;
+      personName: string;
+      personId: string;
+      balance: number;
+    }> = [];
+    for (const acc of accounts) {
+      for (const p of acc.pockets) {
+        if (openingPocketIdSet.has(p.id)) continue;
+        list.push({
+          id: p.id,
+          name: p.name,
+          accountName: acc.name,
+          personName: acc.personName,
+          personId: acc.personId ?? '',
+          balance: p.balance,
+        });
+      }
+    }
+    return list;
+  }, [accounts, openingPocketIdSet]);
+
+  const needsOpeningBalancesUi = useMemo(() => {
+    if (pendingOpeningPockets.length === 0) return false;
+    if (setup?.needsOpeningBalances) return true;
+    if (dataSource === 'api') {
+      return sampleDataCleared || localOpeningPocketIds.length > 0;
+    }
+    return true;
+  }, [
+    pendingOpeningPockets.length,
+    setup?.needsOpeningBalances,
+    dataSource,
+    sampleDataCleared,
+    localOpeningPocketIds.length,
+  ]);
+
+  const showWipeSampleButton = useMemo(() => {
+    if (dataSource !== 'api') return false;
+    // Setelah wipe lokal, sembunyi meski BE flag belum ikut.
+    if (sampleDataCleared) return false;
+    // Hanya tampil bila BE eksplisit bilang masih ada sample.
+    return setup?.hasSampleData === true;
+  }, [dataSource, sampleDataCleared, setup?.hasSampleData]);
+
+  const submitOpeningBalances = useCallback(
+    async (input: {
+      date: string;
+      items: Array<{ pocketId: string; amount: number }>;
+    }) => {
+      const pocketIds = input.items.map((item) => item.pocketId);
+      if (dataSource === 'api') {
+        await submitOpeningBalancesApi(input);
+        addMoneyOpeningPocketIds(pocketIds);
+        setLocalOpeningPocketIds(readMoneyOpeningPocketIds());
+        await refreshApi();
+      } else {
+        const amountByPocket = new Map(
+          input.items.map((item) => [item.pocketId, item.amount]),
+        );
+        setDummyAccounts((prev) =>
+          prev.map((acc) => ({
+            ...acc,
+            pockets: acc.pockets.map((p) => {
+              const amount = amountByPocket.get(p.id);
+              return amount === undefined ? p : { ...p, balance: amount };
+            }),
+          })),
+        );
+        setDummyBalancing((prev) =>
+          prev.map((row) => {
+            const amount = amountByPocket.get(row.id);
+            if (amount === undefined) return row;
+            return {
+              ...row,
+              recorded: amount,
+              actual: amount,
+              diff: 0,
+            };
+          }),
+        );
+        addMoneyOpeningPocketIds(pocketIds);
+        setLocalOpeningPocketIds(readMoneyOpeningPocketIds());
+      }
+    },
+    [dataSource, refreshApi],
+  );
+
   const value = useMemo(
     () => ({
       dataSource,
@@ -559,10 +793,14 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
       apiError,
       setup,
       refreshApi,
+      activityTick,
+      bumpActivity,
       activeModal,
       openModal,
       closeModal,
       appendTransaction,
+      patchTransaction,
+      removeTransaction,
       appendAccount,
       appendPocket,
       patchAccount,
@@ -577,6 +815,12 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
       createCategory,
       updateCategory,
       removeCategory,
+      sampleDataCleared,
+      showWipeSampleButton,
+      pendingOpeningPockets,
+      needsOpeningBalancesUi,
+      submitOpeningBalances,
+      resetApiWorkspace,
     }),
     [
       dataSource,
@@ -596,10 +840,14 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
       apiError,
       setup,
       refreshApi,
+      activityTick,
+      bumpActivity,
       activeModal,
       openModal,
       closeModal,
       appendTransaction,
+      patchTransaction,
+      removeTransaction,
       appendAccount,
       appendPocket,
       patchAccount,
@@ -614,6 +862,12 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
       createCategory,
       updateCategory,
       removeCategory,
+      sampleDataCleared,
+      showWipeSampleButton,
+      pendingOpeningPockets,
+      needsOpeningBalancesUi,
+      submitOpeningBalances,
+      resetApiWorkspace,
     ],
   );
 

@@ -1,4 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  createMoneyCashWithdrawal,
+  createMoneyTransfer,
+} from '@/modules/money-track/api/moneyApi';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
 import { formatIdr } from '@/modules/money-track/types';
 import {
@@ -14,10 +18,22 @@ import {
   OptionCard,
   SuccessPanel,
 } from '@/modules/money-track/components/modals/MoneyModalShell';
-import { todayLabel } from '@/modules/money-track/components/modals/modalTypes';
+import {
+  dateFromFormInput,
+  formatDateOnlyLabel,
+  todayDateOnlyIso,
+} from '@/modules/money-track/lib/dateOnly';
+import { ApiClientError } from '@/shared/lib/apiClient';
 
 export function TransferModal({ onClose }: { onClose: () => void }) {
-  const { data, accounts, appendTransaction, dataSource } = useMoneyTrackUi();
+  const {
+    data,
+    accounts,
+    appendTransaction,
+    dataSource,
+    refreshApi,
+    bumpActivity,
+  } = useMoneyTrackUi();
   const [step, setStep] = useState(1);
   const [fromPersonId, setFromPersonId] = useState(
     data.persons[0]?.id ?? '',
@@ -28,29 +44,66 @@ export function TransferModal({ onClose }: { onClose: () => void }) {
     '';
   const [fromPocketId, setFromPocketId] = useState('');
   const [toPocketId, setToPocketId] = useState('');
+  const [fromQuery, setFromQuery] = useState('');
+  const [toQuery, setToQuery] = useState('');
   const [digits, setDigits] = useState('3000000');
   const [note, setNote] = useState('Uang belanja bulan ini');
+  const [dateIso, setDateIso] = useState(todayDateOnlyIso);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const pocketsOf = (personId: string) => {
-    const person = data.persons.find((p) => p.id === personId);
+  const fromPockets = useMemo(() => {
+    const person = data.persons.find((p) => p.id === fromPersonId);
     if (!person) return [];
     return accounts
-      .filter((a) => a.personId === personId)
+      .filter((a) => a.personId === fromPersonId)
       .flatMap((a) =>
         a.pockets.map((p) => ({
           id: p.id,
           label: `${p.name} · ${a.name}`,
           balance: p.balance,
           person: person.name,
+          search:
+            `${p.name} ${a.name} ${person.name} ${p.category}`.toLowerCase(),
         })),
       );
-  };
+  }, [accounts, data.persons, fromPersonId]);
 
-  const fromPockets = pocketsOf(fromPersonId);
-  const toPockets = pocketsOf(toPersonId);
+  const toPockets = useMemo(() => {
+    const person = data.persons.find((p) => p.id === toPersonId);
+    if (!person) return [];
+    return accounts
+      .filter((a) => a.personId === toPersonId)
+      .flatMap((a) =>
+        a.pockets.map((p) => ({
+          id: p.id,
+          label: `${p.name} · ${a.name}`,
+          balance: p.balance,
+          person: person.name,
+          search:
+            `${p.name} ${a.name} ${person.name} ${p.category}`.toLowerCase(),
+        })),
+      );
+  }, [accounts, data.persons, toPersonId]);
+
+  const filteredFromPockets = useMemo(() => {
+    const q = fromQuery.trim().toLowerCase();
+    if (!q) return fromPockets;
+    return fromPockets.filter((p) => p.search.includes(q));
+  }, [fromPockets, fromQuery]);
+  const filteredToPockets = useMemo(() => {
+    const q = toQuery.trim().toLowerCase();
+    if (!q) return toPockets;
+    return toPockets.filter((p) => p.search.includes(q));
+  }, [toPockets, toQuery]);
   const fromPocket =
-    fromPockets.find((p) => p.id === fromPocketId) ?? fromPockets[0];
-  const toPocket = toPockets.find((p) => p.id === toPocketId) ?? toPockets[0];
+    fromPockets.find((p) => p.id === fromPocketId) ??
+    filteredFromPockets[0] ??
+    fromPockets[0];
+  const toPocket =
+    toPockets.find((p) => p.id === toPocketId) ??
+    filteredToPockets[0] ??
+    toPockets[0];
   const amount = Number(digits.replace(/\D/g, '')) || 0;
   const fromPerson = data.persons.find((p) => p.id === fromPersonId);
   const toPerson = data.persons.find((p) => p.id === toPersonId);
@@ -60,25 +113,55 @@ export function TransferModal({ onClose }: { onClose: () => void }) {
     setFromPersonId(toPersonId);
     setFromPocketId('');
     setToPocketId('');
+    setFromQuery('');
+    setToQuery('');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!fromPocket || !toPocket || amount <= 0) return;
-    appendTransaction({
-      id: `t-${Date.now()}`,
-      dateLabel: todayLabel(),
-      dateIso: new Date().toISOString().slice(0, 10),
-      title: `Transfer ke ${toPerson?.name ?? 'pasangan'}`,
-      category: 'Transfer',
-      categoryId: null,
-      person: fromPerson?.name ?? '',
-      personId: fromPersonId,
-      pocket: `${fromPocket.label} → ${toPocket.label}`,
-      pocketId: fromPocket.id,
-      kind: 'transfer',
-      amount,
-    });
-    setStep(4);
+    const formDateIso = dateFromFormInput(dateIso);
+    setSaving(true);
+    setError(null);
+    try {
+      if (dataSource === 'api') {
+        await createMoneyTransfer({
+          kind: 'interpersonal',
+          fromPocketId: fromPocket.id,
+          toPocketId: toPocket.id,
+          amount,
+          date: formDateIso,
+          note: note.trim() || null,
+        });
+        await refreshApi();
+        bumpActivity();
+      } else {
+        appendTransaction({
+          id: `t-${Date.now()}`,
+          dateLabel: formatDateOnlyLabel(formDateIso),
+          dateIso: formDateIso,
+          title: `Transfer ke ${toPerson?.name ?? 'pasangan'}`,
+          category: 'Transfer',
+          categoryId: null,
+          person: fromPerson?.name ?? '',
+          personId: fromPersonId,
+          pocket: `${fromPocket.label} → ${toPocket.label}`,
+          pocketId: fromPocket.id,
+          kind: 'transfer',
+          amount,
+        });
+      }
+      setStep(4);
+    } catch (err) {
+      setError(
+        err instanceof ApiClientError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Gagal mengirim transfer.',
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (data.persons.length < 2) {
@@ -131,31 +214,40 @@ export function TransferModal({ onClose }: { onClose: () => void }) {
         <div className="flex gap-2">
           {step > 1 ? (
             <div className="w-28">
-              <MoneySecondaryButton onClick={() => setStep((s) => s - 1)}>
+              <MoneySecondaryButton
+                disabled={saving}
+                onClick={() => setStep((s) => s - 1)}
+              >
                 Kembali
               </MoneySecondaryButton>
             </div>
           ) : null}
           <div className="flex-1">
             <MoneyPrimaryButton
-              disabled={step > 1 && amount <= 0}
+              disabled={saving || (step > 1 && amount <= 0)}
               onClick={() => {
                 if (step === 1) {
-                  if (!fromPocketId && fromPockets[0]) {
-                    setFromPocketId(fromPockets[0].id);
+                  if (!fromPocketId && filteredFromPockets[0]) {
+                    setFromPocketId(filteredFromPockets[0].id);
                   }
                   setStep(2);
                   return;
                 }
                 if (step === 2) {
-                  if (!toPocketId && toPockets[0]) setToPocketId(toPockets[0].id);
+                  if (!toPocketId && filteredToPockets[0]) {
+                    setToPocketId(filteredToPockets[0].id);
+                  }
                   setStep(3);
                   return;
                 }
-                handleSave();
+                void handleSave();
               }}
             >
-              {step === 3 ? 'Kirim Transfer' : 'Lanjut'}
+              {step === 3
+                ? saving
+                  ? 'Mengirim…'
+                  : 'Kirim Transfer'
+                : 'Lanjut'}
             </MoneyPrimaryButton>
           </div>
         </div>
@@ -174,24 +266,43 @@ export function TransferModal({ onClose }: { onClose: () => void }) {
             </button>
             <PersonChip name={toPerson?.name ?? '—'} role="Penerima" />
           </div>
-          <FieldLabel>Kirim dari kantong</FieldLabel>
-          <div className="space-y-1.5">
-            {fromPockets.map((p) => (
-              <OptionCard
-                key={p.id}
-                active={(fromPocketId || fromPockets[0]?.id) === p.id}
-                title={p.label}
-                subtitle={formatIdr(p.balance)}
-                onClick={() => setFromPocketId(p.id)}
-              />
-            ))}
+          <div>
+            <FieldLabel>Kirim dari kantong</FieldLabel>
+            <FieldInput
+              value={fromQuery}
+              onChange={setFromQuery}
+              placeholder="Cari kantong atau rekening…"
+            />
+            <div className="mt-2 max-h-44 space-y-1.5 overflow-y-auto">
+              {fromPockets.length === 0 ? (
+                <p className="text-[12.5px] text-money-faint">
+                  Belum ada kantong untuk {fromPerson?.name ?? 'pengirim'}.
+                </p>
+              ) : filteredFromPockets.length === 0 ? (
+                <p className="text-[12.5px] text-money-faint">
+                  Tidak ada kantong yang cocok.
+                </p>
+              ) : (
+                filteredFromPockets.map((p) => (
+                  <OptionCard
+                    key={p.id}
+                    active={
+                      (fromPocketId || filteredFromPockets[0]?.id) === p.id
+                    }
+                    title={p.label}
+                    subtitle={formatIdr(p.balance)}
+                    onClick={() => setFromPocketId(p.id)}
+                  />
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {step === 2 && (
         <div className="space-y-3">
-          <AmountDisplay digits={digits} />
+          <AmountDisplay digits={digits} onChange={setDigits} />
           <Numpad
             onDigit={(d) =>
               setDigits((prev) => (prev + d).replace(/^0+(?=\d)/, '').slice(0, 12))
@@ -201,17 +312,38 @@ export function TransferModal({ onClose }: { onClose: () => void }) {
             }
             onBackspace={() => setDigits((d) => d.slice(0, -1) || '0')}
           />
-          <FieldLabel>Masuk ke kantong {toPerson?.name}</FieldLabel>
-          <div className="max-h-36 space-y-1.5 overflow-y-auto">
-            {toPockets.map((p) => (
-              <OptionCard
-                key={p.id}
-                active={(toPocketId || toPockets[0]?.id) === p.id}
-                title={p.label}
-                subtitle={formatIdr(p.balance)}
-                onClick={() => setToPocketId(p.id)}
-              />
-            ))}
+          <div>
+            <FieldLabel>Masuk ke kantong {toPerson?.name}</FieldLabel>
+            <FieldInput
+              value={toQuery}
+              onChange={setToQuery}
+              placeholder="Cari kantong atau rekening…"
+            />
+            <div className="mt-2 max-h-36 space-y-1.5 overflow-y-auto">
+              {toPockets.length === 0 ? (
+                <p className="text-[12.5px] text-money-faint">
+                  Belum ada kantong untuk {toPerson?.name ?? 'penerima'}.
+                </p>
+              ) : filteredToPockets.length === 0 ? (
+                <p className="text-[12.5px] text-money-faint">
+                  Tidak ada kantong yang cocok.
+                </p>
+              ) : (
+                filteredToPockets.map((p) => (
+                  <OptionCard
+                    key={p.id}
+                    active={(toPocketId || filteredToPockets[0]?.id) === p.id}
+                    title={p.label}
+                    subtitle={formatIdr(p.balance)}
+                    onClick={() => setToPocketId(p.id)}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Tanggal</FieldLabel>
+            <FieldInput type="date" value={dateIso} onChange={setDateIso} />
           </div>
           <div>
             <FieldLabel>Catatan</FieldLabel>
@@ -222,6 +354,11 @@ export function TransferModal({ onClose }: { onClose: () => void }) {
 
       {step === 3 && fromPocket && toPocket && (
         <div className="space-y-3">
+          {error ? (
+            <div className="rounded-[10px] border border-money-rose/30 bg-money-rose-soft px-3 py-2 text-[12.5px] font-semibold text-money-rose">
+              {error}
+            </div>
+          ) : null}
           <div className="rounded-[12px] border border-money-border p-4 text-center">
             <div className="text-[10px] font-bold uppercase text-money-faint">
               Transfer
@@ -243,6 +380,9 @@ export function TransferModal({ onClose }: { onClose: () => void }) {
               after={toPocket.balance + amount}
             />
           </div>
+          <p className="text-[12px] text-money-faint">
+            Tanggal: {formatDateOnlyLabel(dateFromFormInput(dateIso))}
+          </p>
           <p className="text-[12px] text-money-faint">Catatan: {note || '—'}</p>
         </div>
       )}
@@ -251,49 +391,140 @@ export function TransferModal({ onClose }: { onClose: () => void }) {
 }
 
 export function MovePocketModal({ onClose }: { onClose: () => void }) {
-  const { data, accounts, appendTransaction, dataSource } = useMoneyTrackUi();
+  const {
+    data,
+    accounts,
+    appendTransaction,
+    dataSource,
+    refreshApi,
+    bumpActivity,
+  } = useMoneyTrackUi();
   const [step, setStep] = useState(1);
-  const personId = data.loginPersonId || data.persons[0]?.id || '';
-  const person = data.persons.find((p) => p.id === personId);
   const [fromId, setFromId] = useState('');
   const [toId, setToId] = useState('');
-  const [digits, setDigits] = useState('2000000');
-  const [note, setNote] = useState('Nabung rutin bulanan');
+  const [fromQuery, setFromQuery] = useState('');
+  const [toQuery, setToQuery] = useState('');
+  const [digits, setDigits] = useState('');
+  const [note, setNote] = useState('');
+  const [dateIso, setDateIso] = useState(todayDateOnlyIso);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const allPockets = useMemo(() => {
-    return accounts
-      .filter((a) => a.personId === personId || a.personId === null)
-      .flatMap((a) =>
-        a.pockets.map((p) => ({
+    const list: {
+      id: string;
+      label: string;
+      balance: number;
+      personId: string | null;
+      personName: string;
+      search: string;
+    }[] = [];
+    for (const acc of accounts) {
+      for (const p of acc.pockets) {
+        const personName =
+          acc.personId == null ? 'Bersama' : acc.personName;
+        const label = `${p.name} — ${personName} (${acc.name})`;
+        list.push({
           id: p.id,
-          label: `${p.name}${a.personId === null ? ' (Bersama)' : ''} · ${a.name}`,
+          label,
           balance: p.balance,
-        })),
-      );
-  }, [accounts, personId]);
+          personId: acc.personId,
+          personName,
+          search: `${p.name} ${personName} ${acc.name} ${p.category}`.toLowerCase(),
+        });
+      }
+    }
+    return list;
+  }, [accounts]);
 
-  const from = allPockets.find((p) => p.id === fromId) ?? allPockets[0];
-  const toOptions = allPockets.filter((p) => p.id !== from?.id);
-  const to = toOptions.find((p) => p.id === toId) ?? toOptions[0];
+  const filterPockets = (query: string, excludeId?: string) => {
+    const q = query.trim().toLowerCase();
+    return allPockets.filter((p) => {
+      if (excludeId && p.id === excludeId) return false;
+      if (!q) return true;
+      return p.search.includes(q);
+    });
+  };
+
+  const fromOptions = useMemo(
+    () => filterPockets(fromQuery),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- allPockets via filterPockets
+    [allPockets, fromQuery],
+  );
+  const from = allPockets.find((p) => p.id === fromId) ?? fromOptions[0];
+  const toOptions = useMemo(
+    () => filterPockets(toQuery, from?.id),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allPockets, toQuery, from?.id],
+  );
+  const to = allPockets.find((p) => p.id === toId && p.id !== from?.id) ??
+    toOptions[0];
   const amount = Number(digits.replace(/\D/g, '')) || 0;
 
-  const handleSave = () => {
+  useEffect(() => {
+    if (fromId && !allPockets.some((p) => p.id === fromId)) {
+      setFromId(fromOptions[0]?.id ?? '');
+    }
+  }, [allPockets, fromId, fromOptions]);
+
+  useEffect(() => {
+    if (toId && (!to || to.id === from?.id)) {
+      setToId(toOptions[0]?.id ?? '');
+    }
+  }, [toId, to, from?.id, toOptions]);
+
+  const transferKind: 'interpersonal' | 'interpocket' =
+    from?.personId &&
+    to?.personId &&
+    from.personId !== to.personId
+      ? 'interpersonal'
+      : 'interpocket';
+
+  const handleSave = async () => {
     if (!from || !to || amount <= 0) return;
-    appendTransaction({
-      id: `t-${Date.now()}`,
-      dateLabel: todayLabel(),
-      dateIso: new Date().toISOString().slice(0, 10),
-      title: 'Pindah antar kantong',
-      category: 'Pindah kantong',
-      categoryId: null,
-      person: person?.name ?? '',
-      personId,
-      pocket: `${from.label} → ${to.label}`,
-      pocketId: from.id,
-      kind: 'transfer',
-      amount,
-    });
-    setStep(4);
+    const formDateIso = dateFromFormInput(dateIso);
+    setSaving(true);
+    setError(null);
+    try {
+      if (dataSource === 'api') {
+        await createMoneyTransfer({
+          kind: transferKind,
+          fromPocketId: from.id,
+          toPocketId: to.id,
+          amount,
+          date: formDateIso,
+          note: note.trim() || null,
+        });
+        await refreshApi();
+        bumpActivity();
+      } else {
+        appendTransaction({
+          id: `t-${Date.now()}`,
+          dateLabel: formatDateOnlyLabel(formDateIso),
+          dateIso: formDateIso,
+          title: 'Pindah antar kantong',
+          category: 'Pindah kantong',
+          categoryId: null,
+          person: from.personName,
+          personId: from.personId ?? data.loginPersonId,
+          pocket: `${from.label} → ${to.label}`,
+          pocketId: from.id,
+          kind: 'transfer',
+          amount,
+        });
+      }
+      setStep(4);
+    } catch (err) {
+      setError(
+        err instanceof ApiClientError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Gagal memindahkan saldo.',
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (step === 4) {
@@ -311,7 +542,7 @@ export function MovePocketModal({ onClose }: { onClose: () => void }) {
   return (
     <MoneyModalShell
       title="Pindah Antar Kantong"
-      subtitle={person ? `Milik ${person.name}` : undefined}
+      subtitle="Pilih kantong sumber & tujuan (termasuk kantong pasangan)"
       onClose={onClose}
       step={step}
       stepTotal={3}
@@ -319,16 +550,25 @@ export function MovePocketModal({ onClose }: { onClose: () => void }) {
         <div className="flex gap-2">
           {step > 1 ? (
             <div className="w-28">
-              <MoneySecondaryButton onClick={() => setStep((s) => s - 1)}>
+              <MoneySecondaryButton
+                disabled={saving}
+                onClick={() => setStep((s) => s - 1)}
+              >
                 Kembali
               </MoneySecondaryButton>
             </div>
           ) : null}
           <div className="flex-1">
             <MoneyPrimaryButton
+              disabled={
+                saving ||
+                (step === 1 && fromOptions.length === 0) ||
+                (step === 2 && toOptions.length === 0) ||
+                (step === 3 && (!from || !to || amount <= 0))
+              }
               onClick={() => {
                 if (step === 1) {
-                  if (!fromId && allPockets[0]) setFromId(allPockets[0].id);
+                  if (!fromId && fromOptions[0]) setFromId(fromOptions[0].id);
                   setStep(2);
                   return;
                 }
@@ -337,63 +577,120 @@ export function MovePocketModal({ onClose }: { onClose: () => void }) {
                   setStep(3);
                   return;
                 }
-                handleSave();
+                void handleSave();
               }}
             >
-              {step === 3 ? 'Pindahkan Saldo' : 'Lanjut'}
+              {step === 3
+                ? saving
+                  ? 'Memindahkan…'
+                  : 'Pindahkan Saldo'
+                : 'Lanjut'}
             </MoneyPrimaryButton>
           </div>
         </div>
       }
     >
       {step === 1 && (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <FieldLabel>Dari kantong</FieldLabel>
-          {allPockets.map((p) => (
-            <OptionCard
-              key={p.id}
-              active={(fromId || allPockets[0]?.id) === p.id}
-              title={p.label}
-              subtitle={formatIdr(p.balance)}
-              onClick={() => setFromId(p.id)}
-            />
-          ))}
+          <FieldInput
+            value={fromQuery}
+            onChange={setFromQuery}
+            placeholder="Cari kantong, person, atau account…"
+          />
+          <div className="max-h-52 space-y-1.5 overflow-y-auto">
+            {fromOptions.length === 0 ? (
+              <p className="text-[12.5px] text-money-faint">
+                Tidak ada kantong yang cocok.
+              </p>
+            ) : (
+              fromOptions.map((p) => (
+                <OptionCard
+                  key={p.id}
+                  active={(fromId || fromOptions[0]?.id) === p.id}
+                  title={p.label}
+                  subtitle={formatIdr(p.balance)}
+                  onClick={() => setFromId(p.id)}
+                />
+              ))
+            )}
+          </div>
         </div>
       )}
       {step === 2 && (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <FieldLabel>Ke kantong</FieldLabel>
-          {toOptions.map((p) => (
-            <OptionCard
-              key={p.id}
-              active={(toId || toOptions[0]?.id) === p.id}
-              title={p.label}
-              subtitle={formatIdr(p.balance)}
-              onClick={() => setToId(p.id)}
-            />
-          ))}
+          <FieldInput
+            value={toQuery}
+            onChange={setToQuery}
+            placeholder="Cari kantong, person, atau account…"
+          />
+          <div className="max-h-52 space-y-1.5 overflow-y-auto">
+            {toOptions.length === 0 ? (
+              <p className="text-[12.5px] text-money-faint">
+                Tidak ada kantong tujuan yang cocok.
+              </p>
+            ) : (
+              toOptions.map((p) => (
+                <OptionCard
+                  key={p.id}
+                  active={(toId || toOptions[0]?.id) === p.id}
+                  title={p.label}
+                  subtitle={formatIdr(p.balance)}
+                  onClick={() => setToId(p.id)}
+                />
+              ))
+            )}
+          </div>
         </div>
       )}
       {step === 3 && from && to && (
         <div className="space-y-3">
-          <AmountDisplay digits={digits} />
+          {error ? (
+            <div className="rounded-[10px] border border-money-rose/30 bg-money-rose-soft px-3 py-2 text-[12.5px] font-semibold text-money-rose">
+              {error}
+            </div>
+          ) : null}
+          <AmountDisplay digits={digits} onChange={setDigits} />
           <Numpad
             onDigit={(d) =>
-              setDigits((prev) => (prev + d).replace(/^0+(?=\d)/, '').slice(0, 12))
+              setDigits((prev) =>
+                (prev + d).replace(/^0+(?=\d)/, '').slice(0, 12),
+              )
             }
             on000={() =>
-              setDigits((prev) => (prev + '000').replace(/^0+(?=\d)/, '').slice(0, 12))
+              setDigits((prev) =>
+                (prev + '000').replace(/^0+(?=\d)/, '').slice(0, 12),
+              )
             }
-            onBackspace={() => setDigits((d) => d.slice(0, -1) || '0')}
+            onBackspace={() => setDigits((d) => d.slice(0, -1))}
           />
-          <FieldInput value={note} onChange={setNote} placeholder="Catatan" />
+          <div>
+            <FieldLabel>Tanggal</FieldLabel>
+            <FieldInput type="date" value={dateIso} onChange={setDateIso} />
+          </div>
+          <FieldInput
+            value={note}
+            onChange={setNote}
+            placeholder="Catatan (opsional)"
+          />
           <div className="flex items-center gap-2">
-            <BalanceBox name={from.label} before={from.balance} after={from.balance - amount} />
+            <BalanceBox
+              name={from.label}
+              before={from.balance}
+              after={from.balance - amount}
+            />
             <span>→</span>
-            <BalanceBox name={to.label} before={to.balance} after={to.balance + amount} />
+            <BalanceBox
+              name={to.label}
+              before={to.balance}
+              after={to.balance + amount}
+            />
           </div>
           <p className="text-center text-[12px] font-semibold text-money-faint">
-            Total saldo {person?.name ?? ''} tidak berubah
+            {transferKind === 'interpersonal'
+              ? 'Transfer antar person (pasangan)'
+              : 'Pindah antar kantong'}
           </p>
         </div>
       )}
@@ -402,12 +699,22 @@ export function MovePocketModal({ onClose }: { onClose: () => void }) {
 }
 
 export function CashWithdrawalModal({ onClose }: { onClose: () => void }) {
-  const { data, accounts, appendTransaction, dataSource } = useMoneyTrackUi();
+  const {
+    data,
+    accounts,
+    appendTransaction,
+    dataSource,
+    refreshApi,
+    bumpActivity,
+  } = useMoneyTrackUi();
   const [step, setStep] = useState(1);
   const [sourceId, setSourceId] = useState('');
+  const [sourceQuery, setSourceQuery] = useState('');
   const [digits, setDigits] = useState('500000');
-  const [dateLabel, setDateLabel] = useState(todayLabel());
+  const [dateIso, setDateIso] = useState(todayDateOnlyIso);
   const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const sources = useMemo(() => {
     return accounts
@@ -415,38 +722,77 @@ export function CashWithdrawalModal({ onClose }: { onClose: () => void }) {
       .flatMap((a) =>
         a.pockets.map((p) => ({
           id: p.id,
+          accountId: a.id,
           label: `${a.name} — ${p.name}`,
           balance: p.balance,
           person: a.personName,
           personId: a.personId,
+          search:
+            `${p.name} ${a.name} ${a.personName} ${p.category}`.toLowerCase(),
         })),
       );
   }, [accounts]);
 
-  const source = sources.find((s) => s.id === sourceId) ?? sources[0];
+  const filteredSources = useMemo(() => {
+    const q = sourceQuery.trim().toLowerCase();
+    if (!q) return sources;
+    return sources.filter((s) => s.search.includes(q));
+  }, [sources, sourceQuery]);
+
+  const source =
+    sources.find((s) => s.id === sourceId) ??
+    filteredSources[0] ??
+    sources[0];
   const amount = Number(digits.replace(/\D/g, '')) || 0;
   const cashAcc = accounts.find(
     (a) => a.type === 'cash' && a.personId === (source?.personId ?? data.loginPersonId),
   );
   const cashBal = cashAcc?.pockets[0]?.balance ?? 0;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!source || amount <= 0) return;
-    appendTransaction({
-      id: `t-${Date.now()}`,
-      dateLabel,
-      dateIso: new Date().toISOString().slice(0, 10),
-      title: 'Tarik tunai ATM',
-      category: 'Cash',
-      categoryId: null,
-      person: source.person,
-      personId: source.personId ?? data.loginPersonId,
-      pocket: `${source.label} → Cash`,
-      pocketId: source.id,
-      kind: 'cash_withdrawal',
-      amount,
-    });
-    setStep(3);
+    const formDateIso = dateFromFormInput(dateIso);
+    setSaving(true);
+    setError(null);
+    try {
+      if (dataSource === 'api') {
+        await createMoneyCashWithdrawal({
+          fromAccountId: source.accountId,
+          fromPocketId: source.id,
+          amount,
+          date: formDateIso,
+          note: note.trim() || null,
+        });
+        await refreshApi();
+        bumpActivity();
+      } else {
+        appendTransaction({
+          id: `t-${Date.now()}`,
+          dateLabel: formatDateOnlyLabel(formDateIso),
+          dateIso: formDateIso,
+          title: 'Tarik tunai ATM',
+          category: 'Cash',
+          categoryId: null,
+          person: source.person,
+          personId: source.personId ?? data.loginPersonId,
+          pocket: `${source.label} → Cash`,
+          pocketId: source.id,
+          kind: 'cash_withdrawal',
+          amount,
+        });
+      }
+      setStep(3);
+    } catch (err) {
+      setError(
+        err instanceof ApiClientError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Gagal mencatat penarikan.',
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (step === 3) {
@@ -474,23 +820,33 @@ export function CashWithdrawalModal({ onClose }: { onClose: () => void }) {
         <div className="flex gap-2">
           {step > 1 ? (
             <div className="w-28">
-              <MoneySecondaryButton onClick={() => setStep(1)}>
+              <MoneySecondaryButton
+                disabled={saving}
+                onClick={() => setStep(1)}
+              >
                 Kembali
               </MoneySecondaryButton>
             </div>
           ) : null}
           <div className="flex-1">
             <MoneyPrimaryButton
+              disabled={saving || (step === 1 && amount <= 0)}
               onClick={() => {
                 if (step === 1) {
-                  if (!sourceId && sources[0]) setSourceId(sources[0].id);
+                  if (!sourceId && filteredSources[0]) {
+                    setSourceId(filteredSources[0].id);
+                  }
                   setStep(2);
                   return;
                 }
-                handleSave();
+                void handleSave();
               }}
             >
-              {step === 2 ? 'Catat Penarikan' : 'Lanjut'}
+              {step === 2
+                ? saving
+                  ? 'Menyimpan…'
+                  : 'Catat Penarikan'
+                : 'Lanjut'}
             </MoneyPrimaryButton>
           </div>
         </div>
@@ -498,7 +854,7 @@ export function CashWithdrawalModal({ onClose }: { onClose: () => void }) {
     >
       {step === 1 && (
         <div className="space-y-3">
-          <AmountDisplay digits={digits} />
+          <AmountDisplay digits={digits} onChange={setDigits} />
           <Numpad
             onDigit={(d) =>
               setDigits((prev) => (prev + d).replace(/^0+(?=\d)/, '').slice(0, 12))
@@ -508,25 +864,47 @@ export function CashWithdrawalModal({ onClose }: { onClose: () => void }) {
             }
             onBackspace={() => setDigits((d) => d.slice(0, -1) || '0')}
           />
-          <FieldLabel>Dari rekening / kantong</FieldLabel>
-          <div className="max-h-40 space-y-1.5 overflow-y-auto">
-            {sources.map((s) => (
-              <OptionCard
-                key={s.id}
-                active={(sourceId || sources[0]?.id) === s.id}
-                title={s.label}
-                subtitle={formatIdr(s.balance)}
-                onClick={() => setSourceId(s.id)}
-              />
-            ))}
+          <div>
+            <FieldLabel>Dari rekening / kantong</FieldLabel>
+            <FieldInput
+              value={sourceQuery}
+              onChange={setSourceQuery}
+              placeholder="Cari kantong, person, atau rekening…"
+            />
+            <div className="mt-2 max-h-40 space-y-1.5 overflow-y-auto">
+              {sources.length === 0 ? (
+                <p className="text-[12.5px] text-money-faint">
+                  Belum ada kantong sumber (non-cash).
+                </p>
+              ) : filteredSources.length === 0 ? (
+                <p className="text-[12.5px] text-money-faint">
+                  Tidak ada kantong yang cocok.
+                </p>
+              ) : (
+                filteredSources.map((s) => (
+                  <OptionCard
+                    key={s.id}
+                    active={(sourceId || filteredSources[0]?.id) === s.id}
+                    title={s.label}
+                    subtitle={`${s.person} · ${formatIdr(s.balance)}`}
+                    onClick={() => setSourceId(s.id)}
+                  />
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
       {step === 2 && source && (
         <div className="space-y-3">
+          {error ? (
+            <div className="rounded-[10px] border border-money-rose/30 bg-money-rose-soft px-3 py-2 text-[12.5px] font-semibold text-money-rose">
+              {error}
+            </div>
+          ) : null}
           <div>
             <FieldLabel>Tanggal Penarikan</FieldLabel>
-            <FieldInput value={dateLabel} onChange={setDateLabel} />
+            <FieldInput type="date" value={dateIso} onChange={setDateIso} />
             <p className="mt-1.5 text-[11px] text-money-faint">
               Bukan hari ini? Ubah tanggal — wajar kalau baru sempat dicatat.
             </p>

@@ -12,6 +12,8 @@ import {
   MovePocketModal,
   TransferModal,
 } from '@/modules/money-track/components/modals/MoneyFlowModals';
+import { EditActivityModal } from '@/modules/money-track/components/modals/EditActivityModal';
+import { EditTransactionModal } from '@/modules/money-track/components/modals/EditTransactionModal';
 import { TransactionModal } from '@/modules/money-track/components/modals/TransactionModal';
 
 export function MoneyModalsHost() {
@@ -20,7 +22,18 @@ export function MoneyModalsHost() {
 
   switch (activeModal.type) {
     case 'transaction':
-      return <TransactionModal onClose={closeModal} />;
+      return activeModal.payload?.transactionId ? (
+        <EditTransactionModal
+          onClose={closeModal}
+          payload={activeModal.payload}
+        />
+      ) : (
+        <TransactionModal onClose={closeModal} />
+      );
+    case 'activityEdit':
+      return (
+        <EditActivityModal onClose={closeModal} payload={activeModal.payload} />
+      );
     case 'transfer':
       return <TransferModal onClose={closeModal} />;
     case 'move':

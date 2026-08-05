@@ -8,7 +8,8 @@ export type MoneyModalType =
   | 'wishlist'
   | 'debt'
   | 'debtPayment'
-  | 'adjustment';
+  | 'adjustment'
+  | 'activityEdit';
 
 export type MoneyModalPayload = {
   debtId?: string;
@@ -26,6 +27,19 @@ export type MoneyModalPayload = {
   personName?: string;
   recorded?: number;
   actual?: number;
+  /** Edit transaksi (income/expense). */
+  transactionId?: string;
+  txType?: 'income' | 'expense';
+  txAmount?: number;
+  txCategoryId?: string | null;
+  txNote?: string | null;
+  txDateIso?: string;
+  /** Edit transfer / tarik tunai dari list activity. */
+  activityKind?: 'transfer' | 'cash_withdrawal';
+  activityId?: string;
+  activityTitle?: string;
+  fromPocketId?: string;
+  toPocketId?: string;
 };
 
 export type MoneyModalState = {
@@ -34,22 +48,22 @@ export type MoneyModalState = {
 } | null;
 
 export const EXPENSE_CATEGORIES = [
-  { id: 'makan', name: 'Makan', emoji: '🍜' },
-  { id: 'transport', name: 'Transport', emoji: '🚗' },
-  { id: 'tagihan', name: 'Tagihan', emoji: '🧾' },
-  { id: 'hiburan', name: 'Hiburan', emoji: '🎬' },
-  { id: 'belanja', name: 'Belanja', emoji: '🛒' },
-  { id: 'kesehatan', name: 'Kesehatan', emoji: '🏥' },
-  { id: 'pendidikan', name: 'Pendidikan', emoji: '📚' },
-  { id: 'lainnya', name: 'Lainnya', emoji: '➕' },
+  { id: 'makan', name: 'Makan', emoji: 'coffee' },
+  { id: 'transport', name: 'Transport', emoji: 'truck' },
+  { id: 'tagihan', name: 'Tagihan', emoji: 'credit-card' },
+  { id: 'hiburan', name: 'Hiburan', emoji: 'film' },
+  { id: 'belanja', name: 'Belanja', emoji: 'shopping-cart' },
+  { id: 'kesehatan', name: 'Kesehatan', emoji: 'heart' },
+  { id: 'pendidikan', name: 'Pendidikan', emoji: 'book-open' },
+  { id: 'lainnya', name: 'Lainnya', emoji: 'tag' },
 ] as const;
 
 export const INCOME_CATEGORIES = [
-  { id: 'gaji', name: 'Gaji', emoji: '💼' },
-  { id: 'bonus', name: 'Bonus', emoji: '🎁' },
-  { id: 'freelance', name: 'Freelance', emoji: '💻' },
-  { id: 'investasi', name: 'Investasi', emoji: '📈' },
-  { id: 'lainnya-in', name: 'Lainnya', emoji: '➕' },
+  { id: 'gaji', name: 'Gaji', emoji: 'briefcase' },
+  { id: 'bonus', name: 'Bonus', emoji: 'gift' },
+  { id: 'freelance', name: 'Freelance', emoji: 'monitor' },
+  { id: 'investasi', name: 'Investasi', emoji: 'trending-up' },
+  { id: 'lainnya-in', name: 'Lainnya', emoji: 'tag' },
 ] as const;
 
 export function todayLabel(): string {

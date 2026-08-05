@@ -6,7 +6,7 @@ import {
   PageHeader,
 } from '@/modules/money-track/components/PageChrome';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
-import { archiveMoneyPocket } from '@/modules/money-track/api/moneyApi';
+import { deleteMoneyPocket } from '@/modules/money-track/api/moneyApi';
 import { formatIdr, type MoneyPocketCategory } from '@/modules/money-track/types';
 import { ApiClientError } from '@/shared/lib/apiClient';
 
@@ -91,7 +91,7 @@ export function PocketsPage() {
   ) => {
     if (
       !window.confirm(
-        `Hapus pocket "${pocketName}"? Pocket akan di-archive dan bisa dipulihkan nanti.`,
+        `Hapus pocket "${pocketName}"? Data terkait pocket ini juga akan dihapus dan tidak bisa dipulihkan.`,
       )
     ) {
       return;
@@ -100,7 +100,7 @@ export function PocketsPage() {
     setDeleteError(null);
     try {
       if (dataSource === 'api') {
-        await archiveMoneyPocket(pocketId);
+        await deleteMoneyPocket(pocketId);
         await refreshApi();
       } else {
         removePocket(accountId, pocketId);
@@ -364,23 +364,21 @@ export function PocketsPage() {
                                 >
                                   <Edit2 size={14} />
                                 </button>
-                                {pocket.canDelete ? (
-                                  <button
-                                    type="button"
-                                    title="Hapus pocket"
-                                    disabled={deletingId === pocket.id}
-                                    onClick={() =>
-                                      void handleDeletePocket(
-                                        acc.id,
-                                        pocket.id,
-                                        pocket.name,
-                                      )
-                                    }
-                                    className="rounded-lg p-1.5 text-money-muted hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-45"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                ) : null}
+                                <button
+                                  type="button"
+                                  title="Hapus pocket"
+                                  disabled={deletingId === pocket.id}
+                                  onClick={() =>
+                                    void handleDeletePocket(
+                                      acc.id,
+                                      pocket.id,
+                                      pocket.name,
+                                    )
+                                  }
+                                  className="rounded-lg p-1.5 text-money-muted hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-45"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
                               </div>
                             </div>
                           ))

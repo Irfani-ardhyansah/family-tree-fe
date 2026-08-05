@@ -56,11 +56,16 @@ docs/
 | [`requests/from-fe/done/ADMIN-PANEL-API.md`](./requests/from-fe/done/ADMIN-PANEL-API.md) | Admin Panel API v1 |
 | [`requests/from-fe/done/NOTIFICATIONS-INBOX-API.md`](./requests/from-fe/done/NOTIFICATIONS-INBOX-API.md) | Notifikasi inbox (modal + badge) |
 | [`requests/from-fe/done/MONEY-TRANSACTIONS-FILTER-API.md`](./requests/from-fe/done/MONEY-TRANSACTIONS-FILTER-API.md) | Filter transaksi + `/money/activity` |
+| [`requests/from-fe/done/MONEY-POCKET-UNARCHIVE-API.md`](./requests/from-fe/done/MONEY-POCKET-UNARCHIVE-API.md) | Unarchive pocket |
+| [`requests/from-fe/done/MONEY-SAMPLE-DATA-FLAG-BE-PROMPT.md`](./requests/from-fe/done/MONEY-SAMPLE-DATA-FLAG-BE-PROMPT.md) | Flag `hasSampleData` (Hapus Data Contoh) |
+| [`requests/from-fe/done/MONEY-DATE-AND-ACTIVITY-PATCH-BE-PROMPT.md`](./requests/from-fe/done/MONEY-DATE-AND-ACTIVITY-PATCH-BE-PROMPT.md) | Date-only + PATCH transfer/cash |
 
 ## Requests from FE — pending
 
 | File | Modul |
 |------|--------|
+| [`requests/from-fe/pending/MONEY-ACTIVITY-TRANSFER-POCKETS-BE-PROMPT.md`](./requests/from-fe/pending/MONEY-ACTIVITY-TRANSFER-POCKETS-BE-PROMPT.md) | Activity transfer: kantong asal + tujuan |
+| [`requests/from-fe/pending/MONEY-TRACK-API.md`](./requests/from-fe/pending/MONEY-TRACK-API.md) | Draft / mirror Money Track API |
 | [`requests/from-fe/pending/PRD-Money-Track.md`](./requests/from-fe/pending/PRD-Money-Track.md) | PRD Money Track |
 | [`requests/from-fe/pending/money-track-mockup.html`](./requests/from-fe/pending/money-track-mockup.html) | Mockup UI |
 | [`requests/from-fe/pending/money-track-ux-flow.html`](./requests/from-fe/pending/money-track-ux-flow.html) | UX flow input uang |

@@ -13,7 +13,9 @@ import {
   NewTransactionPage,
   NewTransferPage,
 } from '@/modules/money-track/pages/NewFlowPages';
+import { OpeningBalancesPage } from '@/modules/money-track/pages/OpeningBalancesPage';
 import { PocketsPage } from '@/modules/money-track/pages/PocketsPage';
+import { ReportingPage } from '@/modules/money-track/pages/ReportingPage';
 import { SetupPage } from '@/modules/money-track/pages/SetupPage';
 import { TransactionsPage } from '@/modules/money-track/pages/TransactionsPage';
 import { WishlistPage } from '@/modules/money-track/pages/WishlistPage';
@@ -31,11 +33,14 @@ export const moneyTrackRoutes: RouteObject[] = [
           { path: 'transactions', element: <TransactionsPage /> },
           { path: 'pockets', element: <PocketsPage /> },
           { path: 'categories', element: <CategoriesPage /> },
+          { path: 'reporting', element: <ReportingPage /> },
+          // Wishlist hidden from nav; route kept for later.
           { path: 'wishlist', element: <WishlistPage /> },
           { path: 'debts', element: <DebtsPage /> },
           { path: 'debts/:debtId', element: <DebtDetailPage /> },
           { path: 'balancing', element: <BalancingPage /> },
           { path: 'budgets', element: <BudgetsPage /> },
+          { path: 'opening', element: <OpeningBalancesPage /> },
           { path: 'setup', element: <SetupPage /> },
           { path: 'new/transaction', element: <NewTransactionPage /> },
           { path: 'new/transfer', element: <NewTransferPage /> },

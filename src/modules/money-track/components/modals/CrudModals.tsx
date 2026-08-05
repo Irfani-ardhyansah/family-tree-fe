@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  archiveMoneyPocket,
   createMoneyAccount,
   createMoneyPocket,
   deleteMoneyAccount,
+  deleteMoneyPocket,
   updateMoneyAccount,
   updateMoneyPocket,
 } from '@/modules/money-track/api/moneyApi';
@@ -20,6 +20,7 @@ import {
   MoneyModalShell,
   MoneyPrimaryButton,
   MoneySecondaryButton,
+  OptionCard,
   SuccessPanel,
 } from '@/modules/money-track/components/modals/MoneyModalShell';
 import {
@@ -56,50 +57,36 @@ export function AccountModal({
   );
   const [name, setName] = useState(payload?.accountName ?? '');
   const [type, setType] = useState(payload?.accountType ?? 'bank');
-  const [done, setDone] = useState(false);
-  const [doneAction, setDoneAction] = useState<'save' | 'delete'>('save');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isCash = (existing?.type ?? type) === 'cash';
-
-  if (done) {
-    return (
-      <MoneyModalShell
-        title={editing ? 'Edit Account' : 'Tambah Account'}
-        onClose={onClose}
-      >
-        <SuccessPanel
-          title={doneAction === 'delete' ? 'Account dihapus' : 'Account tersimpan'}
-          body={`${name}${dataSource === 'dummy' ? ' (dummy)' : ''}.`}
-          onDone={onClose}
-        />
-      </MoneyModalShell>
-    );
-  }
+  const pocketCount = existing?.pockets.length ?? 0;
 
   return (
     <MoneyModalShell
       title={editing ? 'Edit Account' : 'Tambah Account'}
       subtitle={
         editing
-          ? isCash
-            ? 'Account cash — hapus tidak diizinkan'
-            : 'Ubah nama atau hapus account'
+          ? 'Ubah nama atau hapus account (beserta pocket & data terkait)'
           : 'Bank, e-wallet, atau cash'
       }
       onClose={onClose}
       footer={
         <div className="flex gap-2">
-          {editing && !isCash ? (
+          {editing ? (
             <div className="w-28">
               <MoneySecondaryButton
                 disabled={saving}
                 onClick={() => {
                   void (async () => {
+                    const cascadeMsg =
+                      pocketCount > 0
+                        ? `\n\nIni juga akan menghapus ${pocketCount} pocket di dalamnya beserta transaksi/transfer/data terkait.`
+                        : '\n\nData terkait account ini (jika ada) juga akan dihapus.';
                     if (
                       !window.confirm(
-                        `Hapus account "${name}"? Semua pocket harus sudah di-archive/hapus dulu.`,
+                        `Hapus account "${name}"?${cascadeMsg}${isCash ? '\n\nIni account Cash.' : ''}`,
                       )
                     ) {
                       return;
@@ -108,13 +95,12 @@ export function AccountModal({
                     setError(null);
                     try {
                       if (dataSource === 'api') {
-                        await deleteMoneyAccount(editingId!);
+                        await deleteMoneyAccount(editingId!, { cascade: true });
                         await refreshApi();
                       } else {
                         removeAccount(editingId!);
                       }
-                      setDoneAction('delete');
-                      setDone(true);
+                      onClose();
                     } catch (err) {
                       setError(
                         err instanceof ApiClientError
@@ -178,8 +164,7 @@ export function AccountModal({
                         });
                       }
                     }
-                    setDoneAction('save');
-                    setDone(true);
+                    onClose();
                   } catch (err) {
                     setError(
                       err instanceof ApiClientError
@@ -295,8 +280,6 @@ export function PocketModal({
       ? String(payload.pocketGoalAmount)
       : '',
   );
-  const [done, setDone] = useState(false);
-  const [doneAction, setDoneAction] = useState<'save' | 'delete'>('save');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -304,26 +287,6 @@ export function PocketModal({
     accounts.find((a) => a.id === accountId) ?? creatableAccounts[0];
   const isCashAccount = selectedAccount?.type === 'cash';
   const isSystem = Boolean(payload?.pocketIsSystem);
-  const canDelete = editing
-    ? Boolean(payload?.pocketCanDelete)
-    : true;
-
-  if (done) {
-    return (
-      <MoneyModalShell
-        title={editing ? 'Edit Pocket' : 'Tambah Pocket'}
-        onClose={onClose}
-      >
-        <SuccessPanel
-          title={
-            doneAction === 'delete' ? 'Pocket dihapus' : 'Pocket tersimpan'
-          }
-          body={`${name}${dataSource === 'dummy' ? ' (dummy)' : ''}.`}
-          onDone={onClose}
-        />
-      </MoneyModalShell>
-    );
-  }
 
   return (
     <MoneyModalShell
@@ -331,10 +294,8 @@ export function PocketModal({
       subtitle={
         editing
           ? isSystem
-            ? 'Pocket sistem — nama/kategori terkunci; hapus tidak diizinkan'
-            : !canDelete
-              ? 'Ubah detail. Hapus tidak tersedia (saldo harus 0).'
-              : 'Ubah detail atau hapus pocket'
+            ? 'Pocket sistem — nama/kategori terkunci; tetap bisa dihapus'
+            : 'Ubah detail atau hapus pocket'
           : payload?.accountName
             ? `Di account ${payload.accountName}`
             : 'Kantong logis di dalam account'
@@ -342,7 +303,7 @@ export function PocketModal({
       onClose={onClose}
       footer={
         <div className="flex gap-2">
-          {editing && canDelete ? (
+          {editing ? (
             <div className="w-28">
               <MoneySecondaryButton
                 disabled={saving}
@@ -350,7 +311,7 @@ export function PocketModal({
                   void (async () => {
                     if (
                       !window.confirm(
-                        `Hapus pocket "${name}"? Pocket akan di-archive dan bisa dipulihkan nanti.`,
+                        `Hapus pocket "${name}"? Data terkait pocket ini juga akan dihapus dan tidak bisa dipulihkan.`,
                       )
                     ) {
                       return;
@@ -359,13 +320,12 @@ export function PocketModal({
                     setError(null);
                     try {
                       if (dataSource === 'api') {
-                        await archiveMoneyPocket(editingId!);
+                        await deleteMoneyPocket(editingId!);
                         await refreshApi();
                       } else {
                         removePocket(accountId, editingId!);
                       }
-                      setDoneAction('delete');
-                      setDone(true);
+                      onClose();
                     } catch (err) {
                       setError(
                         err instanceof ApiClientError
@@ -443,8 +403,7 @@ export function PocketModal({
                         });
                       }
                     }
-                    setDoneAction('save');
-                    setDone(true);
+                    onClose();
                   } catch (err) {
                     setError(
                       err instanceof ApiClientError
@@ -563,15 +522,28 @@ export function WishlistModal({ onClose }: { onClose: () => void }) {
   const [priority, setPriority] = useState('medium');
   const [personId, setPersonId] = useState(data.persons[0]?.id ?? '');
   const [pocketId, setPocketId] = useState('');
+  const [pocketQuery, setPocketQuery] = useState('');
   const [done, setDone] = useState(false);
 
-  const pocketOptions = accounts.flatMap((a) =>
-    a.pockets.map((p) => ({
-      id: p.id,
-      label: `${p.name} · ${a.personName}`,
-      balance: p.balance,
-    })),
+  const pocketOptions = useMemo(
+    () =>
+      accounts.flatMap((a) =>
+        a.pockets.map((p) => ({
+          id: p.id,
+          label: `${p.name} · ${a.personName}`,
+          balance: p.balance,
+          search:
+            `${p.name} ${a.personName} ${a.name} ${p.category}`.toLowerCase(),
+        })),
+      ),
+    [accounts],
   );
+
+  const filteredPockets = useMemo(() => {
+    const q = pocketQuery.trim().toLowerCase();
+    if (!q) return pocketOptions;
+    return pocketOptions.filter((p) => p.search.includes(q));
+  }, [pocketOptions, pocketQuery]);
 
   if (done) {
     return (
@@ -658,17 +630,34 @@ export function WishlistModal({ onClose }: { onClose: () => void }) {
         </div>
         <div>
           <FieldLabel>Link kantong (opsional)</FieldLabel>
-          <FieldSelect
-            value={pocketId}
-            onChange={setPocketId}
-            options={[
-              { value: '', label: '— Manual —' },
-              ...pocketOptions.map((p) => ({
-                value: p.id,
-                label: p.label,
-              })),
-            ]}
+          <FieldInput
+            value={pocketQuery}
+            onChange={setPocketQuery}
+            placeholder="Cari kantong…"
           />
+          <div className="mt-2 max-h-40 space-y-1.5 overflow-y-auto">
+            <OptionCard
+              active={pocketId === ''}
+              title="— Manual —"
+              subtitle="Tanpa link kantong"
+              onClick={() => setPocketId('')}
+            />
+            {filteredPockets.length === 0 ? (
+              <p className="text-[12.5px] text-money-faint">
+                Tidak ada kantong yang cocok.
+              </p>
+            ) : (
+              filteredPockets.map((p) => (
+                <OptionCard
+                  key={p.id}
+                  active={pocketId === p.id}
+                  title={p.label}
+                  subtitle={formatIdr(p.balance)}
+                  onClick={() => setPocketId(p.id)}
+                />
+              ))
+            )}
+          </div>
         </div>
       </div>
     </MoneyModalShell>

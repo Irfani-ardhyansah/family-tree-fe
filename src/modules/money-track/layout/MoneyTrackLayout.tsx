@@ -4,6 +4,7 @@ import {
   Grid,
   LogOut,
   Plus,
+  Trash2,
   X,
 } from 'react-feather';
 import { useAuth } from '@/shared/context/AuthContext';
@@ -15,12 +16,12 @@ import {
   useMoneyTrackUi,
 } from '@/modules/money-track/context/MoneyTrackUiContext';
 
-const NAV_ITEMS = [
+const NAV_ITEMS_BASE = [
   { to: moneyPaths.home, label: 'Dashboard', end: true },
   { to: moneyPaths.transactions, label: 'Transaksi', end: false },
   { to: moneyPaths.pockets, label: 'Kantong', end: false },
   { to: moneyPaths.categories, label: 'Kategori', end: false },
-  { to: moneyPaths.wishlist, label: 'Wishlist', end: false },
+  { to: moneyPaths.reporting, label: 'Reporting', end: false },
   { to: moneyPaths.debts, label: 'Utang Piutang', end: false },
   { to: moneyPaths.balancing, label: 'Balancing', end: false },
 ] as const;
@@ -46,7 +47,7 @@ const QUICK_ACTIONS: {
   {
     type: 'move',
     title: 'Pindah Antar Kantong',
-    subtitle: 'Geser saldo antar kantong sendiri',
+    subtitle: 'Geser saldo antar kantong (termasuk pasangan)',
     tone: 'violet',
   },
   {
@@ -69,7 +70,19 @@ function MoneyTrackChrome() {
     dataSource,
     setDataSource,
     openModal,
+    resetApiWorkspace,
+    apiLoading,
+    showWipeSampleButton,
+    needsOpeningBalancesUi,
   } = useMoneyTrackUi();
+
+  const navItems = [
+    ...NAV_ITEMS_BASE.slice(0, 6),
+    ...(needsOpeningBalancesUi
+      ? [{ to: moneyPaths.opening, label: 'Saldo Awal', end: false as const }]
+      : []),
+    ...NAV_ITEMS_BASE.slice(6),
+  ];
 
   const coupleNames = data.persons.map((p) => p.name).join(' & ');
   const brandSub =
@@ -107,7 +120,7 @@ function MoneyTrackChrome() {
           </div>
 
           <nav className="ml-1 hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto md:flex">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -188,7 +201,7 @@ function MoneyTrackChrome() {
 
         {/* Mobile nav */}
         <nav className="flex gap-1 overflow-x-auto border-t border-money-border px-3 py-2 md:hidden">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -252,13 +265,35 @@ function MoneyTrackChrome() {
                 API
               </button>
             </div>
+            {dataSource === 'api' && showWipeSampleButton ? (
+              <button
+                type="button"
+                title="Hapus data contoh Money Track di database"
+                disabled={apiLoading}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      'Hapus data contoh Money Track di database untuk workspace ini? Setelah ini tombol tidak muncul lagi — anggap data selanjutnya data real. (Non-prod only)',
+                    )
+                  ) {
+                    void resetApiWorkspace({ mode: 'wipe', keepSetup: true }).catch(
+                      () => undefined,
+                    );
+                  }
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-money-rose/30 bg-money-rose-soft px-2.5 py-1 text-[11.5px] font-bold text-money-rose hover:bg-money-rose hover:text-white disabled:opacity-50"
+              >
+                <Trash2 size={12} />
+                <span className="hidden sm:inline">Hapus Data Contoh</span>
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setQuickAddOpen(true)}
               className="hidden items-center gap-1.5 rounded-full bg-money-brown px-3 py-1.5 text-xs font-bold text-white hover:bg-money-brown-deep md:inline-flex"
             >
               <Plus size={14} />
-              Catat
+              Aksi
             </button>
           </div>
         </div>
