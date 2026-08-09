@@ -69,19 +69,19 @@ export function MoneyAmountInput({
   );
 }
 
-export function FieldSelect({
+export function FieldSelect<T extends string = string>({
   value,
   onChange,
   options,
 }: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string }[];
 }) {
   return (
     <select
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => onChange(e.target.value as T)}
       className="w-full rounded-[10px] border border-money-border bg-money-soft px-3 py-2.5 text-[13.5px] font-semibold text-money-ink outline-none focus:border-money-brown focus:bg-money-surface"
     >
       {options.map((o) => (
