@@ -100,11 +100,11 @@ function MoneyTrackChrome() {
         <div className="mx-auto flex max-w-[1280px] items-center gap-3 px-3 py-2.5 sm:gap-4 sm:px-6 lg:px-7">
           <Link
             to={appPaths.launcher}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-money-muted hover:bg-money-soft"
+            className="inline-flex shrink-0 items-center justify-center rounded-lg p-2 text-money-muted hover:bg-money-soft"
             title="Semua modul"
+            aria-label="Semua modul"
           >
             <Grid size={15} />
-            <span className="hidden lg:inline">Modul</span>
           </Link>
 
           <div className="flex min-w-0 items-center gap-2.5">

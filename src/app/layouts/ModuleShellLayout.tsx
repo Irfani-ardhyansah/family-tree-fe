@@ -26,10 +26,11 @@ export function ModuleShellLayout({
           <div className="flex items-center gap-3">
             <Link
               to={appPaths.launcher}
-              className="inline-flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-medium text-brand-600 hover:bg-gray-50"
+              className="inline-flex items-center justify-center rounded-xl p-2 text-brand-600 hover:bg-gray-50"
+              title="Semua modul"
+              aria-label="Semua modul"
             >
               <Grid size={16} />
-              <span className="hidden sm:inline">Semua modul</span>
             </Link>
             <span className="text-sm font-semibold text-brand-800">
               {moduleName}

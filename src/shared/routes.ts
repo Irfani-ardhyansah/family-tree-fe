@@ -21,6 +21,17 @@ export const rootsPaths = {
 
 export const corePaths = {
   home: '/core',
+  documents: '/core/documents',
+  documentTypes: '/core/documents/types',
+  documentNew: '/core/documents/new',
+  document: (id: string | number) => `/core/documents/${id}`,
+  documentEdit: (id: string | number) => `/core/documents/${id}/edit`,
+  health: '/core/health',
+  healthMember: (memberId: string | number) => `/core/health/${memberId}`,
+  calendar: '/core/calendar',
+  calendarEventTypes: '/core/calendar/types',
+  calendarEvent: (id: string | number) => `/core/calendar/${id}`,
+  calendarNew: '/core/calendar/new',
 } as const;
 
 export const moneyPaths = {

@@ -72,7 +72,7 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
     subtitle: 'Keluarga inti',
     description: 'Dokumen penting, health tracker, dan kalender keluarga inti.',
     to: corePaths.home,
-    status: 'planned',
+    status: 'in-dev',
     accent: 'border-t-sky-500',
     iconWrap: 'bg-sky-500/15',
     iconColor: 'text-sky-400',
