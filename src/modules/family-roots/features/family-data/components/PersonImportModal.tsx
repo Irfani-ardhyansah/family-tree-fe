@@ -17,6 +17,7 @@ import {
 import { useDataSource } from '@/shared/context/DataSourceContext';
 import { useFamily } from '@/modules/family-roots/context/FamilyDataContext';
 import { usePersonImport } from '@/shared/hooks/usePersonImport';
+import { publicUrl } from '@/shared/lib/basePath';
 import {
   downloadPersonImportTemplate,
   getValidImportDrafts,
@@ -30,7 +31,7 @@ type PersonImportModalProps = {
   onSuccess?: () => void;
 };
 
-const EXAMPLE_CSV_URL = '/templates/persons-import-example.csv';
+const EXAMPLE_CSV_URL = publicUrl('templates/persons-import-example.csv');
 
 function ProgressBlock({
   percent,

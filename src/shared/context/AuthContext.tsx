@@ -23,6 +23,7 @@ import {
   isValidLoginCodeFormat,
   normalizeLoginCode,
 } from '@/shared/utils/loginCode';
+import { withBasePath } from '@/shared/lib/basePath';
 import { appPaths } from '@/shared/routes';
 
 const AUTH_PERSON_KEY = 'familyroots_auth_person';
@@ -157,8 +158,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPerson(null);
       // Hard redirect — hindari state router kosong / blank setelah sesi mati
       const path = window.location.pathname;
-      if (path !== appPaths.login && path !== appPaths.register) {
-        window.location.replace(appPaths.login);
+      const loginPath = withBasePath(appPaths.login);
+      const registerPath = withBasePath(appPaths.register);
+      if (path !== loginPath && path !== registerPath) {
+        window.location.replace(loginPath);
       }
     };
     window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);

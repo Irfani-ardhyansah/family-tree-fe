@@ -11,33 +11,37 @@ import { moneyTrackRoutes } from '@/modules/money-track/routes';
 import { AuthProvider } from '@/shared/context/AuthContext';
 import { DataSourceProvider } from '@/shared/context/DataSourceContext';
 import { SecondaryPasswordGateProvider } from '@/shared/context/SecondaryPasswordGateContext';
+import { getRouterBasename } from '@/shared/lib/basePath';
 import { appPaths } from '@/shared/routes';
 
-const router = createBrowserRouter([
-  {
-    element: <ProtectedRoute />,
-    children: [
-      { path: appPaths.launcher, element: <LauncherPage /> },
-      {
-        path: appPaths.inbox,
-        element: (
-          <Navigate to={`${appPaths.launcher}?notifications=1`} replace />
-        ),
-      },
-      ...familyRootsRoutes,
-      ...familyCoreRoutes,
-      ...moneyTrackRoutes,
-      ...householdRoutes,
-      ...adminRoutes,
-      ...legacyRedirectRoutes,
-      { path: '*', element: <Navigate to={appPaths.launcher} replace /> },
-    ],
-  },
-  {
-    element: <PublicRoute />,
-    children: authRoutes,
-  },
-]);
+const router = createBrowserRouter(
+  [
+    {
+      element: <ProtectedRoute />,
+      children: [
+        { path: appPaths.launcher, element: <LauncherPage /> },
+        {
+          path: appPaths.inbox,
+          element: (
+            <Navigate to={`${appPaths.launcher}?notifications=1`} replace />
+          ),
+        },
+        ...familyRootsRoutes,
+        ...familyCoreRoutes,
+        ...moneyTrackRoutes,
+        ...householdRoutes,
+        ...adminRoutes,
+        ...legacyRedirectRoutes,
+        { path: '*', element: <Navigate to={appPaths.launcher} replace /> },
+      ],
+    },
+    {
+      element: <PublicRoute />,
+      children: authRoutes,
+    },
+  ],
+  { basename: getRouterBasename() },
+);
 
 export function AppRouter() {
   return (

@@ -34,7 +34,7 @@ export function isWebPushSupported(): boolean {
 
 export async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) return null;
-  return navigator.serviceWorker.register('/sw.js');
+  return navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
 }
 
 export async function getWebPushStatus(): Promise<WebPushStatus> {

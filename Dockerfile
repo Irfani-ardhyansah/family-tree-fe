@@ -11,8 +11,10 @@ COPY . .
 
 ARG VITE_API_BASE_URL=http://localhost:3000/api/v1
 ARG VITE_APP_ENV=production
+ARG VITE_BASE_PATH=/family/
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
-    VITE_APP_ENV=$VITE_APP_ENV
+    VITE_APP_ENV=$VITE_APP_ENV \
+    VITE_BASE_PATH=$VITE_BASE_PATH
 
 RUN npm run build
 
@@ -24,6 +26,6 @@ COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://127.0.0.1/ >/dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1/family/ >/dev/null || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]

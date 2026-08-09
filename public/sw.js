@@ -1,11 +1,29 @@
 /* Family Suite — Web Push service worker */
+function appBase() {
+  try {
+    return new URL(self.registration.scope).pathname.replace(/\/$/, '') || '';
+  } catch {
+    return '';
+  }
+}
+
+function appPath(path) {
+  const base = appBase();
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${normalized}`;
+}
+
 self.addEventListener('push', (event) => {
-  let payload = { title: 'Family Suite', body: '', data: { url: '/?notifications=1' } };
+  let payload = {
+    title: 'Family Suite',
+    body: '',
+    data: { url: appPath('/?notifications=1') },
+  };
   try {
     if (event.data) {
       payload = { ...payload, ...event.data.json() };
-      if (!payload.data) payload.data = { url: '/?notifications=1' };
-      if (!payload.data.url) payload.data.url = '/?notifications=1';
+      if (!payload.data) payload.data = { url: appPath('/?notifications=1') };
+      if (!payload.data.url) payload.data.url = appPath('/?notifications=1');
     }
   } catch {
     // keep defaults
@@ -15,17 +33,19 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(payload.title || 'Family Suite', {
       body: payload.body || '',
       data: payload.data,
-      icon: '/vite.svg',
+      icon: appPath('/vite.svg'),
     }),
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const rawUrl = event.notification.data?.url || '/?notifications=1';
+  const rawUrl = event.notification.data?.url || appPath('/?notifications=1');
   const target =
-    rawUrl === '/inbox' || rawUrl.endsWith('/inbox')
-      ? '/?notifications=1'
+    rawUrl === '/inbox' ||
+    rawUrl === appPath('/inbox') ||
+    rawUrl.endsWith('/inbox')
+      ? appPath('/?notifications=1')
       : rawUrl;
 
   event.waitUntil(
