@@ -14,6 +14,14 @@ export type MoneyModalType =
 export type MoneyModalPayload = {
   debtId?: string;
   debtLabel?: string;
+  /** Prefill edit utang/piutang. */
+  debtCounterparty?: string;
+  debtDirection?: 'utang' | 'piutang';
+  debtAmount?: number;
+  debtPersonId?: string;
+  debtDateIso?: string;
+  debtDueDateIso?: string | null;
+  debtNote?: string | null;
   pocketId?: string;
   pocketName?: string;
   pocketCategory?: string;

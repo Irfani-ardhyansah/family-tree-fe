@@ -19,6 +19,7 @@ import {
 import {
   emptyMoneyDashboard,
   addMoneyOpeningPocketIds,
+  canUseMoneyDummySource,
   clearMoneyOpeningPocketIds,
   readMoneyDataSource,
   readMoneyOpeningPocketIds,
@@ -90,6 +91,8 @@ function seedDummyCategories(): CatRow[] {
 type MoneyTrackUiContextValue = {
   dataSource: MoneyDataSource;
   setDataSource: (source: MoneyDataSource) => void;
+  /** True hanya VITE_APP_ENV=development — boleh switch Dummy/API. */
+  canUseDummySource: boolean;
   data: MoneyDashboardMock;
   transactions: TxRow[];
   accounts: AccRow[];
@@ -130,6 +133,8 @@ type MoneyTrackUiContextValue = {
   restorePocket: (pocketId: string) => Promise<void>;
   appendWishlist: (row: WishRow) => void;
   appendDebt: (row: DebtRow) => void;
+  patchDebt: (id: string, patch: Partial<DebtRow>) => void;
+  removeDebt: (id: string) => void;
   appendDebtPayment: (debtId: string, amount: number) => void;
   applyAdjustment: (balancingRowId: string, actual: number) => void;
   createCategory: (input: {
@@ -189,6 +194,7 @@ function toCategoryError(error: unknown, fallback: string): Error {
 }
 
 export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
+  const canUseDummySource = canUseMoneyDummySource();
   const [dataSource, setDataSourceState] = useState<MoneyDataSource>(() =>
     readMoneyDataSource(),
   );
@@ -240,12 +246,22 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
   const [apiError, setApiError] = useState<string | null>(null);
 
   const setDataSource = (source: MoneyDataSource) => {
-    setDataSourceState(source);
-    writeMoneyDataSource(source);
+    // Non-development (deployment): kunci ke API, tidak boleh dummy.
+    const next = canUseDummySource ? source : 'api';
+    setDataSourceState(next);
+    writeMoneyDataSource(next);
     setScope('all');
     setActiveModal(null);
     setApiError(null);
   };
+
+  // Deployment / production: pastikan state tidak tertinggal di dummy.
+  useEffect(() => {
+    if (!canUseDummySource && dataSource !== 'api') {
+      setDataSourceState('api');
+      writeMoneyDataSource('api');
+    }
+  }, [canUseDummySource, dataSource]);
 
   const refreshApi = useCallback(async () => {
     if (dataSource !== 'api') return;
@@ -532,6 +548,16 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
     setDummyDebts((prev) => [...prev, row]);
   }, []);
 
+  const patchDebt = useCallback((id: string, patch: Partial<DebtRow>) => {
+    setDummyDebts((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, ...patch } : d)),
+    );
+  }, []);
+
+  const removeDebt = useCallback((id: string) => {
+    setDummyDebts((prev) => prev.filter((d) => d.id !== id));
+  }, []);
+
   const appendDebtPayment = useCallback((debtId: string, amount: number) => {
     setDummyDebts((prev) =>
       prev.map((d) => {
@@ -775,6 +801,7 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
     () => ({
       dataSource,
       setDataSource,
+      canUseDummySource,
       data,
       transactions,
       accounts,
@@ -810,6 +837,8 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
       restorePocket,
       appendWishlist,
       appendDebt,
+      patchDebt,
+      removeDebt,
       appendDebtPayment,
       applyAdjustment,
       createCategory,
@@ -824,6 +853,7 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
     }),
     [
       dataSource,
+      canUseDummySource,
       data,
       transactions,
       accounts,
@@ -857,6 +887,8 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
       restorePocket,
       appendWishlist,
       appendDebt,
+      patchDebt,
+      removeDebt,
       appendDebtPayment,
       applyAdjustment,
       createCategory,

@@ -69,6 +69,7 @@ function MoneyTrackChrome() {
     setQuickAddOpen,
     dataSource,
     setDataSource,
+    canUseDummySource,
     openModal,
     resetApiWorkspace,
     apiLoading,
@@ -236,35 +237,39 @@ function MoneyTrackChrome() {
             role="group"
             aria-label="Sumber data"
           >
-            <span className="hidden text-[11px] font-bold uppercase tracking-wide text-[#6f9166] sm:inline">
-              Sumber
-            </span>
-            <div className="inline-flex rounded-full border border-[#cfd8e2] bg-money-surface p-0.5">
-              <button
-                type="button"
-                onClick={() => setDataSource('dummy')}
-                className={[
-                  'rounded-full px-2.5 py-1 text-[11.5px] font-bold transition-colors',
-                  dataSource === 'dummy'
-                    ? 'bg-money-brown text-white'
-                    : 'text-money-muted hover:bg-money-soft',
-                ].join(' ')}
-              >
-                Dummy
-              </button>
-              <button
-                type="button"
-                onClick={() => setDataSource('api')}
-                className={[
-                  'rounded-full px-2.5 py-1 text-[11.5px] font-bold transition-colors',
-                  dataSource === 'api'
-                    ? 'bg-money-blue text-white'
-                    : 'text-money-muted hover:bg-money-soft',
-                ].join(' ')}
-              >
-                API
-              </button>
-            </div>
+            {canUseDummySource ? (
+              <>
+                <span className="hidden text-[11px] font-bold uppercase tracking-wide text-[#6f9166] sm:inline">
+                  Sumber
+                </span>
+                <div className="inline-flex rounded-full border border-[#cfd8e2] bg-money-surface p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setDataSource('dummy')}
+                    className={[
+                      'rounded-full px-2.5 py-1 text-[11.5px] font-bold transition-colors',
+                      dataSource === 'dummy'
+                        ? 'bg-money-brown text-white'
+                        : 'text-money-muted hover:bg-money-soft',
+                    ].join(' ')}
+                  >
+                    Dummy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDataSource('api')}
+                    className={[
+                      'rounded-full px-2.5 py-1 text-[11.5px] font-bold transition-colors',
+                      dataSource === 'api'
+                        ? 'bg-money-blue text-white'
+                        : 'text-money-muted hover:bg-money-soft',
+                    ].join(' ')}
+                  >
+                    API
+                  </button>
+                </div>
+              </>
+            ) : null}
             {dataSource === 'api' && showWipeSampleButton ? (
               <button
                 type="button"

@@ -59,6 +59,7 @@ docs/
 | [`requests/from-fe/done/MONEY-POCKET-UNARCHIVE-API.md`](./requests/from-fe/done/MONEY-POCKET-UNARCHIVE-API.md) | Unarchive pocket |
 | [`requests/from-fe/done/MONEY-SAMPLE-DATA-FLAG-BE-PROMPT.md`](./requests/from-fe/done/MONEY-SAMPLE-DATA-FLAG-BE-PROMPT.md) | Flag `hasSampleData` (Hapus Data Contoh) |
 | [`requests/from-fe/done/MONEY-DATE-AND-ACTIVITY-PATCH-BE-PROMPT.md`](./requests/from-fe/done/MONEY-DATE-AND-ACTIVITY-PATCH-BE-PROMPT.md) | Date-only + PATCH transfer/cash |
+| [`requests/from-fe/done/MONEY-MONTHLY-REPORT-BE-PROMPT.md`](./requests/from-fe/done/MONEY-MONTHLY-REPORT-BE-PROMPT.md) | `GET /money/reports/monthly` — FE wired |
 
 ## Requests from FE — pending
 

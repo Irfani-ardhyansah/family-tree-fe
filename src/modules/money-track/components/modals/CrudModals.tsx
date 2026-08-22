@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react';
 import {
   createMoneyAccount,
+  createMoneyDebt,
+  createMoneyDebtPayment,
   createMoneyPocket,
   deleteMoneyAccount,
+  deleteMoneyDebt,
   deleteMoneyPocket,
   updateMoneyAccount,
+  updateMoneyDebt,
   updateMoneyPocket,
 } from '@/modules/money-track/api/moneyApi';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
@@ -25,9 +29,13 @@ import {
 } from '@/modules/money-track/components/modals/MoneyModalShell';
 import {
   parseIdrDigits,
-  todayLabel,
   type MoneyModalPayload,
 } from '@/modules/money-track/components/modals/modalTypes';
+import {
+  dateFromFormInput,
+  formatDateOnlyLabel,
+  todayDateOnlyIso,
+} from '@/modules/money-track/lib/dateOnly';
 import { ApiClientError } from '@/shared/lib/apiClient';
 
 export function AccountModal({
@@ -664,21 +672,187 @@ export function WishlistModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function DebtModal({ onClose }: { onClose: () => void }) {
-  const { data, appendDebt, dataSource } = useMoneyTrackUi();
-  const [counterparty, setCounterparty] = useState('');
-  const [direction, setDirection] = useState('piutang');
-  const [amount, setAmount] = useState('');
-  const [personId, setPersonId] = useState(data.persons[0]?.id ?? '');
-  const [due, setDue] = useState('');
-  const [note, setNote] = useState('');
+export function DebtModal({
+  onClose,
+  payload,
+}: {
+  onClose: () => void;
+  payload?: MoneyModalPayload;
+}) {
+  const {
+    data,
+    debts,
+    appendDebt,
+    patchDebt,
+    removeDebt,
+    dataSource,
+    refreshApi,
+    bumpActivity,
+  } = useMoneyTrackUi();
+  const editingId = payload?.debtId;
+  const editing = Boolean(editingId);
+  const existing = editing
+    ? debts.find((d) => d.id === editingId)
+    : undefined;
+
+  const [counterparty, setCounterparty] = useState(
+    payload?.debtCounterparty ?? '',
+  );
+  const [direction, setDirection] = useState(
+    payload?.debtDirection ?? 'piutang',
+  );
+  const [amount, setAmount] = useState(
+    payload?.debtAmount != null
+      ? String(payload.debtAmount).replace(/\D/g, '')
+      : '',
+  );
+  const [personId, setPersonId] = useState(
+    payload?.debtPersonId ?? data.persons[0]?.id ?? '',
+  );
+  const [dateIso, setDateIso] = useState(
+    payload?.debtDateIso ?? todayDateOnlyIso(),
+  );
+  const [dueIso, setDueIso] = useState(payload?.debtDueDateIso ?? '');
+  const [note, setNote] = useState(payload?.debtNote ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+
+  const handleSave = async () => {
+    const amt = parseIdrDigits(amount);
+    if (!counterparty.trim() || amt <= 0 || !personId) return;
+    const person = data.persons.find((p) => p.id === personId);
+    const formDateIso = dateFromFormInput(dateIso);
+    const formDueIso = dueIso.trim() ? dateFromFormInput(dueIso) : null;
+    const directionValue = direction as 'utang' | 'piutang';
+    setSaving(true);
+    setError(null);
+    try {
+      if (editing && editingId) {
+        if (dataSource === 'api') {
+          await updateMoneyDebt(editingId, {
+            personId,
+            counterpartyName: counterparty.trim(),
+            direction: directionValue,
+            amount: amt,
+            date: formDateIso,
+            dueDate: formDueIso,
+            note: note.trim() || null,
+          });
+          await refreshApi();
+          bumpActivity();
+        } else {
+          const paidTotal = existing?.paidTotal ?? 0;
+          const remaining = Math.max(0, amt - paidTotal);
+          const status =
+            remaining === 0 ? 'paid' : paidTotal > 0 ? 'partial' : 'open';
+          patchDebt(editingId, {
+            counterparty: counterparty.trim(),
+            direction: directionValue,
+            directionLabel: directionValue === 'piutang' ? 'Piutang' : 'Utang',
+            person: person?.name ?? '',
+            personId,
+            amount: amt,
+            remaining,
+            remainingLabel:
+              directionValue === 'piutang' ? 'Sisa piutang' : 'Sisa utang',
+            status,
+            dateLabel: formatDateOnlyLabel(formDateIso),
+            dateIso: formDateIso,
+            dueLabel: formDueIso ? formatDateOnlyLabel(formDueIso) : '—',
+            dueDateIso: formDueIso,
+            note: note.trim() || null,
+          });
+        }
+      } else if (dataSource === 'api') {
+        await createMoneyDebt({
+          personId,
+          counterpartyName: counterparty.trim(),
+          direction: directionValue,
+          amount: amt,
+          date: formDateIso,
+          dueDate: formDueIso,
+          note: note.trim() || null,
+        });
+        await refreshApi();
+        bumpActivity();
+      } else {
+        appendDebt({
+          id: `d-${Date.now()}`,
+          counterparty: counterparty.trim(),
+          direction: directionValue,
+          directionLabel: directionValue === 'piutang' ? 'Piutang' : 'Utang',
+          person: person?.name ?? '',
+          personId,
+          amount: amt,
+          paidTotal: 0,
+          remaining: amt,
+          remainingLabel:
+            directionValue === 'piutang' ? 'Sisa piutang' : 'Sisa utang',
+          status: 'open',
+          dateLabel: formatDateOnlyLabel(formDateIso),
+          dateIso: formDateIso,
+          dueLabel: formDueIso ? formatDateOnlyLabel(formDueIso) : '—',
+          dueDateIso: formDueIso,
+          dueSoon: false,
+          note: note.trim() || null,
+        });
+      }
+      setDone(true);
+    } catch (err) {
+      setError(
+        err instanceof ApiClientError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Gagal menyimpan utang/piutang.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!editingId) return;
+    if (
+      !window.confirm(
+        `Hapus catatan "${counterparty}"? Riwayat pembayaran juga ikut terhapus.`,
+      )
+    ) {
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      if (dataSource === 'api') {
+        await deleteMoneyDebt(editingId);
+        await refreshApi();
+        bumpActivity();
+      } else {
+        removeDebt(editingId);
+      }
+      onClose();
+    } catch (err) {
+      setError(
+        err instanceof ApiClientError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Gagal menghapus utang/piutang.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (done) {
     return (
-      <MoneyModalShell title="Tambah Utang/Piutang" onClose={onClose}>
+      <MoneyModalShell
+        title={editing ? 'Edit Utang/Piutang' : 'Tambah Utang/Piutang'}
+        onClose={onClose}
+      >
         <SuccessPanel
-          title="Catatan tersimpan"
+          title={editing ? 'Perubahan tersimpan' : 'Catatan tersimpan'}
           body={`${direction} ke ${counterparty}${dataSource === 'dummy' ? ' (dummy)' : ''}.`}
           onDone={onClose}
         />
@@ -688,40 +862,39 @@ export function DebtModal({ onClose }: { onClose: () => void }) {
 
   return (
     <MoneyModalShell
-      title="Tambah Utang / Piutang"
+      title={editing ? 'Edit Utang / Piutang' : 'Tambah Utang / Piutang'}
       onClose={onClose}
       footer={
-        <MoneyPrimaryButton
-          disabled={!counterparty.trim() || parseIdrDigits(amount) <= 0}
-          onClick={() => {
-            const amt = parseIdrDigits(amount);
-            const person = data.persons.find((p) => p.id === personId);
-            appendDebt({
-              id: `d-${Date.now()}`,
-              counterparty: counterparty.trim(),
-              direction: direction as 'utang' | 'piutang',
-              directionLabel: direction === 'piutang' ? 'Piutang' : 'Utang',
-              person: person?.name ?? '',
-              personId,
-              amount: amt,
-              paidTotal: 0,
-              remaining: amt,
-              remainingLabel:
-                direction === 'piutang' ? 'Sisa piutang' : 'Sisa utang',
-              status: 'open',
-              dateLabel: todayLabel(),
-              dueLabel: due || '—',
-              dueSoon: false,
-              note: note || null,
-            });
-            setDone(true);
-          }}
-        >
-          Simpan
-        </MoneyPrimaryButton>
+        <div className="flex gap-2">
+          {editing ? (
+            <div className="w-28">
+              <MoneySecondaryButton
+                disabled={saving}
+                onClick={() => void handleDelete()}
+              >
+                Hapus
+              </MoneySecondaryButton>
+            </div>
+          ) : null}
+          <div className="flex-1">
+            <MoneyPrimaryButton
+              disabled={
+                saving || !counterparty.trim() || parseIdrDigits(amount) <= 0
+              }
+              onClick={() => void handleSave()}
+            >
+              {saving ? 'Menyimpan…' : 'Simpan'}
+            </MoneyPrimaryButton>
+          </div>
+        </div>
       }
     >
       <div className="space-y-3">
+        {error ? (
+          <div className="rounded-[10px] border border-money-rose/30 bg-money-rose-soft px-3 py-2 text-[12.5px] font-semibold text-money-rose">
+            {error}
+          </div>
+        ) : null}
         <div>
           <FieldLabel>Lawanan (nama)</FieldLabel>
           <FieldInput
@@ -761,12 +934,12 @@ export function DebtModal({ onClose }: { onClose: () => void }) {
           />
         </div>
         <div>
+          <FieldLabel>Tanggal</FieldLabel>
+          <FieldInput type="date" value={dateIso} onChange={setDateIso} />
+        </div>
+        <div>
           <FieldLabel>Jatuh tempo</FieldLabel>
-          <FieldInput
-            value={due}
-            onChange={setDue}
-            placeholder="mis. 1 Agu 2026"
-          />
+          <FieldInput type="date" value={dueIso} onChange={setDueIso} />
         </div>
         <div>
           <FieldLabel>Catatan</FieldLabel>
@@ -784,11 +957,52 @@ export function DebtPaymentModal({
   onClose: () => void;
   payload?: MoneyModalPayload;
 }) {
-  const { debts, appendDebtPayment, dataSource } = useMoneyTrackUi();
+  const {
+    debts,
+    appendDebtPayment,
+    dataSource,
+    refreshApi,
+    bumpActivity,
+  } = useMoneyTrackUi();
   const debt = debts.find((d) => d.id === payload?.debtId) ?? debts[0];
   const [amount, setAmount] = useState('');
+  const [dateIso, setDateIso] = useState(todayDateOnlyIso);
   const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+
+  const handleSave = async () => {
+    if (!debt) return;
+    const amt = parseIdrDigits(amount);
+    if (amt <= 0 || amt > debt.remaining) return;
+    setSaving(true);
+    setError(null);
+    try {
+      if (dataSource === 'api') {
+        await createMoneyDebtPayment(debt.id, {
+          amount: amt,
+          date: dateFromFormInput(dateIso),
+          note: note.trim() || null,
+        });
+        await refreshApi();
+        bumpActivity();
+      } else {
+        appendDebtPayment(debt.id, amt);
+      }
+      setDone(true);
+    } catch (err) {
+      setError(
+        err instanceof ApiClientError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Gagal mencatat pembayaran.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!debt) {
     return (
@@ -821,19 +1035,22 @@ export function DebtPaymentModal({
       footer={
         <MoneyPrimaryButton
           disabled={
+            saving ||
             parseIdrDigits(amount) <= 0 ||
             parseIdrDigits(amount) > debt.remaining
           }
-          onClick={() => {
-            appendDebtPayment(debt.id, parseIdrDigits(amount));
-            setDone(true);
-          }}
+          onClick={() => void handleSave()}
         >
-          Simpan Pembayaran
+          {saving ? 'Menyimpan…' : 'Simpan Pembayaran'}
         </MoneyPrimaryButton>
       }
     >
       <div className="space-y-3">
+        {error ? (
+          <div className="rounded-[10px] border border-money-rose/30 bg-money-rose-soft px-3 py-2 text-[12.5px] font-semibold text-money-rose">
+            {error}
+          </div>
+        ) : null}
         <div>
           <FieldLabel>Jumlah bayar</FieldLabel>
           <MoneyAmountInput
@@ -841,6 +1058,10 @@ export function DebtPaymentModal({
             onChange={setAmount}
             placeholder="mis. 200.000"
           />
+        </div>
+        <div>
+          <FieldLabel>Tanggal</FieldLabel>
+          <FieldInput type="date" value={dateIso} onChange={setDateIso} />
         </div>
         <div>
           <FieldLabel>Catatan</FieldLabel>

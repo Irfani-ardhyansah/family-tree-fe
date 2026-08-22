@@ -345,7 +345,10 @@ export type MoneyUiDebt = {
   remainingLabel: string;
   status: 'open' | 'partial' | 'paid';
   dateLabel: string;
+  /** YYYY-MM-DD for edit form */
+  dateIso: string;
   dueLabel: string;
+  dueDateIso: string | null;
   dueSoon: boolean;
   note: string | null;
 };
@@ -481,6 +484,107 @@ export async function fetchMoneyDashboard(params?: {
     personId: params?.personId,
   });
   return apiFetch<MoneyDashboardApi>(`/money/dashboard${query}`);
+}
+
+/** Aggregat evaluasi bulanan — spek: MONEY-MONTHLY-REPORT-BE-PROMPT. */
+export type MoneyMonthlyReportApi = {
+  period: {
+    yearMonth: string;
+    label: string;
+    from: string;
+    to: string;
+  };
+  previousPeriod: {
+    yearMonth: string;
+    label: string;
+  };
+  scope: 'all' | 'person' | string;
+  summary: {
+    income: number;
+    expense: number;
+    net: number;
+    savingsRatePct: number | null;
+    incomeChangePct: number | null;
+    expenseChangePct: number | null;
+    netChangePct: number | null;
+    txnCount?: number;
+    expenseTxnCount?: number;
+    incomeTxnCount?: number;
+  };
+  previousSummary: {
+    income: number;
+    expense: number;
+    net: number;
+  };
+  daily: Array<{
+    date: string;
+    income: number;
+    expense: number;
+    net: number;
+    cumulativeNet: number;
+  }>;
+  byCategory: {
+    expense: Array<{
+      categoryId: number | string | null;
+      categoryName: string;
+      amount: number;
+      pct: number;
+      count?: number;
+    }>;
+    income: Array<{
+      categoryId: number | string | null;
+      categoryName: string;
+      amount: number;
+      pct: number;
+      count?: number;
+    }>;
+  };
+  byPocket: Array<{
+    pocketId: number | string | null;
+    pocketName: string;
+    accountName?: string | null;
+    personId?: number | string | null;
+    personName?: string | null;
+    income: number;
+    expense: number;
+    net: number;
+  }>;
+  byPerson: Array<{
+    personId: number | string;
+    personName: string;
+    income: number;
+    expense: number;
+    net: number;
+  }>;
+  moves: {
+    transfer: { count: number; amount: number };
+    cashWithdrawal: { count: number; amount: number };
+  };
+  topExpenseDays: Array<{
+    date: string;
+    expense: number;
+    income: number;
+  }>;
+  debtsOpen: {
+    utangRemaining: number;
+    piutangRemaining: number;
+    dueSoonCount: number;
+    openCount: number;
+  };
+};
+
+export async function fetchMoneyMonthlyReport(params: {
+  yearMonth: string;
+  scope?: 'all' | 'person';
+  personId?: string;
+}): Promise<MoneyMonthlyReportApi> {
+  const scope = params.scope ?? 'all';
+  const query = buildQuery({
+    yearMonth: params.yearMonth,
+    scope,
+    personId: scope === 'person' ? params.personId : undefined,
+  });
+  return apiFetch<MoneyMonthlyReportApi>(`/money/reports/monthly${query}`);
 }
 
 export async function fetchMoneyAccounts(personId?: string): Promise<MoneyAccountApi[]> {
@@ -980,6 +1084,92 @@ export async function fetchMoneyDebtById(id: string): Promise<MoneyDebtApi> {
   return apiFetch<MoneyDebtApi>(`/money/debts/${id}`);
 }
 
+export async function createMoneyDebt(input: {
+  personId: string;
+  counterpartyName: string;
+  direction: 'utang' | 'piutang';
+  amount: number;
+  date: string;
+  dueDate?: string | null;
+  note?: string | null;
+}): Promise<MoneyDebtApi> {
+  return apiFetch<MoneyDebtApi>('/money/debts', {
+    method: 'POST',
+    body: JSON.stringify({
+      personId: Number(input.personId) || input.personId,
+      counterpartyName: input.counterpartyName,
+      direction: input.direction,
+      amount: input.amount,
+      date: toDateOnlyIso(input.date),
+      dueDate: input.dueDate ? toDateOnlyIso(input.dueDate) : null,
+      note: input.note ?? null,
+    }),
+  });
+}
+
+export async function createMoneyDebtPayment(
+  debtId: string,
+  input: {
+    amount: number;
+    date: string;
+    note?: string | null;
+  },
+): Promise<MoneyDebtPaymentApi> {
+  const apiId = moneyEntityApiId(debtId);
+  return apiFetch<MoneyDebtPaymentApi>(`/money/debts/${apiId}/payments`, {
+    method: 'POST',
+    body: JSON.stringify({
+      amount: input.amount,
+      date: toDateOnlyIso(input.date),
+      note: input.note ?? null,
+    }),
+  });
+}
+
+export async function updateMoneyDebt(
+  id: string,
+  input: {
+    personId?: string;
+    counterpartyName?: string;
+    direction?: 'utang' | 'piutang';
+    amount?: number;
+    date?: string;
+    dueDate?: string | null;
+    note?: string | null;
+  },
+): Promise<MoneyDebtApi> {
+  const apiId = moneyEntityApiId(id);
+  return apiFetch<MoneyDebtApi>(`/money/debts/${apiId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      ...(input.personId != null
+        ? { personId: Number(input.personId) || input.personId }
+        : {}),
+      ...(input.counterpartyName != null
+        ? { counterpartyName: input.counterpartyName }
+        : {}),
+      ...(input.direction != null ? { direction: input.direction } : {}),
+      ...(input.amount != null ? { amount: input.amount } : {}),
+      ...(input.date != null ? { date: toDateOnlyIso(input.date) } : {}),
+      ...(input.dueDate !== undefined
+        ? {
+            dueDate: input.dueDate ? toDateOnlyIso(input.dueDate) : null,
+          }
+        : {}),
+      ...(input.note !== undefined ? { note: input.note } : {}),
+    }),
+  });
+}
+
+export async function deleteMoneyDebt(
+  id: string,
+): Promise<{ deleted: true }> {
+  const apiId = moneyEntityApiId(id);
+  return apiFetch<{ deleted: true }>(`/money/debts/${apiId}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function fetchMoneyBalancing(): Promise<MoneyBalancingApi[]> {
   const data = await apiFetch<MoneyBalancingApi[] | { items: MoneyBalancingApi[] }>(
     '/money/balancing',
@@ -1175,6 +1365,8 @@ export function buildDebtsUi(
     const paidTotal = row.paidTotal ?? 0;
     const remaining = row.remaining ?? Math.max(0, row.amount - paidTotal);
     const isPiutang = row.direction === 'piutang';
+    const dateIso = toDateOnlyIso(row.date);
+    const dueDateIso = row.dueDate ? toDateOnlyIso(row.dueDate) : null;
     return {
       id: sid(row.id),
       counterparty: row.counterpartyName,
@@ -1190,8 +1382,10 @@ export function buildDebtsUi(
         row.remainingLabel ??
         (isPiutang ? 'Sisa piutang' : 'Sisa utang'),
       status: row.status,
-      dateLabel: formatDateLabel(row.date),
-      dueLabel: row.dueDate ? formatDateLabel(row.dueDate) : '—',
+      dateLabel: formatDateLabel(dateIso),
+      dateIso,
+      dueLabel: dueDateIso ? formatDateLabel(dueDateIso) : '—',
+      dueDateIso,
       dueSoon: row.status !== 'paid' && isDueSoon(row.dueDate),
       note: row.note,
     };

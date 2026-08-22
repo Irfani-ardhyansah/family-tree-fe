@@ -1,20 +1,34 @@
 import type { MoneyDashboardMock } from '@/modules/money-track/types';
+import { isDevelopmentApp } from '@/shared/lib/appEnv';
 
 export type MoneyDataSource = 'dummy' | 'api';
 
 export const MONEY_DATA_SOURCE_KEY = 'money-track-data-source';
 
+/**
+ * Sumber data Money Track.
+ * - Non-development (deployment / production): selalu `api`, tanpa pilihan.
+ * - Development: default `api`; dummy hanya jika diizinkan lewat helper terpisah.
+ */
 export function readMoneyDataSource(): MoneyDataSource {
+  if (!isDevelopmentApp()) return 'api';
   try {
     const raw = localStorage.getItem(MONEY_DATA_SOURCE_KEY);
-    if (raw === 'api' || raw === 'dummy') return raw;
+    // Default API — jangan auto-dummy (sering bikin write “tersimpan” tapi hilang).
+    if (raw === 'dummy') return 'dummy';
   } catch {
     /* ignore */
   }
-  return 'dummy';
+  return 'api';
+}
+
+/** True hanya di VITE_APP_ENV=development — boleh tampilkan switcher Dummy/API. */
+export function canUseMoneyDummySource(): boolean {
+  return isDevelopmentApp();
 }
 
 export function writeMoneyDataSource(source: MoneyDataSource) {
+  if (!isDevelopmentApp()) return;
   try {
     localStorage.setItem(MONEY_DATA_SOURCE_KEY, source);
   } catch {

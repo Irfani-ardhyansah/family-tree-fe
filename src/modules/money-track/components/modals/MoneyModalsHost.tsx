@@ -51,7 +51,9 @@ export function MoneyModalsHost() {
     case 'wishlist':
       return <WishlistModal onClose={closeModal} />;
     case 'debt':
-      return <DebtModal onClose={closeModal} />;
+      return (
+        <DebtModal onClose={closeModal} payload={activeModal.payload} />
+      );
     case 'debtPayment':
       return (
         <DebtPaymentModal onClose={closeModal} payload={activeModal.payload} />

@@ -586,6 +586,18 @@ Response include `spentAmount`, `remaining`, `pctUsed`.
 
 ---
 
+## 14b. Monthly report (evaluasi)
+
+`GET /money/reports/monthly?yearMonth=2026-08&scope=all|person&personId=`
+
+Aggregat evaluasi bulanan (summary + MoM, daily/cashflow, byCategory, byPocket, byPerson, moves transfer/cash, topExpenseDays, debtsOpen).
+
+Spek penuh + acceptance: [`../from-fe/done/MONEY-MONTHLY-REPORT-BE-PROMPT.md`](../from-fe/done/MONEY-MONTHLY-REPORT-BE-PROMPT.md).
+
+FE memakai endpoint ini di halaman Reporting (dummy mode tetap aggregat lokal).
+
+---
+
 ## 15. Audit logs
 
 `GET /money/audit-logs?entityType=&entityId=&from=&to=&page=`

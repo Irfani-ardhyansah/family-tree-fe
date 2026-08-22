@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Plus } from 'react-feather';
+import { Edit2, Plus, Trash2 } from 'react-feather';
 import { Link } from 'react-router-dom';
+import { deleteMoneyDebt } from '@/modules/money-track/api/moneyApi';
 import { DataSourceBanner } from '@/modules/money-track/components/DataSourceBanner';
 import {
   FilterChip,
@@ -9,6 +10,7 @@ import {
 } from '@/modules/money-track/components/PageChrome';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
 import { formatIdr } from '@/modules/money-track/types';
+import { ApiClientError } from '@/shared/lib/apiClient';
 import { moneyPaths } from '@/shared/routes';
 
 type StatusFilter = 'all' | 'open' | 'partial' | 'paid';
@@ -27,9 +29,20 @@ function statusLabel(status: string) {
 }
 
 export function DebtsPage() {
-  const { scope, scopeLabel, debts, openModal } = useMoneyTrackUi();
+  const {
+    scope,
+    scopeLabel,
+    debts,
+    openModal,
+    dataSource,
+    refreshApi,
+    bumpActivity,
+    removeDebt,
+  } = useMoneyTrackUi();
   const [status, setStatus] = useState<StatusFilter>('all');
   const [direction, setDirection] = useState<DirectionFilter>('all');
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     return debts.filter((row) => {
@@ -68,6 +81,12 @@ export function DebtsPage() {
           </button>
         }
       />
+
+      {actionError ? (
+        <div className="mb-3 rounded-[10px] border border-money-rose/30 bg-money-rose-soft px-3 py-2 text-[12.5px] font-semibold text-money-rose">
+          {actionError}
+        </div>
+      ) : null}
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <MoneyCard className="px-5 py-4">
@@ -184,7 +203,7 @@ export function DebtsPage() {
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 {row.status !== 'paid' ? (
                   <button
                     type="button"
@@ -205,6 +224,66 @@ export function DebtsPage() {
                 >
                   Detail
                 </Link>
+                <button
+                  type="button"
+                  title="Edit"
+                  disabled={busyId === row.id}
+                  onClick={() =>
+                    openModal('debt', {
+                      debtId: row.id,
+                      debtCounterparty: row.counterparty,
+                      debtDirection: row.direction,
+                      debtAmount: row.amount,
+                      debtPersonId: row.personId,
+                      debtDateIso: row.dateIso,
+                      debtDueDateIso: row.dueDateIso,
+                      debtNote: row.note,
+                    })
+                  }
+                  className="rounded-lg p-1.5 text-money-muted hover:bg-money-soft hover:text-money-ink disabled:opacity-40"
+                >
+                  <Edit2 size={14} />
+                </button>
+                <button
+                  type="button"
+                  title="Hapus"
+                  disabled={busyId === row.id}
+                  onClick={() => {
+                    void (async () => {
+                      if (
+                        !window.confirm(
+                          `Hapus catatan "${row.counterparty}"? Riwayat pembayaran juga ikut terhapus.`,
+                        )
+                      ) {
+                        return;
+                      }
+                      setBusyId(row.id);
+                      setActionError(null);
+                      try {
+                        if (dataSource === 'api') {
+                          await deleteMoneyDebt(row.id);
+                          await refreshApi();
+                          bumpActivity();
+                        } else {
+                          removeDebt(row.id);
+                        }
+                      } catch (err) {
+                        setActionError(
+                          err instanceof ApiClientError
+                            ? err.message
+                            : err instanceof Error
+                              ? err.message
+                              : 'Gagal menghapus catatan.',
+                        );
+                      } finally {
+                        setBusyId(null);
+                      }
+                    })();
+                  }}
+                  className="rounded-lg p-1.5 text-money-muted hover:bg-money-rose-soft hover:text-money-rose disabled:opacity-40"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             </MoneyCard>
           );
