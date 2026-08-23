@@ -1,12 +1,31 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
+      borderRadius: {
+        control: '12px',
+        card: '16px',
+        sheet: '24px',
+      },
+      boxShadow: {
+        card: 'var(--suite-card-shadow)',
+      },
       colors: {
+        // Shared suite neutrals — CSS vars flip for day/night
+        suite: {
+          bg: 'rgb(var(--suite-bg) / <alpha-value>)',
+          surface: 'rgb(var(--suite-surface) / <alpha-value>)',
+          soft: 'rgb(var(--suite-soft) / <alpha-value>)',
+          border: 'rgb(var(--suite-border) / <alpha-value>)',
+          ink: 'rgb(var(--suite-ink) / <alpha-value>)',
+          muted: 'rgb(var(--suite-muted) / <alpha-value>)',
+          faint: 'rgb(var(--suite-faint) / <alpha-value>)',
+        },
         // 1. Palet Hijau untuk Tombol & Aksi
         primary: {
           '50': '#f1f7f1',
@@ -53,6 +72,11 @@ export default {
           '800': '#115e59',
           '900': '#134e4a',
           '950': '#042f2e',
+          rail: 'rgb(var(--admin-rail) / <alpha-value>)',
+          'rail-ink': 'rgb(var(--admin-rail-ink) / <alpha-value>)',
+          'rail-muted': 'rgb(var(--admin-rail-muted) / <alpha-value>)',
+          'rail-border': 'rgb(var(--admin-rail-border) / <alpha-value>)',
+          'rail-soft': 'rgb(var(--admin-rail-soft) / <alpha-value>)',
         },
         ink: {
           '50': '#f8fafc',
@@ -68,30 +92,35 @@ export default {
           '950': '#020617',
         },
         money: {
-          bg: '#eef1f5',
-          surface: '#ffffff',
-          soft: '#f5f7fa',
-          border: '#dde3ea',
-          ink: '#243040',
-          muted: '#5c6b7a',
-          faint: '#8b98a6',
-          // Accent soft steel-blue (tenang, beda dari Roots/Admin)
+          bg: 'rgb(var(--suite-bg) / <alpha-value>)',
+          surface: 'rgb(var(--suite-surface) / <alpha-value>)',
+          soft: 'rgb(var(--suite-soft) / <alpha-value>)',
+          border: 'rgb(var(--suite-border) / <alpha-value>)',
+          ink: 'rgb(var(--suite-ink) / <alpha-value>)',
+          muted: 'rgb(var(--suite-muted) / <alpha-value>)',
+          faint: 'rgb(var(--suite-faint) / <alpha-value>)',
           brown: '#5b7c99',
           'brown-deep': '#456278',
-          'brown-soft': '#e4ecf3',
+          'brown-soft': 'rgb(var(--money-brown-soft) / <alpha-value>)',
           amber: '#c4923a',
-          'amber-soft': '#f7ecd9',
+          'amber-soft': 'rgb(var(--money-amber-soft) / <alpha-value>)',
           rose: '#b5493f',
-          'rose-soft': '#f6e6e3',
+          'rose-soft': 'rgb(var(--money-rose-soft) / <alpha-value>)',
           blue: '#4a7a9b',
-          'blue-soft': '#e3edf3',
+          'blue-soft': 'rgb(var(--money-blue-soft) / <alpha-value>)',
           violet: '#6a5a94',
-          'violet-soft': '#ece8f4',
+          'violet-soft': 'rgb(var(--money-violet-soft) / <alpha-value>)',
         },
       },
       fontFamily: {
-        admin: ['"Sora"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        'admin-display': ['"Fraunces"', 'Georgia', 'serif'],
+        sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        admin: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        'admin-display': [
+          '"Plus Jakarta Sans"',
+          'ui-sans-serif',
+          'system-ui',
+          'sans-serif',
+        ],
         money: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         'money-mono': ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },

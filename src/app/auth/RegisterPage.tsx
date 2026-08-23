@@ -23,17 +23,17 @@ export function RegisterPage() {
   };
 
   const fieldClass =
-    'w-full rounded-xl border border-zinc-700 bg-zinc-950/80 px-4 py-2.5 text-white placeholder:text-zinc-600 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500';
-  const labelClass = 'mb-1.5 block text-sm font-medium text-zinc-300';
+    'w-full rounded-xl border border-suite-border bg-suite-soft px-4 py-2.5 text-suite-ink placeholder:text-suite-faint focus:border-primary-500 focus:bg-suite-surface focus:outline-none focus:ring-1 focus:ring-primary-500';
+  const labelClass = 'mb-1.5 block text-sm font-medium text-suite-muted';
 
   return (
-    <div className="rounded-3xl border border-zinc-800/90 border-t-4 border-t-primary-500 bg-zinc-900/70 p-6 shadow-lg shadow-black/20 sm:p-8">
+    <div className="rounded-3xl border border-suite-border border-t-4 border-t-primary-500 bg-suite-surface p-6 shadow-card sm:p-8">
       <div className="mb-8 text-center">
-        <Users className="mx-auto h-10 w-10 text-primary-400" />
-        <h1 className="mt-4 text-2xl font-bold tracking-tight text-white">
+        <Users className="mx-auto h-10 w-10 text-primary-500" />
+        <h1 className="mt-4 text-2xl font-bold tracking-tight text-suite-ink">
           Create Account
         </h1>
-        <p className="mt-2 text-sm text-zinc-400">
+        <p className="mt-2 text-sm text-suite-muted">
           Join Family Suite to start building your family tree
         </p>
       </div>
@@ -112,7 +112,7 @@ export function RegisterPage() {
       </form>
 
       <div className="mt-6 text-center">
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-suite-muted">
           Already have an account?
           <Link
             to={appPaths.login}

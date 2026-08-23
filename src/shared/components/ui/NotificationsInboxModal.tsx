@@ -185,7 +185,7 @@ export function NotificationsInboxModal({
               leaveFrom="opacity-100 translate-y-0 sm:scale-100"
               leaveTo="opacity-0 translate-y-3 sm:scale-95"
             >
-              <DialogPanel className="flex max-h-[min(90dvh,40rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+              <DialogPanel className="flex max-h-[min(90dvh,40rem)] w-full max-w-lg flex-col overflow-hidden rounded-card border border-suite-border bg-suite-surface shadow-card">
                 <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3.5 sm:px-5">
                   <div>
                     <DialogTitle className="flex items-center gap-2 text-base font-bold text-brand-800">

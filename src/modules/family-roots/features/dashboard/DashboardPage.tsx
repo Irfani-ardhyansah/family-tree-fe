@@ -14,6 +14,7 @@ import {
 import { useFamilyPerspective } from '@/modules/family-roots/context/FamilyPerspectiveContext';
 import { useFocusPersonId } from '@/shared/hooks/useFocusPersonId';
 import { useDashboard } from '@/shared/hooks/useDashboard';
+import { Card, PageHeader } from '@/shared/ui';
 import { getMemorialEntryPath } from '@/shared/utils/memoriamAccess';
 import { EVENT_TYPE_CONFIG } from '@/shared/types/event';
 import type { FamilyEvent } from '@/shared/types/event';
@@ -46,19 +47,19 @@ function StatCard({
   borderClass?: string;
 }) {
   return (
-    <div
-      className={`bg-white rounded-xl shadow-sm border p-4 sm:p-6 flex items-center min-w-0 ${
-        borderClass ?? 'border-gray-100'
+    <Card
+      className={`p-4 sm:p-6 flex items-center min-w-0 ${
+        borderClass ?? ''
       }`}
     >
       <div className={`${iconBg} p-2.5 sm:p-3 rounded-full mr-3 sm:mr-4 flex-shrink-0`}>
         <Icon className={iconColor} size={22} />
       </div>
       <div className="min-w-0">
-        <p className="text-gray-500 text-xs sm:text-sm leading-snug">{label}</p>
-        <h3 className="text-xl sm:text-2xl font-bold text-brand-700">{value}</h3>
+        <p className="text-suite-muted text-xs sm:text-sm leading-snug">{label}</p>
+        <h3 className="text-xl sm:text-2xl font-bold text-suite-ink">{value}</h3>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -67,7 +68,7 @@ function EventMiniCard({ event }: { event: FamilyEvent }) {
   return (
     <Link
       to={`/roots/events/${event.id}`}
-      className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition bg-white block"
+      className="suite-card p-4 hover:shadow-md transition block"
     >
       <div className="flex items-center gap-2 mb-2">
         <span className={`text-lg ${cfg.bg} w-8 h-8 rounded-full flex items-center justify-center`}>
@@ -75,8 +76,8 @@ function EventMiniCard({ event }: { event: FamilyEvent }) {
         </span>
         <span className={`text-xs font-semibold ${cfg.color}`}>{cfg.label}</span>
       </div>
-      <p className="font-medium text-brand-700 text-sm leading-snug">{event.title}</p>
-      <p className="text-gray-400 text-xs mt-2">{formatDate(event.date)}</p>
+      <p className="font-medium text-suite-ink text-sm leading-snug">{event.title}</p>
+      <p className="text-suite-faint text-xs mt-2">{formatDate(event.date)}</p>
     </Link>
   );
 }
@@ -107,16 +108,10 @@ export function DashboardPage() {
 
   return (
     <>
-      {/* Header */}
-      <div className="mb-5 sm:mb-8">
-        <h1 className="text-xl sm:text-2xl font-bold text-brand-700">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Ringkasan keluarga{' '}
-          <span className={`font-semibold ${theme.accentText}`}>
-            {focusLabel} ({focusShortLabel})
-          </span>
-        </p>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        description={`Ringkasan keluarga ${focusLabel} (${focusShortLabel})`}
+      />
 
       {/* Focus person card */}
       {focusPerson && (
@@ -192,9 +187,9 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent events as activity feed */}
-        <div className={`lg:col-span-2 bg-white rounded-xl shadow-sm border p-4 sm:p-6 ${theme.accentBorder}`}>
+        <Card className={`lg:col-span-2 p-4 sm:p-6 ${theme.accentBorder}`}>
           <div className="flex justify-between items-center gap-3 mb-5">
-            <h2 className="text-base sm:text-lg font-bold text-brand-700">Aktivitas Terbaru</h2>
+            <h2 className="text-base sm:text-lg font-bold text-suite-ink">Aktivitas Terbaru</h2>
             <Link to="/roots/events" className={`text-sm font-medium flex-shrink-0 ${theme.accentText} hover:underline`}>
               Lihat semua
             </Link>
@@ -229,22 +224,22 @@ export function DashboardPage() {
               })}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Quick actions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-          <h2 className="text-base sm:text-lg font-bold text-brand-700 mb-5">Aksi Cepat</h2>
+        <Card className="p-4 sm:p-6">
+          <h2 className="text-base sm:text-lg font-bold text-suite-ink mb-5">Aksi Cepat</h2>
           <div className="space-y-3">
             <Link
               to="/roots/tree"
-              className={`w-full ${accentBtn} text-white px-4 py-3 rounded-xl transition flex items-center justify-between text-sm font-semibold`}
+              className={`w-full ${accentBtn} text-white px-4 py-3 rounded-control transition flex items-center justify-between text-sm font-semibold`}
             >
               <span>Lihat Pohon Keluarga</span>
               <ChevronRight size={18} />
             </Link>
             <Link
               to="/roots/data"
-              className="w-full bg-white border border-gray-200 hover:border-primary-300 text-brand-700 px-4 py-3 rounded-xl transition flex items-center justify-between text-sm font-semibold"
+              className="w-full bg-suite-surface border border-suite-border hover:border-primary-300 text-suite-ink px-4 py-3 rounded-control transition flex items-center justify-between text-sm font-semibold"
             >
               <span className="flex items-center gap-2">
                 <Plus size={16} />
@@ -254,7 +249,7 @@ export function DashboardPage() {
             </Link>
             <Link
               to="/roots/map"
-              className="w-full bg-white border border-gray-200 hover:border-primary-300 text-brand-700 px-4 py-3 rounded-xl transition flex items-center justify-between text-sm font-semibold"
+              className="w-full bg-suite-surface border border-suite-border hover:border-primary-300 text-suite-ink px-4 py-3 rounded-control transition flex items-center justify-between text-sm font-semibold"
             >
               <span className="flex items-center gap-2">
                 <MapIcon size={16} />
@@ -264,7 +259,7 @@ export function DashboardPage() {
             </Link>
             <Link
               to="/roots/events"
-              className="w-full bg-white border border-gray-200 hover:border-primary-300 text-brand-700 px-4 py-3 rounded-xl transition flex items-center justify-between text-sm font-semibold"
+              className="w-full bg-suite-surface border border-suite-border hover:border-primary-300 text-suite-ink px-4 py-3 rounded-control transition flex items-center justify-between text-sm font-semibold"
             >
               <span className="flex items-center gap-2">
                 <Calendar size={16} />
@@ -274,7 +269,7 @@ export function DashboardPage() {
             </Link>
             <Link
               to="/roots/memoriam"
-              className="w-full bg-white border border-gray-200 hover:border-slate-300 text-brand-700 px-4 py-3 rounded-xl transition flex items-center justify-between text-sm font-semibold"
+              className="w-full bg-suite-surface border border-suite-border hover:border-slate-300 text-suite-ink px-4 py-3 rounded-control transition flex items-center justify-between text-sm font-semibold"
             >
               <span className="flex items-center gap-2">
                 <BookOpen size={16} />
@@ -283,13 +278,13 @@ export function DashboardPage() {
               <ChevronRight size={18} />
             </Link>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Recent tributes */}
-      <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-100 p-4 sm:p-6">
+      <Card className="mt-6 p-4 sm:p-6">
         <div className="flex justify-between items-center gap-3 mb-5">
-          <h2 className="text-base sm:text-lg font-bold text-brand-700">Kenangan Terbaru</h2>
+          <h2 className="text-base sm:text-lg font-bold text-suite-ink">Kenangan Terbaru</h2>
           <Link
             to="/roots/memoriam"
             className="text-sm font-medium text-slate-600 hover:underline"
@@ -349,12 +344,12 @@ export function DashboardPage() {
             })}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Upcoming events */}
-      <div className={`mt-6 bg-white rounded-xl shadow-sm border p-4 sm:p-6 ${theme.accentBorder}`}>
+      <Card className={`mt-6 p-4 sm:p-6 ${theme.accentBorder}`}>
         <div className="flex justify-between items-center gap-3 mb-5">
-          <h2 className="text-base sm:text-lg font-bold text-brand-700">Acara Mendatang</h2>
+          <h2 className="text-base sm:text-lg font-bold text-suite-ink">Acara Mendatang</h2>
           <Link to="/roots/events" className={`text-sm font-medium ${theme.accentText} hover:underline`}>
             Lihat semua
           </Link>
@@ -372,7 +367,7 @@ export function DashboardPage() {
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </>
   );
 }

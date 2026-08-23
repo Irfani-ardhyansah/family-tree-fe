@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
+import {
+  FieldInput as SuiteFieldInput,
+  FieldLabel as SuiteFieldLabel,
+  FieldSelect as SuiteFieldSelect,
+  FieldTextarea as SuiteFieldTextarea,
+  cx,
+} from '@/shared/ui';
 
 export function FieldLabel({ children }: { children: ReactNode }) {
-  return (
-    <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-brand-400">
-      {children}
-    </label>
-  );
+  return <SuiteFieldLabel>{children}</SuiteFieldLabel>;
 }
-
-const fieldClassName =
-  'w-full rounded-[10px] border border-gray-200 bg-gray-50 px-3 py-2.5 text-[13.5px] font-semibold text-brand-800 outline-none placeholder:font-medium placeholder:text-brand-300 focus:border-sky-500 focus:bg-white';
 
 export function FieldInput({
   value,
@@ -23,12 +23,12 @@ export function FieldInput({
   type?: string;
 }) {
   return (
-    <input
-      type={type}
+    <SuiteFieldInput
+      accent="core"
       value={value}
+      onChange={onChange}
       placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
-      className={fieldClassName}
+      type={type}
     />
   );
 }
@@ -43,17 +43,12 @@ export function FieldSelect({
   options: { value: string; label: string }[];
 }) {
   return (
-    <select
+    <SuiteFieldSelect
+      accent="core"
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={fieldClassName}
-    >
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+      onChange={onChange}
+      options={options}
+    />
   );
 }
 
@@ -69,12 +64,12 @@ export function FieldTextarea({
   rows?: number;
 }) {
   return (
-    <textarea
+    <SuiteFieldTextarea
+      accent="core"
       value={value}
+      onChange={onChange}
       placeholder={placeholder}
       rows={rows}
-      onChange={(e) => onChange(e.target.value)}
-      className={`${fieldClassName} resize-none`}
     />
   );
 }
@@ -91,11 +86,11 @@ export function ToggleRow({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[12px] border border-gray-200 bg-gray-50 px-3.5 py-3">
+    <div className="flex items-center justify-between gap-3 rounded-control border border-suite-border bg-suite-soft px-3.5 py-3">
       <div className="min-w-0">
-        <p className="text-[13.5px] font-semibold text-brand-800">{label}</p>
+        <p className="text-[13.5px] font-semibold text-suite-ink">{label}</p>
         {description ? (
-          <p className="mt-0.5 text-[12px] text-brand-400">{description}</p>
+          <p className="mt-0.5 text-[12px] text-suite-faint">{description}</p>
         ) : null}
       </div>
       <button
@@ -103,16 +98,16 @@ export function ToggleRow({
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={[
+        className={cx(
           'relative h-7 w-12 shrink-0 rounded-full transition-colors',
-          checked ? 'bg-sky-600' : 'bg-gray-300',
-        ].join(' ')}
+          checked ? 'bg-sky-600' : 'bg-suite-border',
+        )}
       >
         <span
-          className={[
+          className={cx(
             'absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-[left]',
             checked ? 'left-[22px]' : 'left-0.5',
-          ].join(' ')}
+          )}
         />
       </button>
     </div>

@@ -17,7 +17,7 @@ Auth asumsi: JWT / session existing + flag `isAdmin` atau `role === 'admin'` dar
 | Dashboard | ✅ shipped | ✅ `GET /admin/dashboard` |
 | Broadcast | ✅ shipped | ✅ list/send + `/admin/users?for=broadcast` |
 | Pengaturan + logo | ✅ shipped | ✅ GET/PUT settings + multipart logo |
-| Backup & Export | ✅ shipped | ✅ list/trigger + poll `GET /backups/:id` |
+| Backup & Export | ✅ shipped | ✅ JSON + SQL export, download blob, import |
 | **RBAC Modul (by umur)** | defer | UI disembunyikan |
 
 **FE notes sudah diterapkan:**

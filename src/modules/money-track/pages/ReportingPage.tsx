@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download } from 'react-feather';
+import { Download, EyeOff } from 'react-feather';
 import { fetchMoneyMonthlyReport } from '@/modules/money-track/api/moneyApi';
 import { DataSourceBanner } from '@/modules/money-track/components/DataSourceBanner';
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/modules/money-track/components/PageChrome';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
 import {
+  applyCategoryExclusions,
   buildLocalMonthlyReport,
   downloadMonthlyCsv,
   formatChangePct,
@@ -28,6 +29,61 @@ import { formatIdr } from '@/modules/money-track/types';
 import { ApiClientError } from '@/shared/lib/apiClient';
 
 type ReportKind = 'expense' | 'income';
+
+const EXCLUDED_CATEGORIES_KEY = 'money-track.reportExcludedCategories';
+
+type ExcludedCategory = { key: string; label: string };
+
+type ExcludedCategories = {
+  expense: ExcludedCategory[];
+  income: ExcludedCategory[];
+};
+
+function normalizeExcludedList(value: unknown): ExcludedCategory[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === 'string') {
+        return { key: item, label: item };
+      }
+      if (
+        item &&
+        typeof item === 'object' &&
+        'key' in item &&
+        typeof (item as { key: unknown }).key === 'string'
+      ) {
+        const row = item as { key: string; label?: unknown };
+        return {
+          key: row.key,
+          label: typeof row.label === 'string' && row.label.trim() ? row.label : row.key,
+        };
+      }
+      return null;
+    })
+    .filter((item): item is ExcludedCategory => item != null);
+}
+
+function readExcludedCategories(): ExcludedCategories {
+  try {
+    const raw = localStorage.getItem(EXCLUDED_CATEGORIES_KEY);
+    if (!raw) return { expense: [], income: [] };
+    const parsed = JSON.parse(raw) as Partial<ExcludedCategories>;
+    return {
+      expense: normalizeExcludedList(parsed.expense),
+      income: normalizeExcludedList(parsed.income),
+    };
+  } catch {
+    return { expense: [], income: [] };
+  }
+}
+
+function writeExcludedCategories(next: ExcludedCategories) {
+  try {
+    localStorage.setItem(EXCLUDED_CATEGORIES_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
 
 const MONTH_OPTIONS = [
   { value: '01', label: 'Januari' },
@@ -146,10 +202,14 @@ function MomBadge({
 function DonutChart({
   slices,
   selectedKey,
+  excludedKeys,
+  countedTotal,
   onSelect,
 }: {
   slices: CategorySlice[];
   selectedKey: string | null;
+  excludedKeys: ReadonlySet<string>;
+  countedTotal: number;
   onSelect: (key: string | null) => void;
 }) {
   const size = 240;
@@ -158,8 +218,10 @@ function DonutChart({
   const outerR = 96;
   const innerR = 58;
   const explode = 12;
-  const total = slices.reduce((s, x) => s + x.amount, 0);
-  const selected = slices.find((s) => s.key === selectedKey) ?? null;
+  const selected =
+    selectedKey && !excludedKeys.has(selectedKey)
+      ? (slices.find((s) => s.key === selectedKey) ?? null)
+      : null;
 
   let angle = 0;
   const segments = slices.map((slice) => {
@@ -168,35 +230,41 @@ function DonutChart({
     const end = start + sweep;
     const mid = start + sweep / 2;
     angle = end;
-    const active = selectedKey === slice.key;
-    const dimmed = selectedKey != null && !active;
+    const excluded = excludedKeys.has(slice.key);
+    const active = !excluded && selectedKey === slice.key;
+    const dimmed = excluded || (selectedKey != null && !active);
     const dx = active ? Math.cos(((mid - 90) * Math.PI) / 180) * explode : 0;
     const dy = active ? Math.sin(((mid - 90) * Math.PI) / 180) * explode : 0;
-    return { slice, start, end, mid, active, dimmed, dx, dy };
+    return { slice, start, end, mid, active, dimmed, excluded, dx, dy };
   });
 
   return (
     <div className="relative mx-auto h-[240px] w-[240px]">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <circle cx={cx} cy={cy} r={outerR + 2} fill="#efeae3" />
-        {segments.map(({ slice, start, end, active, dimmed, dx, dy }) => (
+        {segments.map(({ slice, start, end, active, dimmed, excluded, dx, dy }) => (
           <g
             key={slice.key}
-            className="cursor-pointer"
+            className={excluded ? 'cursor-default' : 'cursor-pointer'}
             style={{
               transform: `translate(${dx}px, ${dy}px)`,
-              opacity: dimmed ? 0.32 : 1,
+              opacity: excluded ? 0.2 : dimmed ? 0.32 : 1,
               transition: 'transform 320ms ease-out, opacity 280ms ease-out',
               filter: active
                 ? 'drop-shadow(0 4px 8px rgba(31, 42, 31, 0.22))'
                 : 'none',
             }}
             role="button"
-            tabIndex={0}
+            tabIndex={excluded ? -1 : 0}
             aria-label={`${slice.label} ${slice.pct.toFixed(1)} persen`}
             aria-pressed={active}
-            onClick={() => onSelect(active ? null : slice.key)}
+            aria-disabled={excluded}
+            onClick={() => {
+              if (excluded) return;
+              onSelect(active ? null : slice.key);
+            }}
             onKeyDown={(e) => {
+              if (excluded) return;
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 onSelect(active ? null : slice.key);
@@ -233,7 +301,7 @@ function DonutChart({
               Total
             </div>
             <div className="font-money-mono px-2 text-[15px] font-extrabold leading-tight">
-              {formatIdr(total)}
+              {formatIdr(countedTotal)}
             </div>
             <div className="mt-1 text-[11px] font-semibold text-money-faint">
               Klik slice untuk fokus
@@ -770,6 +838,16 @@ export function ReportingPage() {
   const [kind, setKind] = useState<ReportKind>('expense');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [hoverDay, setHoverDay] = useState<number | null>(null);
+  const [excluded, setExcluded] = useState(readExcludedCategories);
+  const excludedExpenseKeys = useMemo(
+    () => new Set(excluded.expense.map((item) => item.key)),
+    [excluded.expense],
+  );
+  const excludedIncomeKeys = useMemo(
+    () => new Set(excluded.income.map((item) => item.key)),
+    [excluded.income],
+  );
+  const activeExcluded = kind === 'expense' ? excluded.expense : excluded.income;
   const yearOptions = useMemo(
     () => buildYearOptions(now.getFullYear()),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fixed around first mount year
@@ -868,7 +946,25 @@ export function ReportingPage() {
     prevPeriodLabelLocal,
   ]);
 
-  const report = dataSource === 'api' ? apiReport : localReport;
+  const rawReport = dataSource === 'api' ? apiReport : localReport;
+  const report = useMemo(() => {
+    if (!rawReport) return null;
+    return applyCategoryExclusions(
+      rawReport,
+      excludedExpenseKeys,
+      excludedIncomeKeys,
+    );
+  }, [rawReport, excludedExpenseKeys, excludedIncomeKeys]);
+
+  const allSlices = useMemo(
+    () =>
+      kind === 'expense'
+        ? (rawReport?.categoryExpense ?? [])
+        : (rawReport?.categoryIncome ?? []),
+    [kind, rawReport],
+  );
+  const activeExcludedKeys =
+    kind === 'expense' ? excludedExpenseKeys : excludedIncomeKeys;
   const periodLabel = report?.periodLabel || periodLabelLocal;
   const prevPeriodLabel = report?.previousPeriodLabel || prevPeriodLabelLocal;
 
@@ -895,10 +991,13 @@ export function ReportingPage() {
     dueSoon: 0,
     count: 0,
   };
-  const slices =
-    kind === 'expense'
-      ? (report?.categoryExpense ?? [])
-      : (report?.categoryIncome ?? []);
+  const slices = useMemo(
+    () =>
+      kind === 'expense'
+        ? (report?.categoryExpense ?? [])
+        : (report?.categoryIncome ?? []),
+    [kind, report],
+  );
   const categoryTotal = slices.reduce((s, x) => s + x.amount, 0);
   const hasData = Boolean(report?.hasLedgerData);
   const showPersonBreakdown = scope === 'all' && personBars.length > 1;
@@ -913,6 +1012,37 @@ export function ReportingPage() {
       setSelectedKey(null);
     }
   }, [slices, selectedKey]);
+
+  const persistExcluded = (next: ExcludedCategories) => {
+    setExcluded(next);
+    writeExcludedCategories(next);
+  };
+
+  const excludeCategory = (slice: CategorySlice) => {
+    const list = kind === 'expense' ? excluded.expense : excluded.income;
+    if (list.some((item) => item.key === slice.key)) return;
+    persistExcluded({
+      ...excluded,
+      [kind]: [...list, { key: slice.key, label: slice.label }],
+    });
+    if (selectedKey === slice.key) setSelectedKey(null);
+  };
+
+  const restoreCategory = (key: string) => {
+    persistExcluded({
+      ...excluded,
+      [kind]: (kind === 'expense' ? excluded.expense : excluded.income).filter(
+        (item) => item.key !== key,
+      ),
+    });
+  };
+
+  const restoreAllCategories = () => {
+    persistExcluded({
+      ...excluded,
+      [kind]: [],
+    });
+  };
 
   const handleExport = () => {
     if (!report) return;
@@ -985,6 +1115,12 @@ export function ReportingPage() {
         <div className="mb-4 rounded-[10px] border border-money-rose/30 bg-money-rose-soft px-3 py-2 text-[12.5px] font-semibold text-money-rose">
           {error}
         </div>
+      ) : null}
+
+      {excluded.expense.length + excluded.income.length > 0 ? (
+        <p className="mb-3 text-[12.5px] text-money-muted">
+          Kategori yang redup tidak masuk hitungan total & komposisi.
+        </p>
       ) : null}
 
       <div className="mb-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -1253,7 +1389,7 @@ export function ReportingPage() {
         <MoneyCard className="flex flex-col items-center justify-center px-6 py-8">
           {loading ? (
             <p className="text-[13px] text-money-faint">Memuat grafik…</p>
-          ) : slices.length === 0 ? (
+          ) : allSlices.length === 0 ? (
             <p className="text-center text-[13px] text-money-faint">
               Belum ada {kind === 'expense' ? 'pengeluaran' : 'pemasukan'} di
               periode ini.
@@ -1261,8 +1397,10 @@ export function ReportingPage() {
           ) : (
             <>
               <DonutChart
-                slices={slices}
+                slices={allSlices}
                 selectedKey={selectedKey}
+                excludedKeys={activeExcludedKeys}
+                countedTotal={categoryTotal}
                 onSelect={setSelectedKey}
               />
               <p className="mt-3 text-center text-[12px] font-semibold text-money-faint">
@@ -1280,34 +1418,55 @@ export function ReportingPage() {
             <p className="mt-0.5 text-[12.5px] text-money-muted">
               {loading
                 ? 'Memuat…'
-                : categoryTotal > 0
-                  ? `${slices.length} kategori · total ${formatIdr(categoryTotal)}`
+                : allSlices.length > 0
+                  ? `${allSlices.length} kategori · dihitung ${formatIdr(categoryTotal)}`
                   : 'Tidak ada data'}
+              {activeExcluded.length > 0
+                ? ` · ${activeExcluded.length} tidak dihitung`
+                : ''}
             </p>
+            {activeExcluded.length > 0 ? (
+              <button
+                type="button"
+                onClick={restoreAllCategories}
+                className="mt-1 text-[11.5px] font-bold text-money-brown-deep hover:underline"
+              >
+                Pulihkan semua
+              </button>
+            ) : null}
           </div>
 
-          {slices.length === 0 && !loading ? (
+          {allSlices.length === 0 && !loading ? (
             <div className="px-5 py-10 text-center text-sm text-money-faint">
               Ubah periode atau scope untuk melihat breakdown.
             </div>
           ) : (
             <ul className="divide-y divide-money-border">
-              {slices.map((slice) => {
-                const active = selectedKey === slice.key;
-                const dimmed = selectedKey != null && !active;
+              {allSlices.map((slice) => {
+                const excluded = activeExcludedKeys.has(slice.key);
+                const counted = slices.find((item) => item.key === slice.key);
+                const active = !excluded && selectedKey === slice.key;
+                const dimmed =
+                  excluded || (selectedKey != null && !active);
+                const displayPct = excluded
+                  ? slice.pct
+                  : (counted?.pct ?? slice.pct);
                 return (
-                  <li key={slice.key}>
+                  <li key={slice.key} className="flex items-stretch">
                     <button
                       type="button"
-                      onClick={() =>
-                        setSelectedKey(active ? null : slice.key)
-                      }
+                      onClick={() => {
+                        if (excluded) return;
+                        setSelectedKey(active ? null : slice.key);
+                      }}
                       className={[
-                        'flex w-full flex-col gap-2 px-5 py-3.5 text-left transition-colors sm:flex-row sm:items-center sm:gap-4',
-                        active
-                          ? 'bg-money-brown-soft/50'
-                          : 'hover:bg-money-soft/70',
-                        dimmed ? 'opacity-45' : 'opacity-100',
+                        'flex min-w-0 flex-1 flex-col gap-2 px-5 py-3.5 text-left transition-colors sm:flex-row sm:items-center sm:gap-4',
+                        excluded
+                          ? 'bg-money-soft/40'
+                          : active
+                            ? 'bg-money-brown-soft/50'
+                            : 'hover:bg-money-soft/70',
+                        dimmed ? 'opacity-40' : 'opacity-100',
                       ].join(' ')}
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -1319,20 +1478,31 @@ export function ReportingPage() {
                           style={{ backgroundColor: slice.color }}
                         />
                         <div className="min-w-0">
-                          <div className="truncate text-[13.5px] font-bold">
+                          <div
+                            className={[
+                              'truncate text-[13.5px] font-bold',
+                              excluded ? 'line-through' : '',
+                            ].join(' ')}
+                          >
                             {slice.label}
                           </div>
                           <div className="font-money-mono text-[12px] text-money-faint">
                             {formatIdr(slice.amount)}
+                            {excluded ? ' · tidak dihitung' : ''}
                           </div>
                         </div>
                       </div>
                       <div className="w-full sm:w-[220px]">
                         <div className="mb-1 flex items-baseline justify-between gap-2">
-                          <span className="font-money-mono text-[18px] font-extrabold tabular-nums text-money-ink">
-                            {slice.pct < 10
-                              ? slice.pct.toFixed(1)
-                              : Math.round(slice.pct)}
+                          <span
+                            className={[
+                              'font-money-mono text-[18px] font-extrabold tabular-nums',
+                              excluded ? 'text-money-faint' : 'text-money-ink',
+                            ].join(' ')}
+                          >
+                            {displayPct < 10
+                              ? displayPct.toFixed(1)
+                              : Math.round(displayPct)}
                             %
                           </span>
                         </div>
@@ -1340,12 +1510,39 @@ export function ReportingPage() {
                           <div
                             className="h-full rounded-full transition-[width] duration-500"
                             style={{
-                              width: `${Math.max(slice.pct, 1.5)}%`,
+                              width: `${Math.max(displayPct, 1.5)}%`,
                               backgroundColor: slice.color,
                             }}
                           />
                         </div>
                       </div>
+                    </button>
+                    <button
+                      type="button"
+                      title={
+                        excluded
+                          ? `Hitung lagi ${slice.label}`
+                          : `Kecualikan ${slice.label} dari hitungan`
+                      }
+                      aria-label={
+                        excluded
+                          ? `Hitung lagi ${slice.label}`
+                          : `Kecualikan ${slice.label} dari hitungan`
+                      }
+                      aria-pressed={excluded}
+                      onClick={() =>
+                        excluded
+                          ? restoreCategory(slice.key)
+                          : excludeCategory(slice)
+                      }
+                      className={[
+                        'shrink-0 self-center px-3 py-2',
+                        excluded
+                          ? 'text-money-rose'
+                          : 'text-money-faint hover:text-money-rose',
+                      ].join(' ')}
+                    >
+                      <EyeOff size={16} />
                     </button>
                   </li>
                 );

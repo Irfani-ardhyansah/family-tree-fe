@@ -57,7 +57,7 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
     accent: 'border-t-emerald-500',
     iconWrap: 'bg-emerald-500/15',
     iconColor: 'text-emerald-400',
-    titleHover: 'group-hover:text-emerald-300',
+    titleHover: 'group-hover:text-emerald-600 dark:group-hover:text-emerald-300',
     Icon: GitBranch,
     features: [
       { label: 'Silsilah keluarga', icon: GitBranch },
@@ -76,7 +76,7 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
     accent: 'border-t-sky-500',
     iconWrap: 'bg-sky-500/15',
     iconColor: 'text-sky-400',
-    titleHover: 'group-hover:text-sky-300',
+    titleHover: 'group-hover:text-sky-600 dark:group-hover:text-sky-300',
     Icon: Home,
     features: [
       { label: 'Dokumen penting', icon: FileText },
@@ -95,7 +95,7 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
     accent: 'border-t-slate-500',
     iconWrap: 'bg-slate-500/20',
     iconColor: 'text-slate-300',
-    titleHover: 'group-hover:text-slate-200',
+    titleHover: 'group-hover:text-slate-700 dark:group-hover:text-slate-200',
     Icon: CreditCard,
     features: [
       { label: 'Dashboard & kantong', icon: Activity },
@@ -113,7 +113,7 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
     accent: 'border-t-violet-500',
     iconWrap: 'bg-violet-500/15',
     iconColor: 'text-violet-400',
-    titleHover: 'group-hover:text-violet-300',
+    titleHover: 'group-hover:text-violet-600 dark:group-hover:text-violet-300',
     Icon: Coffee,
     features: [
       { label: 'Inventory rumah', icon: Box },

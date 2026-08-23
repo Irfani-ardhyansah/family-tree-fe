@@ -27,6 +27,8 @@ import { getDocumentStatus } from '@/modules/family-core/lib/documentStatus';
 import { CORE_MEMBERS } from '@/modules/family-core/mocks/coreMembers';
 import { useAuth } from '@/shared/context/AuthContext';
 import { appPaths, corePaths } from '@/shared/routes';
+import { Footer } from '@/shared/components/ui/Footer';
+import { ThemeToggle } from '@/shared/ui';
 import { shortPersonName } from '@/shared/utils/personDisplayName';
 
 const NAV_ITEMS = [
@@ -125,36 +127,36 @@ function FamilyCoreChrome() {
   };
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#f0f7fc_0%,#f3f4f6_28%,#f3f4f6_100%)] text-brand-800">
-      <header className="sticky top-0 z-40 border-b border-sky-100/80 bg-white/85 shadow-[0_1px_0_rgba(14,116,144,0.06)] backdrop-blur-md">
-        {/* Brand row */}
-        <div className="mx-auto flex max-w-3xl items-center gap-3 px-3 py-2.5 sm:px-6 sm:py-3">
+    <div data-module="core" className="flex min-h-screen flex-col bg-suite-bg text-suite-ink">
+      <header className="sticky top-0 z-40 border-b border-sky-100/80 bg-suite-surface/85 shadow-[0_1px_0_rgba(14,116,144,0.06)] backdrop-blur-md">
+        {/* Brand row — extra vertical room so icons/shadows aren’t clipped by backdrop-blur */}
+        <div className="mx-auto flex w-full max-w-[1280px] items-center gap-2.5 px-3 py-3 sm:gap-3 sm:px-6 sm:py-3.5 lg:px-7">
           <Link
             to={appPaths.launcher}
-            className="inline-flex shrink-0 items-center justify-center rounded-xl p-2 text-brand-500 transition-colors hover:bg-sky-50 hover:text-sky-700"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-brand-500 transition-colors hover:bg-sky-50 hover:text-sky-700"
             title="Semua modul"
             aria-label="Semua modul"
           >
             <Grid size={16} />
           </Link>
 
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-gradient-to-br from-sky-500 to-sky-700 text-white shadow-[0_8px_18px_-8px_rgba(2,132,199,0.75)]">
-              <Home size={18} />
-              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400" />
+          <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-gradient-to-br from-sky-500 to-sky-700 text-white sm:h-10 sm:w-10 sm:rounded-[12px]">
+              <Home size={17} />
+              <span className="absolute bottom-0.5 right-0.5 h-2 w-2 rounded-full border-[1.5px] border-white bg-emerald-400" />
             </span>
             <div className="min-w-0 leading-tight">
-              <div className="truncate text-[15px] font-bold tracking-tight text-brand-800">
+              <div className="truncate text-[15px] font-bold tracking-tight text-suite-ink">
                 Family Core
               </div>
-              <div className="truncate text-[11.5px] text-brand-400">
+              <div className="truncate text-[11.5px] text-suite-faint">
                 {CORE_MEMBERS.length} anggota · keluarga inti
               </div>
             </div>
           </div>
 
           {/* Avatar stack */}
-          <div className="hidden items-center sm:flex" aria-label="Anggota keluarga">
+          <div className="hidden items-center py-0.5 sm:flex" aria-label="Anggota keluarga">
             <div className="flex -space-x-2">
               {previewMembers.map((m) => (
                 <span
@@ -176,19 +178,21 @@ function FamilyCoreChrome() {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
             <button
               type="button"
               onClick={() => setQuickAddOpen(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-sky-600 px-3 text-[12.5px] font-bold text-white shadow-[0_8px_16px_-8px_rgba(2,132,199,0.7)] hover:bg-sky-700 sm:px-3.5"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-sky-600 px-3 text-[12.5px] font-bold leading-none text-white hover:bg-sky-700 sm:px-3.5"
               aria-label="Aksi cepat"
             >
-              <Plus size={15} />
+              <Plus size={15} className="shrink-0" />
               <span className="hidden sm:inline">Aksi</span>
             </button>
 
+            <ThemeToggle />
+
             {loginName ? (
-              <span className="hidden max-w-[7rem] truncate rounded-full bg-gray-50 px-2.5 py-1.5 text-[11.5px] font-semibold text-brand-600 lg:inline">
+              <span className="hidden max-w-[7rem] truncate rounded-full bg-suite-soft px-2.5 py-1.5 text-[11.5px] font-semibold leading-none text-suite-muted lg:inline">
                 {loginName}
               </span>
             ) : null}
@@ -196,16 +200,16 @@ function FamilyCoreChrome() {
             <button
               type="button"
               onClick={() => void logout()}
-              className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[12.5px] font-medium text-gray-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-[12.5px] font-medium leading-none text-gray-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
             >
-              <LogOut size={15} />
+              <LogOut size={15} className="shrink-0" />
               <span className="hidden sm:inline">Keluar</span>
             </button>
           </div>
         </div>
 
-        {/* Primary nav */}
-        <nav className="mx-auto flex max-w-3xl gap-1.5 overflow-x-auto px-3 pb-2.5 sm:px-6">
+        {/* Primary nav — full width, tabs spread evenly */}
+        <nav className="mx-auto flex w-full max-w-[1280px] gap-1.5 px-3 py-1.5 pb-3 sm:px-6 lg:px-7">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
@@ -213,9 +217,9 @@ function FamilyCoreChrome() {
               end={item.end}
               className={({ isActive }) =>
                 [
-                  'group inline-flex items-center gap-2 whitespace-nowrap rounded-[11px] px-2.5 py-2 text-[13px] font-semibold transition-all',
+                  'group inline-flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-control px-2.5 py-2.5 text-[13px] font-semibold leading-none transition-all sm:justify-start sm:px-3',
                   isActive
-                    ? `${item.activeClass} ring-1 shadow-sm`
+                    ? `${item.activeClass} ring-1 ring-inset shadow-sm`
                     : 'text-brand-500 hover:bg-white/80 hover:text-brand-700',
                 ].join(' ')
               }
@@ -239,7 +243,7 @@ function FamilyCoreChrome() {
 
         {/* Context strip */}
         <div className="border-t border-sky-100/70 bg-gradient-to-r from-sky-50/90 via-white to-teal-50/60">
-          <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2 px-3 py-2 text-[12.5px] sm:px-6">
+          <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center gap-2 px-3 py-2 text-[12.5px] sm:px-6 lg:px-7">
             <span className="font-semibold text-sky-900/80">Ringkasan</span>
             <span className="rounded-full border border-sky-200/80 bg-white px-2.5 py-0.5 text-[11.5px] font-bold text-sky-800">
               {documents.length} dokumen
@@ -275,9 +279,11 @@ function FamilyCoreChrome() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-3 py-5 sm:px-6 sm:py-7">
+      <main className="mx-auto w-full max-w-[1280px] flex-1 px-3 py-5 sm:px-6 sm:py-7 lg:px-7">
         <Outlet />
       </main>
+
+      <Footer moduleName="Family Core" />
 
       {quickAddOpen ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -287,20 +293,20 @@ function FamilyCoreChrome() {
             aria-label="Tutup"
             onClick={() => setQuickAddOpen(false)}
           />
-          <div className="relative z-10 w-full max-w-md rounded-t-[20px] bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
+          <div className="relative z-10 w-full max-w-md rounded-t-sheet bg-suite-surface p-5 shadow-xl sm:rounded-card sm:p-6">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-[15px] font-extrabold text-brand-800">
+                <h2 className="text-[15px] font-extrabold text-suite-ink">
                   Mau catat apa?
                 </h2>
-                <p className="text-[12px] text-brand-400">
+                <p className="text-[12px] text-suite-faint">
                   Aksi cepat Family Core
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setQuickAddOpen(false)}
-                className="rounded-full p-1.5 text-brand-400 hover:bg-gray-100"
+                className="rounded-full p-1.5 text-suite-faint hover:bg-suite-soft"
               >
                 <X size={18} />
               </button>
@@ -312,7 +318,7 @@ function FamilyCoreChrome() {
                   type="button"
                   onClick={() => handleQuickAction(action.key)}
                   className={[
-                    'flex w-full items-center gap-3 rounded-[12px] px-2.5 py-2.5 text-left transition-colors hover:bg-gray-50',
+                    'flex w-full items-center gap-3 rounded-control px-2.5 py-2.5 text-left transition-colors hover:bg-suite-soft',
                     index === 0 ? 'bg-sky-50/80' : '',
                   ].join(' ')}
                 >
@@ -329,10 +335,10 @@ function FamilyCoreChrome() {
                     <action.Icon size={17} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[13.5px] font-bold text-brand-800">
+                    <span className="block text-[13.5px] font-bold text-suite-ink">
                       {action.title}
                     </span>
-                    <span className="block text-[11.5px] text-brand-400">
+                    <span className="block text-[11.5px] text-suite-faint">
                       {action.subtitle}
                     </span>
                   </span>

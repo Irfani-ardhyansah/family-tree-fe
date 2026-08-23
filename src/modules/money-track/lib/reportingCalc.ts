@@ -273,10 +273,61 @@ export function buildLocalMonthlyReport(input: {
   };
 }
 
+export function categoryKeyFromTx(row: MoneyUiTx): string {
+  return row.categoryId ?? row.category ?? 'uncategorized';
+}
+
+export function rescaleCategorySlices(slices: CategorySlice[]): CategorySlice[] {
+  const grand = slices.reduce((s, row) => s + row.amount, 0);
+  if (grand <= 0) return [];
+  return slices.map((slice) => ({
+    ...slice,
+    pct: (slice.amount / grand) * 100,
+  }));
+}
+
+export function applyCategoryExclusions(
+  report: MonthlyReportView,
+  excludedExpenseKeys: ReadonlySet<string>,
+  excludedIncomeKeys: ReadonlySet<string>,
+): MonthlyReportView {
+  if (excludedExpenseKeys.size === 0 && excludedIncomeKeys.size === 0) {
+    return report;
+  }
+
+  const excludedExpense = report.categoryExpense
+    .filter((slice) => excludedExpenseKeys.has(slice.key))
+    .reduce((sum, slice) => sum + slice.amount, 0);
+  const excludedIncome = report.categoryIncome
+    .filter((slice) => excludedIncomeKeys.has(slice.key))
+    .reduce((sum, slice) => sum + slice.amount, 0);
+
+  const income = Math.max(0, report.income - excludedIncome);
+  const expense = Math.max(0, report.expense - excludedExpense);
+  const net = income - expense;
+
+  return {
+    ...report,
+    income,
+    expense,
+    net,
+    savingsRatePct: income > 0 ? ((income - expense) / income) * 100 : null,
+    incomeChangePct: null,
+    expenseChangePct: null,
+    netChangePct: null,
+    categoryExpense: rescaleCategorySlices(
+      report.categoryExpense.filter((slice) => !excludedExpenseKeys.has(slice.key)),
+    ),
+    categoryIncome: rescaleCategorySlices(
+      report.categoryIncome.filter((slice) => !excludedIncomeKeys.has(slice.key)),
+    ),
+  };
+}
+
 function buildCategorySlicesLocal(rows: MoneyUiTx[]): CategorySlice[] {
   const totals = new Map<string, { label: string; amount: number }>();
   for (const row of rows) {
-    const key = row.categoryId ?? row.category ?? 'uncategorized';
+    const key = categoryKeyFromTx(row);
     const label =
       row.category?.trim() ||
       (row.categoryId ? `Kategori ${row.categoryId}` : 'Tanpa kategori');

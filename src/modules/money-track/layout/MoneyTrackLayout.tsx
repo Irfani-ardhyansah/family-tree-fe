@@ -3,6 +3,8 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { CreditCard, Grid, LogOut, Menu, Plus, X } from 'react-feather';
 import { useAuth } from '@/shared/context/AuthContext';
 import { appPaths } from '@/shared/routes';
+import { Footer } from '@/shared/components/ui/Footer';
+import { ThemeToggle } from '@/shared/ui';
 import { MoneyModalsHost } from '@/modules/money-track/components/modals/MoneyModalsHost';
 import {
   MoneyTrackUiProvider,
@@ -183,11 +185,11 @@ function MoneyTrackChrome() {
   }, [location.pathname]);
 
   return (
-    <div className="font-money min-h-screen bg-money-bg text-money-ink">
+    <div data-module="money" className="min-h-screen bg-suite-bg text-suite-ink">
       <div className="flex min-h-screen">
         <aside
           className={[
-            'sticky top-0 z-20 hidden h-screen shrink-0 border-r border-money-border bg-money-surface transition-[width] duration-200 lg:flex lg:flex-col',
+            'sticky top-0 z-20 hidden h-screen shrink-0 border-r border-suite-border bg-suite-surface transition-[width] duration-200 lg:flex lg:flex-col',
             collapsed ? 'w-16' : 'w-60',
           ].join(' ')}
         >
@@ -206,7 +208,7 @@ function MoneyTrackChrome() {
               className="absolute inset-0 bg-[rgba(20,24,15,0.45)]"
               onClick={() => setDrawerOpen(false)}
             />
-            <aside className="absolute inset-y-0 left-0 flex w-[min(18rem,88vw)] flex-col bg-money-surface shadow-2xl">
+            <aside className="absolute inset-y-0 left-0 flex w-[min(18rem,88vw)] flex-col bg-suite-surface shadow-2xl">
               <MoneySidebar
                 collapsed={false}
                 onNavigate={() => setDrawerOpen(false)}
@@ -216,19 +218,19 @@ function MoneyTrackChrome() {
         ) : null}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 border-b border-money-border bg-money-surface/95 backdrop-blur-md">
+          <header className="sticky top-0 z-30 border-b border-suite-border bg-suite-surface/95 backdrop-blur-md">
             <div className="flex h-14 items-center gap-2 px-3 sm:px-5">
               <button
                 type="button"
                 onClick={() => setDrawerOpen(true)}
-                className="rounded-lg p-2 text-money-muted hover:bg-money-soft lg:hidden"
+                className="rounded-control p-2 text-suite-muted hover:bg-suite-soft lg:hidden"
                 aria-label="Buka menu"
               >
                 <Menu size={18} />
               </button>
 
               <div className="flex min-w-0 items-center gap-2.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-money-amber-soft text-money-amber">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-money-amber-soft text-money-amber">
                   <CreditCard size={18} />
                 </div>
                 <div className="hidden min-w-0 leading-tight sm:block">
@@ -239,6 +241,7 @@ function MoneyTrackChrome() {
               <NavbarScope />
 
               <div className="ml-auto flex items-center gap-1.5">
+                <ThemeToggle />
                 <button
                   type="button"
                   onClick={() => setQuickAddOpen(true)}
@@ -250,7 +253,7 @@ function MoneyTrackChrome() {
                 </button>
                 <Link
                   to={appPaths.launcher}
-                  className="inline-flex shrink-0 items-center justify-center rounded-lg p-2 text-money-muted hover:bg-money-soft"
+                  className="inline-flex shrink-0 items-center justify-center rounded-control p-2 text-suite-muted hover:bg-suite-soft"
                   title="Semua modul"
                   aria-label="Semua modul"
                 >
@@ -259,7 +262,7 @@ function MoneyTrackChrome() {
                 <button
                   type="button"
                   onClick={() => void logout()}
-                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-money-muted hover:bg-money-rose-soft hover:text-money-rose"
+                  className="inline-flex items-center gap-1 rounded-control px-2 py-1.5 text-xs font-semibold text-suite-muted hover:bg-money-rose-soft hover:text-money-rose"
                 >
                   <LogOut size={15} />
                   <span className="hidden sm:inline">Keluar</span>
@@ -271,6 +274,7 @@ function MoneyTrackChrome() {
           <main className="mx-auto w-full max-w-[1280px] flex-1 px-3 py-6 sm:px-6 lg:px-7 lg:py-8">
             <Outlet />
           </main>
+          <Footer moduleName="Money Track" />
         </div>
       </div>
 
@@ -282,18 +286,18 @@ function MoneyTrackChrome() {
             aria-label="Tutup"
             onClick={() => setQuickAddOpen(false)}
           />
-          <div className="relative z-10 w-full max-w-md rounded-t-[20px] bg-money-surface p-5 shadow-xl sm:rounded-2xl sm:p-6">
+          <div className="relative z-10 w-full max-w-md rounded-t-sheet bg-suite-surface p-5 shadow-xl sm:rounded-card sm:p-6">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-[15px] font-extrabold">Mau catat apa?</h2>
-                <p className="text-[12px] text-money-faint">
+                <p className="text-[12px] text-suite-faint">
                   Pilih salah satu untuk lanjut
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setQuickAddOpen(false)}
-                className="rounded-full p-1.5 text-money-faint hover:bg-money-soft"
+                className="rounded-full p-1.5 text-suite-faint hover:bg-suite-soft"
               >
                 <X size={18} />
               </button>
@@ -305,13 +309,13 @@ function MoneyTrackChrome() {
                   type="button"
                   onClick={() => openModal(action.type)}
                   className={[
-                    'flex w-full items-center gap-3 rounded-[11px] px-2 py-2.5 text-left transition-colors hover:bg-money-soft',
+                    'flex w-full items-center gap-3 rounded-control px-2 py-2.5 text-left transition-colors hover:bg-suite-soft',
                     index === 0 ? 'bg-money-brown-soft' : '',
                   ].join(' ')}
                 >
                   <span
                     className={[
-                      'flex h-9 w-9 items-center justify-center rounded-[10px] text-sm font-bold',
+                      'flex h-9 w-9 items-center justify-center rounded-control text-sm font-bold',
                       action.tone === 'primary' && 'bg-money-brown text-white',
                       action.tone === 'rose' && 'bg-money-rose-soft text-money-rose',
                       action.tone === 'violet' &&
@@ -328,7 +332,7 @@ function MoneyTrackChrome() {
                     <span className="block text-[13px] font-bold">
                       {action.title}
                     </span>
-                    <span className="block text-[11px] text-money-faint">
+                    <span className="block text-[11px] text-suite-faint">
                       {action.subtitle}
                     </span>
                   </span>

@@ -10,6 +10,7 @@ import type {
   AppSettings,
   AuditAction,
   AuditLogEntry,
+  BackupImportResult,
   BackupJob,
   BroadcastMessage,
   CreateAgeRuleInput,
@@ -18,7 +19,7 @@ import type {
   UpdateAgeRuleInput,
 } from '@/modules/admin/types';
 import type { AppModuleId } from '@/shared/data/moduleCatalog';
-import { apiFetch, apiFormFetch } from '@/shared/lib/apiClient';
+import { apiBlobFetch, apiFetch, apiFormFetch } from '@/shared/lib/apiClient';
 import { buildQuery } from '@/shared/lib/apiQuery';
 
 const delay = (ms = 420) => new Promise((r) => setTimeout(r, ms));
@@ -145,6 +146,7 @@ function normalizeBackup(raw: BackupJob): BackupJob {
   return {
     ...raw,
     id: asStringId(raw.id),
+    format: raw.format === 'sql' ? 'sql' : 'json',
     moduleIds: (raw.moduleIds ?? []) as AppModuleId[],
     createdAt: raw.createdAt ?? new Date().toISOString(),
     status: raw.status ?? 'running',
@@ -385,6 +387,14 @@ export async function triggerBackup(
   return normalizeBackup(data);
 }
 
+export async function createSqlBackup(): Promise<BackupJob> {
+  const data = await apiFetch<BackupJob>('/admin/backups', {
+    method: 'POST',
+    body: JSON.stringify({ format: 'sql' }),
+  });
+  return normalizeBackup(data);
+}
+
 /** Poll job sampai success/failed (backup async 202). */
 export async function pollBackupUntilDone(
   id: string,
@@ -399,6 +409,27 @@ export async function pollBackupUntilDone(
     latest = await fetchBackupById(id);
   }
   return latest;
+}
+
+export async function downloadBackupFile(job: BackupJob): Promise<void> {
+  const { blob, filename } = await apiBlobFetch(
+    `/admin/backups/${job.id}/download`,
+  );
+  const ext = job.format === 'sql' ? 'sql.zip' : 'json';
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename || `${job.id}.${ext}`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function importBackupFile(
+  file: File,
+): Promise<BackupImportResult> {
+  const fd = new FormData();
+  fd.append('file', file);
+  return apiFormFetch<BackupImportResult>('/admin/backups/import', fd);
 }
 
 export async function fetchSelectableUsers(): Promise<AdminUserOption[]> {

@@ -11,6 +11,7 @@ import { moneyTrackRoutes } from '@/modules/money-track/routes';
 import { AuthProvider } from '@/shared/context/AuthContext';
 import { DataSourceProvider } from '@/shared/context/DataSourceContext';
 import { SecondaryPasswordGateProvider } from '@/shared/context/SecondaryPasswordGateContext';
+import { ThemeProvider } from '@/shared/context/ThemeContext';
 import { getRouterBasename } from '@/shared/lib/basePath';
 import { appPaths } from '@/shared/routes';
 
@@ -45,12 +46,14 @@ const router = createBrowserRouter(
 
 export function AppRouter() {
   return (
-    <AuthProvider>
-      <SecondaryPasswordGateProvider>
-        <DataSourceProvider>
-          <RouterProvider router={router} />
-        </DataSourceProvider>
-      </SecondaryPasswordGateProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <SecondaryPasswordGateProvider>
+          <DataSourceProvider>
+            <RouterProvider router={router} />
+          </DataSourceProvider>
+        </SecondaryPasswordGateProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

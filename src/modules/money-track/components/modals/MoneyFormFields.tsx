@@ -3,13 +3,16 @@ import {
   formatInputIdr,
   sanitizeIdrDigits,
 } from '@/modules/money-track/components/modals/modalTypes';
+import {
+  FieldInput as SuiteFieldInput,
+  FieldLabel as SuiteFieldLabel,
+  FieldSelect as SuiteFieldSelect,
+  FieldTextarea as SuiteFieldTextarea,
+  cx,
+} from '@/shared/ui';
 
 export function FieldLabel({ children }: { children: ReactNode }) {
-  return (
-    <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-money-faint">
-      {children}
-    </label>
-  );
+  return <SuiteFieldLabel>{children}</SuiteFieldLabel>;
 }
 
 export function FieldInput({
@@ -26,13 +29,13 @@ export function FieldInput({
   inputMode?: HTMLAttributes<HTMLInputElement>['inputMode'];
 }) {
   return (
-    <input
+    <SuiteFieldInput
+      accent="money"
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
       type={type}
       inputMode={inputMode}
-      value={value}
-      placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-[10px] border border-money-border bg-money-soft px-3 py-2.5 text-[13.5px] font-semibold text-money-ink outline-none placeholder:font-medium placeholder:text-money-faint focus:border-money-brown focus:bg-money-surface"
     />
   );
 }
@@ -53,18 +56,14 @@ export function MoneyAmountInput({
   className?: string;
 }) {
   return (
-    <input
+    <SuiteFieldInput
+      accent="money"
       type="text"
       inputMode="numeric"
       value={formatInputIdr(value)}
       placeholder={placeholder}
-      onChange={(e) => onChange(sanitizeIdrDigits(e.target.value))}
-      className={[
-        'font-money-mono w-full rounded-[10px] border border-money-border bg-money-soft px-3 py-2.5 text-[13.5px] font-semibold text-money-ink outline-none placeholder:font-medium placeholder:font-sans placeholder:text-money-faint focus:border-money-brown focus:bg-money-surface',
-        className,
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      onChange={(next) => onChange(sanitizeIdrDigits(next))}
+      className={cx('font-money-mono placeholder:font-sans', className)}
     />
   );
 }
@@ -79,17 +78,12 @@ export function FieldSelect<T extends string = string>({
   options: { value: T; label: string }[];
 }) {
   return (
-    <select
+    <SuiteFieldSelect
+      accent="money"
       value={value}
-      onChange={(e) => onChange(e.target.value as T)}
-      className="w-full rounded-[10px] border border-money-border bg-money-soft px-3 py-2.5 text-[13.5px] font-semibold text-money-ink outline-none focus:border-money-brown focus:bg-money-surface"
-    >
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+      onChange={onChange}
+      options={options}
+    />
   );
 }
 
@@ -105,12 +99,12 @@ export function FieldTextarea({
   rows?: number;
 }) {
   return (
-    <textarea
+    <SuiteFieldTextarea
+      accent="money"
       value={value}
-      rows={rows}
+      onChange={onChange}
       placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full resize-none rounded-[10px] border border-money-border bg-money-soft px-3 py-2.5 text-[13.5px] font-semibold text-money-ink outline-none placeholder:font-medium placeholder:text-money-faint focus:border-money-brown focus:bg-money-surface"
+      rows={rows}
     />
   );
 }

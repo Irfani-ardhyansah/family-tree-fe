@@ -7,6 +7,8 @@ import { useSecondaryPasswordGate } from '@/shared/context/SecondaryPasswordGate
 import { MODULE_CATALOG, type ModuleDevStatus } from '@/shared/data/moduleCatalog';
 import { useIsAdmin } from '@/shared/hooks/useIsAdmin';
 import { adminPaths, appPaths } from '@/shared/routes';
+import { Footer } from '@/shared/components/ui/Footer';
+import { ThemeToggle } from '@/shared/ui';
 import { shortPersonName } from '@/shared/utils/personDisplayName';
 
 const SENSITIVE_MODULE_IDS = new Set(['money', 'household']);
@@ -79,45 +81,49 @@ export function LauncherPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0d10] text-white">
+    <div
+      data-module="launcher"
+      className="flex min-h-screen flex-col bg-suite-bg text-suite-ink"
+    >
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(106,168,106,0.12),_transparent_55%)]" />
 
-      <div className="relative mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8 lg:py-10">
+      <div className="relative mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:py-10">
         <header className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 shadow-lg shadow-primary-900/40">
               <Home size={18} className="text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">
+              <h1 className="text-lg font-bold tracking-tight text-suite-ink sm:text-xl">
                 Family Suite
               </h1>
-              <p className="text-xs text-zinc-400 sm:text-sm">
+              <p className="text-xs text-suite-faint sm:text-sm">
                 Platform keluarga Ardhyansah
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <NotificationBell variant="dark" />
+            <ThemeToggle />
+            <NotificationBell />
 
           <div className="relative">
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              className="inline-flex items-center gap-2 rounded-full border border-zinc-700/80 bg-zinc-900/80 py-1.5 pl-1.5 pr-3 transition hover:border-zinc-500"
+              className="inline-flex items-center gap-2 rounded-full border border-suite-border bg-suite-surface py-1.5 pl-1.5 pr-3 transition hover:bg-suite-soft"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-xs font-bold">
                 {initials}
               </span>
-              <span className="hidden text-sm font-medium text-zinc-100 sm:inline">
+              <span className="hidden text-sm font-medium text-suite-ink sm:inline">
                 {displayName}
               </span>
-              <ChevronDown size={14} className="text-zinc-400" />
+              <ChevronDown size={14} className="text-suite-faint" />
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl">
+              <div className="absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl border border-suite-border bg-suite-surface shadow-xl">
                 {isAdmin && (
                   <button
                     type="button"
@@ -125,7 +131,7 @@ export function LauncherPage() {
                       setMenuOpen(false);
                       void openModule(adminPaths.home);
                     }}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-teal-200 hover:bg-zinc-800"
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-admin-700 hover:bg-suite-soft dark:text-teal-200"
                   >
                     <Shield size={14} />
                     Admin Panel
@@ -138,7 +144,7 @@ export function LauncherPage() {
                       setMenuOpen(false);
                       openChangePassword();
                     }}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-zinc-200 hover:bg-zinc-800"
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-suite-ink hover:bg-suite-soft"
                   >
                     <Key size={14} />
                     Ganti password kedua
@@ -147,7 +153,7 @@ export function LauncherPage() {
                 <button
                   type="button"
                   onClick={() => void handleLogout()}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-zinc-200 hover:bg-zinc-800"
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-suite-ink hover:bg-suite-soft"
                 >
                   <LogOut size={14} />
                   Keluar
@@ -159,10 +165,10 @@ export function LauncherPage() {
         </header>
 
         <section className="mt-10 sm:mt-12">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          <h2 className="text-3xl font-bold tracking-tight text-suite-ink sm:text-4xl">
             Selamat datang 👋
           </h2>
-          <p className="mt-2 text-sm text-zinc-400 sm:text-base">
+          <p className="mt-2 text-sm text-suite-muted sm:text-base">
             Pilih aplikasi yang ingin kamu buka
           </p>
         </section>
@@ -172,9 +178,9 @@ export function LauncherPage() {
             const status = STATUS_STYLES[mod.status];
             const ModIcon = mod.Icon;
             const enabled = isModuleEnabled(mod.id);
-            const cardClass = `group relative rounded-3xl border border-zinc-800/90 border-t-4 ${mod.accent} bg-zinc-900/70 p-5 shadow-lg shadow-black/20 transition duration-200 ${
+            const cardClass = `group relative rounded-3xl border border-suite-border border-t-4 ${mod.accent} bg-suite-surface p-5 shadow-card transition duration-200 ${
               enabled
-                ? 'hover:-translate-y-0.5 hover:border-zinc-700 hover:bg-zinc-900'
+                ? 'hover:-translate-y-0.5 hover:border-suite-muted/40'
                 : 'cursor-not-allowed opacity-55'
             }`;
 
@@ -199,15 +205,15 @@ export function LauncherPage() {
 
                 <div className="mt-4">
                   <h3
-                    className={`text-lg font-bold text-white ${
+                    className={`text-lg font-bold text-suite-ink ${
                       enabled
-                        ? (mod.titleHover ?? 'group-hover:text-primary-200')
+                        ? (mod.titleHover ?? 'group-hover:text-primary-600 dark:group-hover:text-primary-200')
                         : ''
                     }`}
                   >
                     {mod.title}
                   </h3>
-                  <p className="text-sm text-zinc-400">
+                  <p className="text-sm text-suite-muted">
                     {enabled
                       ? mod.subtitle
                       : 'Modul dimatikan oleh admin keluarga'}
@@ -218,7 +224,7 @@ export function LauncherPage() {
                   {mod.features.map(({ label, icon: FeatureIcon }) => (
                     <li
                       key={label}
-                      className="flex items-center gap-2.5 text-sm text-zinc-300"
+                      className="flex items-center gap-2.5 text-sm text-suite-muted"
                     >
                       <FeatureIcon
                         size={15}
@@ -268,7 +274,7 @@ export function LauncherPage() {
             <button
               type="button"
               onClick={() => void openModule(adminPaths.home)}
-              className="group relative w-full rounded-3xl border border-zinc-800/90 border-t-4 border-t-teal-500 bg-zinc-900/70 p-5 text-left shadow-lg shadow-black/20 transition duration-200 hover:-translate-y-0.5 hover:border-zinc-700 hover:bg-zinc-900 sm:col-span-2"
+              className="group relative w-full rounded-3xl border border-suite-border border-t-4 border-t-teal-500 bg-suite-surface p-5 text-left shadow-card transition duration-200 hover:-translate-y-0.5 hover:border-admin-300 sm:col-span-2"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-500/15">
@@ -280,10 +286,10 @@ export function LauncherPage() {
               </div>
               <div className="mt-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h3 className="text-lg font-bold text-white group-hover:text-teal-200">
+                  <h3 className="text-lg font-bold text-suite-ink group-hover:text-admin-700 dark:group-hover:text-teal-200">
                     Admin Panel
                   </h3>
-                  <p className="text-sm text-zinc-400">
+                  <p className="text-sm text-suite-muted">
                     Kontrol modul, audit, sesi, dan broadcast keluarga
                   </p>
                 </div>
@@ -295,6 +301,7 @@ export function LauncherPage() {
           )}
         </section>
       </div>
+      <Footer />
     </div>
   );
 }

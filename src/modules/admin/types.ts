@@ -77,14 +77,21 @@ export type AppSettings = {
 
 export type BackupStatus = 'success' | 'failed' | 'running';
 
+export type BackupFormat = 'json' | 'sql';
+
 export type BackupJob = {
   id: string;
+  format: BackupFormat;
   moduleIds: AppModuleId[];
   createdAt: string;
   status: BackupStatus;
   downloadUrl?: string | null;
   errorMessage?: string | null;
 };
+
+export type BackupImportResult =
+  | { mode: 'sql'; database?: string }
+  | { mode: 'replace'; [key: string]: unknown };
 
 export type AdminDashboardSummary = {
   userCount: number;

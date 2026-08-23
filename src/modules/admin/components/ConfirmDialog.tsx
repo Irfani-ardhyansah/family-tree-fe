@@ -63,7 +63,7 @@ export function ConfirmDialog({
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog
         as="div"
-        className="relative z-50 font-admin"
+        className="relative z-50"
         onClose={busy ? () => {} : onClose}
       >
         <TransitionChild
@@ -89,7 +89,7 @@ export function ConfirmDialog({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <DialogPanel className="w-full max-w-md overflow-hidden rounded-2xl border border-ink-200 bg-white p-5 shadow-2xl shadow-ink-900/15 sm:p-6">
+              <DialogPanel className="w-full max-w-md overflow-hidden rounded-card border border-suite-border bg-suite-surface p-5 shadow-card sm:p-6">
                 <div className="flex gap-3">
                   <div
                     className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
@@ -103,10 +103,10 @@ export function ConfirmDialog({
                     <AlertTriangle size={20} />
                   </div>
                   <div>
-                    <DialogTitle className="font-admin-display text-lg font-bold text-ink-900">
+                    <DialogTitle className="text-lg font-bold text-suite-ink">
                       {title}
                     </DialogTitle>
-                    <div className="mt-1.5 text-sm leading-relaxed text-ink-500">
+                    <div className="mt-1.5 text-sm leading-relaxed text-suite-muted">
                       {description}
                     </div>
                   </div>
@@ -126,7 +126,7 @@ export function ConfirmDialog({
                     type="button"
                     disabled={busy}
                     onClick={onClose}
-                    className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink-600 hover:bg-ink-100 disabled:opacity-50"
+                    className="rounded-control px-4 py-2.5 text-sm font-semibold text-suite-muted hover:bg-suite-soft disabled:opacity-50"
                   >
                     {cancelLabel}
                   </button>
@@ -134,7 +134,7 @@ export function ConfirmDialog({
                     type="button"
                     disabled={busy}
                     onClick={() => void handleConfirm()}
-                    className={`rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 ${confirmClass}`}
+                    className={`rounded-control px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 ${confirmClass}`}
                   >
                     {busy ? 'Memproses…' : confirmLabel}
                   </button>

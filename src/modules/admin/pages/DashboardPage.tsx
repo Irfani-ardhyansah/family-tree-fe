@@ -17,6 +17,7 @@ import {
 import type { AdminDashboardSummary } from '@/modules/admin/types';
 import { formatRelativeTime } from '@/modules/admin/utils/format';
 import { adminPaths } from '@/shared/routes';
+import { Card } from '@/shared/ui';
 
 const QUICK_LINKS = [
   {
@@ -93,7 +94,7 @@ export function DashboardPage() {
         {stats.map(({ label, value, icon: Icon, tone }) => (
           <div
             key={label}
-            className="rounded-2xl border border-ink-200/80 bg-white/90 p-4 shadow-sm shadow-ink-900/5 transition hover:-translate-y-0.5 hover:shadow-md"
+            className="suite-card p-4 transition hover:-translate-y-0.5 hover:shadow-md"
           >
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">
@@ -105,7 +106,7 @@ export function DashboardPage() {
                 <Icon size={16} />
               </span>
             </div>
-            <p className="mt-3 font-admin-display text-3xl font-bold text-ink-900">
+            <p className="mt-3 text-3xl font-bold text-suite-ink">
               {value}
             </p>
           </div>
@@ -115,7 +116,7 @@ export function DashboardPage() {
       <div className="mt-8 grid gap-6 lg:grid-cols-5">
         <section className="lg:col-span-3">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-admin-display text-lg font-semibold text-ink-900">
+            <h2 className="text-lg font-semibold text-suite-ink">
               Aktivitas terbaru
             </h2>
             <Link
@@ -125,7 +126,7 @@ export function DashboardPage() {
               Lihat semua <ArrowRight size={14} />
             </Link>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-ink-200/80 bg-white/90 shadow-sm">
+          <Card className="overflow-hidden">
             <ul className="divide-y divide-ink-100">
               {data.recentLogs.map((log) => (
                 <li
@@ -144,11 +145,11 @@ export function DashboardPage() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Card>
         </section>
 
         <section className="lg:col-span-2">
-          <h2 className="mb-3 font-admin-display text-lg font-semibold text-ink-900">
+          <h2 className="mb-3 text-lg font-semibold text-suite-ink">
             Pintasan
           </h2>
           <div className="grid gap-2.5">
@@ -156,7 +157,7 @@ export function DashboardPage() {
               <Link
                 key={to}
                 to={to}
-                className="group flex items-center gap-3 rounded-2xl border border-ink-200/80 bg-white/90 px-4 py-3.5 shadow-sm transition hover:-translate-y-0.5 hover:border-admin-200 hover:shadow-md"
+                className="suite-card group flex items-center gap-3 px-4 py-3.5 transition hover:-translate-y-0.5 hover:border-admin-200 hover:shadow-md"
               >
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink-900 text-admin-300 transition group-hover:bg-admin-600 group-hover:text-white">
                   <Icon size={18} />

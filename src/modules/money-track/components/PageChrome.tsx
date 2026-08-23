@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Card, PageHeader as SuitePageHeader, cx } from '@/shared/ui';
 
 type PageHeaderProps = {
   title: string;
@@ -8,13 +9,7 @@ type PageHeaderProps = {
 
 export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        <p className="mt-0.5 text-[13.5px] text-money-muted">{description}</p>
-      </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
-    </div>
+    <SuitePageHeader title={title} description={description} actions={actions} />
   );
 }
 
@@ -25,28 +20,17 @@ export function MoneyCard({
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <section
-      className={[
-        'rounded-[14px] border border-money-border bg-money-surface shadow-[0_1px_2px_rgba(31,42,31,0.04),0_8px_24px_-12px_rgba(31,42,31,0.10)]',
-        className,
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
-      {children}
-    </section>
-  );
+  return <Card className={className}>{children}</Card>;
 }
 
 export function PeriodPill({ label }: { label: string }) {
   return (
-    <div className="inline-flex items-center gap-2.5 rounded-full border border-money-border bg-money-surface px-3.5 py-1.5 text-[13px] font-semibold shadow-[0_1px_2px_rgba(31,42,31,0.04),0_8px_24px_-12px_rgba(31,42,31,0.10)]">
-      <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-money-soft text-money-muted">
+    <div className="inline-flex items-center gap-2.5 rounded-full border border-suite-border bg-suite-surface px-3.5 py-1.5 text-[13px] font-semibold shadow-card">
+      <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-suite-soft text-suite-muted">
         ‹
       </span>
       {label}
-      <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-money-soft text-money-muted">
+      <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-suite-soft text-suite-muted">
         ›
       </span>
     </div>
@@ -66,12 +50,12 @@ export function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={[
+      className={cx(
         'rounded-full border px-3 py-1.5 text-[12.5px] font-bold transition-colors',
         active
           ? 'border-money-brown bg-money-brown-soft text-money-brown-deep'
-          : 'border-money-border bg-money-surface text-money-muted hover:bg-money-soft',
-      ].join(' ')}
+          : 'border-suite-border bg-suite-surface text-suite-muted hover:bg-suite-soft',
+      )}
     >
       {label}
     </button>

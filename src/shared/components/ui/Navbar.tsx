@@ -23,6 +23,7 @@ import { useAuth } from '@/shared/context/AuthContext';
 import { useDataSource } from '@/shared/context/DataSourceContext';
 import { shortPersonName } from '@/shared/utils/personDisplayName';
 import { appPaths, rootsPaths } from '@/shared/routes';
+import { ThemeToggle } from '@/shared/ui';
 
 import type { Icon } from 'react-feather';
 
@@ -184,7 +185,7 @@ export function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200/80 shadow-sm pt-[env(safe-area-inset-top)]">
+    <nav className="sticky top-0 z-40 bg-suite-surface/90 backdrop-blur-md border-b border-suite-border/80 shadow-sm pt-[env(safe-area-inset-top)]">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex justify-between h-14 sm:h-16 items-center gap-2 sm:gap-3">
           {/* Logo → launcher */}
@@ -206,10 +207,10 @@ export function Navbar() {
                 <Users className="text-white" size={18} />
               </div>
               <div className="hidden sm:block">
-                <span className="text-lg font-bold text-brand-700 leading-none">
+                <span className="text-lg font-bold text-suite-ink leading-none">
                   Family Roots
                 </span>
-                <span className="block text-[10px] text-gray-400 font-medium tracking-wide">
+                <span className="block text-[10px] text-suite-faint font-medium tracking-wide">
                   Keluarga besar
                 </span>
               </div>
@@ -233,7 +234,8 @@ export function Navbar() {
             <div className="hidden md:block">
               <PerspectiveSwitcher />
             </div>
-            <NotificationBell variant="light" />
+            <ThemeToggle />
+            <NotificationBell />
             <button
               type="button"
               onClick={handleLogout}
@@ -265,7 +267,7 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="lg:hidden border-t border-gray-100 bg-white px-3 sm:px-4 py-4 space-y-4 shadow-lg max-h-[calc(100dvh-3.5rem)] overflow-y-auto">
+        <div className="lg:hidden border-t border-suite-border bg-suite-surface px-3 sm:px-4 py-4 space-y-4 shadow-lg max-h-[calc(100dvh-3.5rem)] overflow-y-auto">
           {canUseMock && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1">

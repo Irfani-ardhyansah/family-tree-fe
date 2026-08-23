@@ -244,6 +244,7 @@ export let mockSettings: AppSettings = {
 export let mockBackups: BackupJob[] = [
   {
     id: 'bk-1',
+    format: 'json',
     moduleIds: ['roots', 'money'],
     createdAt: daysAgo(4),
     status: 'success',
@@ -251,6 +252,7 @@ export let mockBackups: BackupJob[] = [
   },
   {
     id: 'bk-2',
+    format: 'json',
     moduleIds: ['roots'],
     createdAt: daysAgo(12),
     status: 'success',
@@ -258,6 +260,15 @@ export let mockBackups: BackupJob[] = [
   },
   {
     id: 'bk-3',
+    format: 'sql',
+    moduleIds: [],
+    createdAt: daysAgo(18),
+    status: 'success',
+    downloadUrl: '#',
+  },
+  {
+    id: 'bk-4',
+    format: 'json',
     moduleIds: ['core', 'household'],
     createdAt: daysAgo(20),
     status: 'failed',

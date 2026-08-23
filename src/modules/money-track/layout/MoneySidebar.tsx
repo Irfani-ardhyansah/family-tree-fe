@@ -37,7 +37,7 @@ export function MoneySidebar({
     <div className="flex h-full min-h-0 flex-col">
       <div
         className={[
-          'flex h-14 shrink-0 items-center border-b border-money-border',
+          'flex h-14 shrink-0 items-center border-b border-suite-border',
           collapsed ? 'justify-center px-1' : 'justify-end px-2',
         ].join(' ')}
       >
@@ -45,7 +45,7 @@ export function MoneySidebar({
           <button
             type="button"
             onClick={onNavigate}
-            className="rounded-lg p-2 text-money-muted hover:bg-money-soft hover:text-money-ink"
+            className="rounded-lg p-2 text-suite-muted hover:bg-suite-soft hover:text-suite-ink"
             aria-label="Tutup menu"
           >
             <X size={18} />
@@ -54,7 +54,7 @@ export function MoneySidebar({
           <button
             type="button"
             onClick={onToggleCollapsed}
-            className="rounded-lg p-2 text-money-muted hover:bg-money-soft hover:text-money-ink"
+            className="rounded-lg p-2 text-suite-muted hover:bg-suite-soft hover:text-suite-ink"
             aria-label={collapsed ? 'Bentangkan sidebar' : 'Ciutkan sidebar'}
             aria-expanded={!collapsed}
           >
@@ -70,7 +70,7 @@ export function MoneySidebar({
           return (
             <div key={group.id}>
               {collapsed ? null : (
-                <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-money-faint">
+                <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-suite-faint">
                   {group.label}
                 </p>
               )}
@@ -91,7 +91,7 @@ export function MoneySidebar({
                           collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-2.5 py-2',
                           isActive
                             ? 'bg-money-brown-soft text-money-brown-deep'
-                            : 'text-money-muted hover:bg-money-soft hover:text-money-ink',
+                            : 'text-suite-muted hover:bg-suite-soft hover:text-suite-ink',
                         ].join(' ')
                       }
                     >
@@ -111,7 +111,7 @@ export function MoneySidebar({
       {showFooter ? (
         <div
           className={[
-            'mt-auto space-y-2 border-t border-money-border',
+            'mt-auto space-y-2 border-t border-suite-border',
             collapsed ? 'px-1.5 py-2.5' : 'px-2.5 py-3',
           ].join(' ')}
         >
@@ -193,7 +193,7 @@ function DataSourceControls({
       <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wider text-money-faint">
         Sumber
       </p>
-      <div className="inline-flex w-full rounded-full border border-money-border bg-money-soft p-0.5">
+      <div className="inline-flex w-full rounded-full border border-suite-border bg-money-soft p-0.5">
         <button
           type="button"
           onClick={() => onChange('dummy')}

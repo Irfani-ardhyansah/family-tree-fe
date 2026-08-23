@@ -7,9 +7,233 @@
   border: none !important;
 }
 
+:root {
+  --suite-bg: 238 241 245;
+  --suite-surface: 255 255 255;
+  --suite-soft: 245 247 250;
+  --suite-border: 221 227 234;
+  --suite-ink: 36 48 64;
+  --suite-muted: 92 107 122;
+  --suite-faint: 139 152 166;
+  --suite-card-shadow: 0 1px 2px rgba(31, 42, 31, 0.04),
+    0 8px 24px -12px rgba(31, 42, 31, 0.1);
+
+  --money-brown-soft: 228 236 243;
+  --money-rose-soft: 246 230 227;
+  --money-amber-soft: 247 236 217;
+  --money-blue-soft: 227 237 243;
+  --money-violet-soft: 236 232 244;
+
+  --admin-rail: 12 40 40;
+  --admin-rail-ink: 226 250 245;
+  --admin-rail-muted: 148 196 188;
+  --admin-rail-border: 20 64 62;
+  --admin-rail-soft: 20 70 68;
+}
+
+html.dark {
+  color-scheme: dark;
+  --suite-bg: 15 20 26;
+  --suite-surface: 26 33 42;
+  --suite-soft: 32 40 50;
+  --suite-border: 48 58 70;
+  --suite-ink: 230 236 242;
+  --suite-muted: 156 170 184;
+  --suite-faint: 114 128 142;
+  --suite-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.28),
+    0 10px 28px -12px rgba(0, 0, 0, 0.5);
+
+  --money-brown-soft: 40 52 64;
+  --money-rose-soft: 64 36 34;
+  --money-amber-soft: 62 48 28;
+  --money-blue-soft: 32 48 58;
+  --money-violet-soft: 44 38 58;
+
+  --admin-rail: 6 22 22;
+  --admin-rail-ink: 226 250 245;
+  --admin-rail-muted: 132 180 172;
+  --admin-rail-border: 16 52 50;
+  --admin-rail-soft: 16 56 54;
+}
+
+[data-module='admin'] {
+  --suite-bg: 236 244 243;
+}
+
+html.dark [data-module='admin'] {
+  --suite-bg: 8 16 16;
+}
+
+[data-module='money'] {
+  --suite-bg: 238 241 245;
+}
+
+html.dark [data-module='money'] {
+  --suite-bg: 14 18 24;
+}
+
+[data-module='core'] {
+  --suite-bg: 240 247 252;
+}
+
+html.dark [data-module='core'] {
+  --suite-bg: 10 18 24;
+}
+
+[data-module='roots'] {
+  --suite-bg: 238 242 238;
+}
+
+html.dark [data-module='roots'] {
+  --suite-bg: 14 20 16;
+}
+
+[data-module='household'] {
+  --suite-bg: 242 238 248;
+}
+
+html.dark [data-module='household'] {
+  --suite-bg: 16 14 22;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    @apply font-sans antialiased;
+  }
+}
+
+@layer components {
+  .suite-card {
+    @apply rounded-card border border-suite-border bg-suite-surface shadow-card;
+  }
+}
+
+/* Dark-mode remaps for pages still on gray/white/ink/brand utilities */
+@layer utilities {
+  html.dark .bg-white,
+  html.dark .bg-white\/90 {
+    background-color: rgb(var(--suite-surface) / 1);
+  }
+
+  html.dark .bg-gray-50,
+  html.dark .bg-gray-50\/80,
+  html.dark .hover\:bg-gray-50:hover,
+  html.dark .hover\:bg-white\/80:hover {
+    background-color: rgb(var(--suite-soft) / 1);
+  }
+
+  html.dark .bg-gray-100,
+  html.dark .hover\:bg-gray-100:hover,
+  html.dark .bg-gray-100\/80 {
+    background-color: rgb(var(--suite-bg) / 1);
+  }
+
+  html.dark .text-gray-400,
+  html.dark .text-gray-500,
+  html.dark .text-brand-400 {
+    color: rgb(var(--suite-faint) / 1);
+  }
+
+  html.dark .text-gray-600,
+  html.dark .text-gray-700,
+  html.dark .text-brand-500,
+  html.dark .text-brand-600 {
+    color: rgb(var(--suite-muted) / 1);
+  }
+
+  html.dark .text-brand-700,
+  html.dark .text-brand-800 {
+    color: rgb(var(--suite-ink) / 1);
+  }
+
+  html.dark .border-gray-100,
+  html.dark .border-gray-200,
+  html.dark .border-gray-200\/80,
+  html.dark .border-gray-300 {
+    border-color: rgb(var(--suite-border) / 1);
+  }
+
+  html.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+  html.dark .divide-ink-100 > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgb(var(--suite-border) / 1);
+  }
+
+  html.dark .bg-ink-50,
+  html.dark .bg-ink-50\/80,
+  html.dark .bg-ink-100 {
+    background-color: rgb(var(--suite-soft) / 1);
+  }
+
+  html.dark .text-ink-300,
+  html.dark .text-ink-400 {
+    color: rgb(var(--suite-faint) / 1);
+  }
+
+  html.dark .text-ink-500,
+  html.dark .text-ink-600 {
+    color: rgb(var(--suite-muted) / 1);
+  }
+
+  html.dark .text-ink-700,
+  html.dark .text-ink-800,
+  html.dark .text-ink-900 {
+    color: rgb(var(--suite-ink) / 1);
+  }
+
+  html.dark .border-ink-100,
+  html.dark .border-ink-200,
+  html.dark .border-ink-200\/80 {
+    border-color: rgb(var(--suite-border) / 1);
+  }
+
+  html.dark .bg-admin-50,
+  html.dark .hover\:bg-admin-50\/40:hover {
+    background-color: rgb(13 148 136 / 0.16);
+  }
+
+  html.dark .text-admin-800,
+  html.dark .text-admin-700 {
+    color: rgb(153 246 228);
+  }
+
+  html.dark .bg-primary-50 {
+    background-color: rgb(42 78 42 / 0.28);
+  }
+
+  html.dark .bg-secondary-100 {
+    background-color: rgb(164 133 209 / 0.16);
+  }
+
+  html.dark .text-primary-700 {
+    color: rgb(174 211 174);
+  }
+
+  html.dark .bg-sky-50,
+  html.dark .bg-sky-50\/80,
+  html.dark .bg-sky-50\/40,
+  html.dark .hover\:bg-sky-50:hover {
+    background-color: rgb(14 165 233 / 0.12);
+  }
+
+  html.dark .bg-sky-100 {
+    background-color: rgb(14 165 233 / 0.2);
+  }
+
+  html.dark .text-sky-800 {
+    color: rgb(186 230 253);
+  }
+
+  html.dark .border-sky-100\/80,
+  html.dark .border-sky-100\/70,
+  html.dark .border-sky-200,
+  html.dark .border-sky-200\/80 {
+    border-color: rgb(14 165 233 / 0.28);
+  }
+}
 
 @layer utilities {
   .scrollbar-hide {

@@ -38,20 +38,21 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 ${
-        showPerspectiveUI ? theme.bannerBg : 'bg-gray-100'
+      data-module="roots"
+      className={`flex min-h-screen flex-col transition-colors duration-300 ${
+        showPerspectiveUI ? theme.bannerBg : 'bg-suite-bg'
       }`}
     >
       <Navbar />
       {showPerspectiveUI && <PerspectiveBanner />}
 
-      <main>
+      <main className="flex-1">
         <div className="mx-auto max-w-7xl py-4 px-3 sm:py-6 sm:px-6 lg:py-8 lg:px-8">
           {children}
         </div>
       </main>
 
-      <Footer />
+      <Footer moduleName="Family Roots" />
     </div>
   );
 }

@@ -1,224 +1,145 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import {
-  Activity,
-  Archive,
-  Bell,
-  Clipboard,
-  Grid,
-  LogOut,
-  Menu,
-  Settings,
-  Shield,
-  Sliders,
-  Users,
-  X,
-} from 'react-feather';
+import { useEffect, useState } from 'react';
+import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Grid, LogOut, Menu, Shield } from 'react-feather';
 import { AdminToastProvider } from '@/modules/admin/components/AdminToast';
+import { AdminSidebar } from '@/modules/admin/layout/AdminSidebar';
 import { useAuth } from '@/shared/context/AuthContext';
-import { adminPaths, appPaths } from '@/shared/routes';
+import { appPaths } from '@/shared/routes';
+import { Footer } from '@/shared/components/ui/Footer';
+import { ThemeToggle } from '@/shared/ui';
 import { shortPersonName } from '@/shared/utils/personDisplayName';
 
-type NavItem = {
-  to: string;
-  label: string;
-  icon: typeof Shield;
-  end?: boolean;
-};
+const SIDEBAR_COLLAPSED_KEY = 'admin.sidebarCollapsed';
 
-const NAV_ITEMS: NavItem[] = [
-  { to: adminPaths.home, label: 'Dashboard', icon: Activity, end: true },
-  // RBAC Modul — disembunyikan sementara
-  { to: adminPaths.modules, label: 'Status Modul', icon: Sliders },
-  { to: adminPaths.audit, label: 'Audit Log', icon: Clipboard },
-  { to: adminPaths.sessions, label: 'Session', icon: Users },
-  { to: adminPaths.broadcast, label: 'Broadcast', icon: Bell },
-  { to: adminPaths.settings, label: 'Pengaturan', icon: Settings },
-  { to: adminPaths.backup, label: 'Backup & Export', icon: Archive },
-];
-
-function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
-  return (
-    <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
-      {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={end}
-          onClick={onNavigate}
-          className={({ isActive }) =>
-            `group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition duration-200 ${
-              isActive
-                ? 'bg-admin-500/15 text-admin-200 shadow-[inset_0_0_0_1px_rgba(45,212,191,0.25)]'
-                : 'text-ink-300 hover:bg-white/5 hover:text-white'
-            }`
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <Icon
-                size={17}
-                className={
-                  isActive
-                    ? 'text-admin-300'
-                    : 'text-ink-400 group-hover:text-ink-200'
-                }
-              />
-              {label}
-            </>
-          )}
-        </NavLink>
-      ))}
-    </nav>
-  );
+function readSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+  } catch {
+    return false;
+  }
 }
 
-function SidebarChrome({
-  footer,
-  onNavigate,
-}: {
-  footer: ReactNode;
-  onNavigate?: () => void;
-}) {
-  return (
-    <div className="flex h-full flex-col">
-      <div className="border-b border-white/10 px-5 py-5">
-        <Link
-          to={adminPaths.home}
-          onClick={onNavigate}
-          className="flex items-center gap-3"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-admin-400 to-admin-700 shadow-lg shadow-admin-950/40">
-            <Shield size={18} className="text-white" />
-          </div>
-          <div>
-            <p className="font-admin-display text-lg font-bold leading-tight text-white">
-              Admin
-            </p>
-            <p className="text-[11px] font-medium tracking-wide text-admin-300/90">
-              Family Suite Control
-            </p>
-          </div>
-        </Link>
-      </div>
-      <SidebarNav onNavigate={onNavigate} />
-      {footer}
-    </div>
-  );
+function writeSidebarCollapsed(collapsed: boolean) {
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
 }
 
 export function AdminLayout() {
   const { person, logout } = useAuth();
   const location = useLocation();
+  const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const loginName = person
     ? shortPersonName(person, person.fullName)
     : 'Admin';
 
   useEffect(() => {
+    writeSidebarCollapsed(collapsed);
+  }, [collapsed]);
+
+  useEffect(() => {
     setDrawerOpen(false);
   }, [location.pathname]);
 
-  const footer = (
-    <div className="mt-auto space-y-2 border-t border-white/10 p-3">
-      <Link
-        to={appPaths.launcher}
-        className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-300 transition hover:bg-white/5 hover:text-white"
-      >
-        <Grid size={16} />
-        Semua modul
-      </Link>
-      <button
-        type="button"
-        onClick={() => void logout()}
-        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-300 transition hover:bg-rose-500/10 hover:text-rose-300"
-      >
-        <LogOut size={16} />
-        Keluar
-      </button>
-      <div className="rounded-xl bg-white/5 px-3 py-2.5">
-        <p className="text-[11px] uppercase tracking-wider text-ink-500">
-          Masuk sebagai
-        </p>
-        <p className="truncate text-sm font-semibold text-ink-100">
-          {loginName}
-        </p>
-      </div>
-    </div>
-  );
-
   return (
     <AdminToastProvider>
-      <div className="font-admin min-h-screen bg-ink-50 text-ink-800">
-        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(20,184,166,0.12),_transparent_50%),radial-gradient(ellipse_at_bottom_left,_rgba(15,23,42,0.06),_transparent_45%)]" />
-
-        <div className="relative flex min-h-screen">
-          <aside className="sticky top-0 hidden h-screen w-64 shrink-0 bg-ink-950 text-white lg:flex lg:flex-col">
-            <SidebarChrome footer={footer} />
+      <div
+        data-module="admin"
+        className="min-h-screen bg-suite-bg text-suite-ink"
+      >
+        <div className="h-0.5 bg-gradient-to-r from-admin-700 via-admin-400 to-teal-300" />
+        <div className="flex min-h-[calc(100vh-2px)]">
+          <aside
+            className={[
+              'sticky top-0 z-20 hidden h-[calc(100vh-2px)] shrink-0 overflow-hidden transition-[width] duration-200 lg:flex lg:flex-col',
+              collapsed ? 'w-16' : 'w-60',
+            ].join(' ')}
+          >
+            <AdminSidebar
+              collapsed={collapsed}
+              showCollapseToggle
+              onToggleCollapsed={() => setCollapsed((prev) => !prev)}
+            />
           </aside>
 
-          {drawerOpen && (
+          {drawerOpen ? (
             <div className="fixed inset-0 z-40 lg:hidden">
               <button
                 type="button"
                 aria-label="Tutup menu"
-                className="absolute inset-0 bg-ink-950/50 backdrop-blur-sm"
+                className="absolute inset-0 bg-[rgba(20,24,15,0.45)]"
                 onClick={() => setDrawerOpen(false)}
               />
-              <aside className="absolute inset-y-0 left-0 flex w-[min(18rem,88vw)] flex-col bg-ink-950 text-white shadow-2xl animate-[adminDrawer_0.22s_ease-out]">
-                <button
-                  type="button"
-                  onClick={() => setDrawerOpen(false)}
-                  className="absolute right-3 top-4 rounded-lg p-2 text-ink-300 hover:bg-white/10 hover:text-white"
-                >
-                  <X size={18} />
-                </button>
-                <SidebarChrome
-                  footer={footer}
+              <aside className="absolute inset-y-0 left-0 flex w-[min(18rem,88vw)] flex-col overflow-hidden shadow-2xl">
+                <AdminSidebar
+                  collapsed={false}
                   onNavigate={() => setDrawerOpen(false)}
                 />
               </aside>
             </div>
-          )}
+          ) : null}
 
           <div className="flex min-w-0 flex-1 flex-col">
-            <header className="sticky top-0 z-30 border-b border-ink-200/80 bg-white/80 backdrop-blur-md lg:hidden">
-              <div className="flex h-14 items-center justify-between gap-3 px-4">
+            <header className="sticky top-0 z-30 border-b border-suite-border bg-suite-surface/95 backdrop-blur-md">
+              <div className="flex h-14 items-center gap-2 px-3 sm:px-5">
                 <button
                   type="button"
                   onClick={() => setDrawerOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-xl px-2.5 py-2 text-ink-700 hover:bg-ink-100"
+                  className="rounded-control p-2 text-suite-muted hover:bg-suite-soft lg:hidden"
+                  aria-label="Buka menu"
                 >
                   <Menu size={18} />
-                  <span className="text-sm font-semibold">Admin</span>
                 </button>
-                <span className="truncate text-xs font-semibold text-ink-500">
-                  {loginName}
-                </span>
+
+                <div className="flex min-w-0 items-center gap-2.5 lg:hidden">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-admin-50 text-admin-700">
+                    <Shield size={18} />
+                  </div>
+                  <div className="hidden min-w-0 leading-tight sm:block">
+                    <div className="truncate text-[15px] font-bold">
+                      Admin Console
+                    </div>
+                  </div>
+                </div>
+
+                <div className="ml-1 hidden min-w-0 flex-1 sm:block">
+                  <span className="inline-flex max-w-[16rem] items-center gap-1.5 truncate rounded-full border border-admin-200 bg-admin-50 px-2.5 py-1 text-[12px] font-bold text-admin-800">
+                    <span className="h-1.5 w-1.5 rounded-full bg-admin-500" />
+                    Operator · {loginName}
+                  </span>
+                </div>
+
+                <div className="ml-auto flex items-center gap-1.5">
+                  <ThemeToggle />
+                  <Link
+                    to={appPaths.launcher}
+                    className="inline-flex shrink-0 items-center justify-center rounded-control p-2 text-suite-muted hover:bg-suite-soft"
+                    title="Semua modul"
+                    aria-label="Semua modul"
+                  >
+                    <Grid size={15} />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => void logout()}
+                    className="inline-flex items-center gap-1 rounded-control px-2 py-1.5 text-xs font-semibold text-suite-muted hover:bg-money-rose-soft hover:text-money-rose"
+                  >
+                    <LogOut size={15} />
+                    <span className="hidden sm:inline">Keluar</span>
+                  </button>
+                </div>
               </div>
             </header>
 
-            <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-              <div
-                key={location.pathname}
-                className="mx-auto max-w-6xl animate-[adminFade_0.28s_ease-out]"
-              >
-                <Outlet />
-              </div>
+            <main className="mx-auto w-full max-w-[1280px] flex-1 px-3 py-6 sm:px-6 lg:px-7 lg:py-8">
+              <Outlet />
             </main>
+            <Footer moduleName="Admin Console" />
           </div>
         </div>
-
-        <style>{`
-          @keyframes adminFade {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          @keyframes adminDrawer {
-            from { transform: translateX(-12px); opacity: 0.85; }
-            to { transform: translateX(0); opacity: 1; }
-          }
-        `}</style>
       </div>
     </AdminToastProvider>
   );

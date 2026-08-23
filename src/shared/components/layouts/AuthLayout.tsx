@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Home } from 'react-feather';
 import { appPaths } from '@/shared/routes';
+import { ThemeToggle } from '@/shared/ui';
 
 type AuthLayoutProps = {
   children: ReactNode;
@@ -9,8 +10,15 @@ type AuthLayoutProps = {
 
 export function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className="relative min-h-screen bg-[#0b0d10] text-white">
+    <div
+      data-module="launcher"
+      className="relative min-h-screen bg-suite-bg text-suite-ink"
+    >
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(106,168,106,0.12),_transparent_55%)]" />
+
+      <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
+        <ThemeToggle />
+      </div>
 
       <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-8 sm:px-6">
         <Link
@@ -22,10 +30,10 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             <Home size={22} className="text-white" />
           </div>
           <div>
-            <span className="block text-xl font-bold leading-tight tracking-tight text-white">
+            <span className="block text-xl font-bold leading-tight tracking-tight text-suite-ink">
               Family Suite
             </span>
-            <span className="block text-xs font-medium text-zinc-400">
+            <span className="block text-xs font-medium text-suite-faint">
               Platform keluarga Ardhyansah
             </span>
           </div>
@@ -33,7 +41,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
 
         <div className="w-full max-w-md">{children}</div>
 
-        <p className="mt-10 text-center text-xs text-zinc-500">
+        <p className="mt-10 text-center text-xs text-suite-faint">
           Untuk seluruh anggota keluarga — mudah digunakan di ponsel maupun
           komputer
         </p>
