@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Settings } from 'react-feather';
 import { DocumentListRow } from '@/modules/family-core/components/DocumentListRow';
 import { MemberAvatarSelector } from '@/modules/family-core/components/MemberAvatarSelector';
+import { CoreListSkeleton } from '@/modules/family-core/components/CoreSkeleton';
 import {
   CoreCard,
   CorePageHeader,
@@ -13,7 +14,7 @@ import { sortDocumentsByUrgency } from '@/modules/family-core/lib/documentStatus
 import { corePaths } from '@/shared/routes';
 
 export function DocumentsPage() {
-  const { members, documents, getMember } = useFamilyCoreDocuments();
+  const { members, documents, getMember, loading } = useFamilyCoreDocuments();
   const { openDocumentModal } = useFamilyCoreUi();
   const [memberFilter, setMemberFilter] = useState<'all' | string>('all');
   const [toast, setToast] = useState<string | null>(null);
@@ -73,45 +74,60 @@ export function DocumentsPage() {
       />
 
       <div className="mb-4">
-        <MemberAvatarSelector
-          members={members}
-          value={memberFilter}
-          onChange={setMemberFilter}
-          counts={counts}
-          totalCount={documents.length}
-        />
-      </div>
-
-      <CoreCard className="overflow-hidden divide-y divide-gray-100">
-        {filtered.length === 0 ? (
-          <div className="px-5 py-12 text-center">
-            <p className="text-sm font-semibold text-brand-700">
-              Belum ada dokumen
-            </p>
-            <p className="mt-1 text-[13px] text-brand-400">
-              Tambah dokumen untuk anggota yang dipilih.
-            </p>
-            <button
-              type="button"
-              onClick={openAdd}
-              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-3.5 py-2 text-[13px] font-bold text-white hover:bg-sky-700"
-            >
-              <Plus size={15} />
-              Tambah dokumen
-            </button>
+        {loading ? (
+          <div className="flex gap-2 overflow-hidden">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <span
+                key={i}
+                className="h-14 w-14 shrink-0 animate-pulse rounded-full bg-slate-200/90"
+              />
+            ))}
           </div>
         ) : (
-          filtered.map((doc) => (
-            <DocumentListRow
-              key={doc.id}
-              document={doc}
-              memberName={getMember(doc.memberId)?.name}
-              showMember={memberFilter === 'all'}
-              onCopied={showToast}
-            />
-          ))
+          <MemberAvatarSelector
+            members={members}
+            value={memberFilter}
+            onChange={setMemberFilter}
+            counts={counts}
+            totalCount={documents.length}
+          />
         )}
-      </CoreCard>
+      </div>
+
+      {loading ? (
+        <CoreListSkeleton rows={6} />
+      ) : (
+        <CoreCard className="overflow-hidden divide-y divide-gray-100">
+          {filtered.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <p className="text-sm font-semibold text-brand-700">
+                Belum ada dokumen
+              </p>
+              <p className="mt-1 text-[13px] text-brand-400">
+                Tambah dokumen untuk anggota yang dipilih.
+              </p>
+              <button
+                type="button"
+                onClick={openAdd}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-3.5 py-2 text-[13px] font-bold text-white hover:bg-sky-700"
+              >
+                <Plus size={15} />
+                Tambah dokumen
+              </button>
+            </div>
+          ) : (
+            filtered.map((doc) => (
+              <DocumentListRow
+                key={doc.id}
+                document={doc}
+                memberName={getMember(doc.memberId)?.name}
+                showMember={memberFilter === 'all'}
+                onCopied={showToast}
+              />
+            ))
+          )}
+        </CoreCard>
+      )}
 
       {toast ? (
         <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full bg-brand-800 px-4 py-2 text-[12.5px] font-semibold text-white shadow-lg">

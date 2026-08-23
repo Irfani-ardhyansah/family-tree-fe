@@ -107,7 +107,7 @@ function DocumentTypeFormModalInner({
     );
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!label.trim()) {
       setError('Nama jenis wajib diisi.');
@@ -126,27 +126,33 @@ function DocumentTypeFormModalInner({
       placeholder: f.placeholder?.trim() || undefined,
     }));
 
-    if (isEdit && existing) {
-      updateType(existing.id, {
-        label: label.trim(),
-        iconKey,
-        toneKey,
-        defaultLifetime,
-        allowCustomTitle,
-        extras: cleanExtras,
-      });
-    } else {
-      addType({
-        label: label.trim(),
-        iconKey,
-        toneKey,
-        defaultLifetime,
-        allowCustomTitle,
-        extras: cleanExtras,
-      });
+    try {
+      if (isEdit && existing) {
+        await updateType(existing.id, {
+          label: label.trim(),
+          iconKey,
+          toneKey,
+          defaultLifetime,
+          allowCustomTitle,
+          extras: cleanExtras,
+        });
+      } else {
+        await addType({
+          label: label.trim(),
+          iconKey,
+          toneKey,
+          defaultLifetime,
+          allowCustomTitle,
+          extras: cleanExtras,
+        });
+      }
+      setError(null);
+      setSuccess(true);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Gagal menyimpan jenis dokumen.',
+      );
     }
-    setError(null);
-    setSuccess(true);
   };
 
   if (success) {
@@ -154,7 +160,7 @@ function DocumentTypeFormModalInner({
       <CoreModalShell title="Tersimpan" onClose={onClose}>
         <CoreSuccessPanel
           title={isEdit ? 'Jenis dokumen diperbarui' : 'Jenis dokumen ditambah'}
-          description="Master data dummy — seeder BE akan pakai nilai default bawaan."
+          description="Master data tersimpan (API atau mock sesuai sumber data)."
           onAgain={isEdit ? undefined : onAgain}
           onDone={onClose}
         />

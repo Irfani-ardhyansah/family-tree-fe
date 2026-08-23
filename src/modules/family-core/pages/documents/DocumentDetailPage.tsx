@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Copy, Edit2, FileText, Trash2 } from 'react-feather';
 import { DocumentStatusBadge } from '@/modules/family-core/components/DocumentStatusBadge';
@@ -14,6 +14,7 @@ import {
   getDocumentStatus,
 } from '@/modules/family-core/lib/documentStatus';
 import { resolveDocumentType } from '@/modules/family-core/lib/documentTypeMeta';
+import { useDataSource } from '@/shared/context/DataSourceContext';
 import { corePaths } from '@/shared/routes';
 import type { ReactNode } from 'react';
 
@@ -57,14 +58,35 @@ function DetailRow({
 export function DocumentDetailPage() {
   const { documentId } = useParams();
   const navigate = useNavigate();
-  const { getDocument, getMember, deleteDocument } = useFamilyCoreDocuments();
+  const { isMock, isApi } = useDataSource();
+  const {
+    getDocument,
+    getMember,
+    deleteDocument,
+    ensureDocumentDetail,
+    loading,
+  } = useFamilyCoreDocuments();
   const { getTypeBySlug } = useFamilyCoreDocumentTypes();
   const { openDocumentModal } = useFamilyCoreUi();
   const [toast, setToast] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  useEffect(() => {
+    if (!documentId || !isApi) return;
+    setDetailLoading(true);
+    void ensureDocumentDetail(documentId).finally(() => setDetailLoading(false));
+  }, [documentId, ensureDocumentDetail, isApi]);
 
   const doc = documentId ? getDocument(documentId) : undefined;
-  if (!doc) {
+  if (!doc && !loading && !detailLoading) {
     return <Navigate to={corePaths.documents} replace />;
+  }
+  if (!doc) {
+    return (
+      <p className="text-[13px] font-semibold text-brand-500">
+        Memuat dokumen…
+      </p>
+    );
   }
 
   const member = getMember(doc.memberId);
@@ -87,13 +109,16 @@ export function DocumentDetailPage() {
   const handleDelete = () => {
     if (
       !window.confirm(
-        `Hapus dokumen "${doc.title}"? Tindakan ini tidak bisa dibatalkan (dummy).`,
+        `Hapus dokumen "${doc.title}"? Tindakan ini tidak bisa dibatalkan${
+          isMock ? ' (mock)' : ''
+        }.`,
       )
     ) {
       return;
     }
-    deleteDocument(doc.id);
-    navigate(corePaths.documents);
+    void deleteDocument(doc.id).then(() => {
+      navigate(corePaths.documents);
+    });
   };
 
   const extraRows = meta.extras
@@ -241,7 +266,9 @@ export function DocumentDetailPage() {
 
         <p className="flex items-center justify-center gap-1.5 text-center text-[11.5px] text-brand-400">
           <FileText size={12} />
-          Data dummy — belum tersimpan ke server
+          {isMock
+            ? 'Sumber mock — belum tersimpan ke server'
+            : 'Sumber API — tersimpan di Family Core'}
         </p>
       </div>
 

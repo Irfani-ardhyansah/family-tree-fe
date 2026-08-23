@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import {
   FieldInput,
   FieldLabel,
@@ -16,6 +16,7 @@ import { useFamilyCoreDocuments } from '@/modules/family-core/context/FamilyCore
 import { useFamilyCoreUi } from '@/modules/family-core/context/FamilyCoreUiContext';
 import { resolveDocumentType } from '@/modules/family-core/lib/documentTypeMeta';
 import { CORE_MEMBER_ROLE_LABEL } from '@/modules/family-core/mocks/coreMembers';
+import { useDataSource } from '@/shared/context/DataSourceContext';
 import type {
   CoreDocumentDraft,
   DocumentTypeSlug,
@@ -49,9 +50,10 @@ type FormState = {
 export function DocumentFormModal() {
   const { documentModal, closeDocumentModal, openDocumentModal } =
     useFamilyCoreUi();
-  const { members, getDocument, addDocument, updateDocument } =
+  const { members, getDocument, addDocument, updateDocument, ensureDocumentDetail } =
     useFamilyCoreDocuments();
   const { types, getTypeBySlug } = useFamilyCoreDocumentTypes();
+  const { isApi } = useDataSource();
 
   if (!documentModal) return null;
 
@@ -73,6 +75,8 @@ export function DocumentFormModal() {
       getTypeBySlug={getTypeBySlug}
       addDocument={addDocument}
       updateDocument={updateDocument}
+      ensureDocumentDetail={ensureDocumentDetail}
+      isApi={isApi}
       onClose={closeDocumentModal}
       onAgain={() =>
         openDocumentModal({
@@ -92,6 +96,8 @@ function DocumentFormModalInner({
   getTypeBySlug,
   addDocument,
   updateDocument,
+  ensureDocumentDetail,
+  isApi,
   onClose,
   onAgain,
 }: {
@@ -107,9 +113,14 @@ function DocumentFormModalInner({
   >['getTypeBySlug'];
   addDocument: ReturnType<typeof useFamilyCoreDocuments>['addDocument'];
   updateDocument: ReturnType<typeof useFamilyCoreDocuments>['updateDocument'];
+  ensureDocumentDetail: ReturnType<
+    typeof useFamilyCoreDocuments
+  >['ensureDocumentDetail'];
+  isApi: boolean;
   onClose: () => void;
   onAgain: () => void;
 }) {
+  const { isMock } = useDataSource();
   const isEdit = Boolean(documentId && existing);
   const defaultSlug = existing?.type ?? types[0]?.slug ?? 'ktp';
   const meta0 = resolveDocumentType(getTypeBySlug(defaultSlug));
@@ -148,6 +159,27 @@ function DocumentFormModalInner({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  useEffect(() => {
+    if (!isApi || !documentId) return;
+    void ensureDocumentDetail(documentId).then((detail) => {
+      if (!detail) return;
+      setForm((prev) => ({
+        ...prev,
+        memberId: detail.memberId,
+        type: detail.type,
+        title: getTypeBySlug(detail.type)?.allowCustomTitle ? detail.title : '',
+        number: detail.number,
+        issuedAt: detail.issuedAt ?? '',
+        expiresAt: detail.expiresAt ?? '',
+        lifetime: detail.lifetime,
+        notes: detail.notes,
+        reminderEnabled: detail.reminderEnabled,
+        reminderDays: detail.reminderDays,
+        extras: { ...detail.extras },
+      }));
+    });
+  }, [documentId, ensureDocumentDetail, getTypeBySlug, isApi]);
+
   const typeMeta = resolveDocumentType(getTypeBySlug(form.type));
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -167,7 +199,7 @@ function DocumentFormModalInner({
     }));
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!form.memberId) {
       setError('Pilih anggota terlebih dahulu.');
@@ -203,13 +235,22 @@ function DocumentFormModalInner({
       scanUrl: null,
     };
 
-    if (isEdit && existing) {
-      updateDocument(existing.id, { ...draft, scanUrl: existing.scanUrl });
-    } else {
-      addDocument(draft);
+    try {
+      if (isEdit && existing) {
+        await updateDocument(existing.id, {
+          ...draft,
+          scanUrl: existing.scanUrl,
+        });
+      } else {
+        await addDocument(draft);
+      }
+      setError(null);
+      setSuccess(true);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Gagal menyimpan dokumen.',
+      );
     }
-    setError(null);
-    setSuccess(true);
   };
 
   if (success) {
@@ -217,7 +258,11 @@ function DocumentFormModalInner({
       <CoreModalShell title="Tersimpan" onClose={onClose}>
         <CoreSuccessPanel
           title={isEdit ? 'Dokumen diperbarui' : 'Dokumen ditambahkan'}
-          description="Data dummy — hanya di sesi ini."
+          description={
+            isMock
+              ? 'Data mock — hanya di sesi ini.'
+              : 'Tersimpan ke server Family Core.'
+          }
           onAgain={isEdit ? undefined : onAgain}
           onDone={onClose}
         />

@@ -184,6 +184,7 @@ function needsModuleUnlockHeader(path: string): boolean {
   return (
     p.startsWith('/admin') ||
     p.startsWith('/money') ||
+    p.startsWith('/fc') ||
     p.startsWith('/household')
   );
 }

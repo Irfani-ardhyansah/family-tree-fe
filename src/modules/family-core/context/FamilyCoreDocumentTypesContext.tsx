@@ -4,29 +4,45 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
+import {
+  createFcDocumentType,
+  deleteFcDocumentType,
+  getFcApiErrorMessage,
+  listFcDocumentTypes,
+  updateFcDocumentType,
+} from '@/modules/family-core/api/familyCoreApi';
 import { slugifyDocumentTypeLabel } from '@/modules/family-core/lib/documentTypeMeta';
 import { INITIAL_DOCUMENT_TYPES } from '@/modules/family-core/mocks/documentTypesMock';
 import type {
   CoreDocumentType,
   CoreDocumentTypeDraft,
 } from '@/modules/family-core/types';
+import { useDataSource } from '@/shared/context/DataSourceContext';
 
 type FamilyCoreDocumentTypesContextValue = {
   types: CoreDocumentType[];
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
   getTypeBySlug: (slug: string) => CoreDocumentType | undefined;
   getTypeById: (id: string) => CoreDocumentType | undefined;
-  addType: (draft: Omit<CoreDocumentTypeDraft, 'slug' | 'sortOrder' | 'isSystem'> & {
-    slug?: string;
-  }) => CoreDocumentType;
+  addType: (
+    draft: Omit<CoreDocumentTypeDraft, 'slug' | 'sortOrder' | 'isSystem'> & {
+      slug?: string;
+    },
+  ) => Promise<CoreDocumentType>;
   updateType: (
     id: string,
     draft: Partial<CoreDocumentTypeDraft>,
-  ) => CoreDocumentType | null;
-  deleteType: (id: string) => { ok: true } | { ok: false; message: string };
+  ) => Promise<CoreDocumentType | null>;
+  deleteType: (
+    id: string,
+  ) => Promise<{ ok: true } | { ok: false; message: string }>;
 };
 
 const FamilyCoreDocumentTypesContext =
@@ -37,7 +53,42 @@ export function FamilyCoreDocumentTypesProvider({
 }: {
   children: ReactNode;
 }) {
+  const { isApi, isMock } = useDataSource();
   const [types, setTypes] = useState<CoreDocumentType[]>(INITIAL_DOCUMENT_TYPES);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!isApi) {
+      setTypes(INITIAL_DOCUMENT_TYPES);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const rows = await listFcDocumentTypes();
+      setTypes(rows);
+      setError(null);
+    } catch (err) {
+      setError(
+        getFcApiErrorMessage(err, 'Gagal memuat jenis dokumen dari API.'),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [isApi]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (isMock) {
+      setTypes(INITIAL_DOCUMENT_TYPES);
+      setError(null);
+    }
+  }, [isMock]);
 
   const sorted = useMemo(
     () => [...types].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -55,11 +106,24 @@ export function FamilyCoreDocumentTypesProvider({
   );
 
   const addType = useCallback(
-    (
+    async (
       draft: Omit<CoreDocumentTypeDraft, 'slug' | 'sortOrder' | 'isSystem'> & {
         slug?: string;
       },
     ) => {
+      if (isApi) {
+        const created = await createFcDocumentType({
+          label: draft.label.trim(),
+          iconKey: draft.iconKey,
+          toneKey: draft.toneKey,
+          extras: draft.extras,
+          defaultLifetime: draft.defaultLifetime,
+          allowCustomTitle: draft.allowCustomTitle,
+        });
+        setTypes((prev) => [...prev, created]);
+        return created;
+      }
+
       const baseSlug =
         draft.slug?.trim() || slugifyDocumentTypeLabel(draft.label);
       let slug = baseSlug;
@@ -84,11 +148,24 @@ export function FamilyCoreDocumentTypesProvider({
       setTypes((prev) => [...prev, created]);
       return created;
     },
-    [types],
+    [isApi, types],
   );
 
   const updateType = useCallback(
-    (id: string, draft: Partial<CoreDocumentTypeDraft>) => {
+    async (id: string, draft: Partial<CoreDocumentTypeDraft>) => {
+      if (isApi) {
+        const updated = await updateFcDocumentType(id, {
+          label: draft.label,
+          iconKey: draft.iconKey,
+          toneKey: draft.toneKey,
+          extras: draft.extras,
+          defaultLifetime: draft.defaultLifetime,
+          allowCustomTitle: draft.allowCustomTitle,
+        });
+        setTypes((prev) => prev.map((row) => (row.id === id ? updated : row)));
+        return updated;
+      }
+
       let updated: CoreDocumentType | null = null;
       setTypes((prev) =>
         prev.map((row) => {
@@ -97,7 +174,6 @@ export function FamilyCoreDocumentTypesProvider({
             ...row,
             ...draft,
             id: row.id,
-            // Keep system slug stable
             slug: row.isSystem ? row.slug : (draft.slug ?? row.slug),
             isSystem: row.isSystem,
           };
@@ -106,32 +182,65 @@ export function FamilyCoreDocumentTypesProvider({
       );
       return updated;
     },
-    [],
+    [isApi],
   );
 
-  const deleteType = useCallback((id: string) => {
-    const target = types.find((t) => t.id === id);
-    if (!target) return { ok: false as const, message: 'Jenis tidak ditemukan.' };
-    if (target.isSystem) {
-      return {
-        ok: false as const,
-        message: 'Jenis bawaan (seeder) tidak bisa dihapus. Nonaktifkan lewat BE nanti.',
-      };
-    }
-    setTypes((prev) => prev.filter((t) => t.id !== id));
-    return { ok: true as const };
-  }, [types]);
+  const deleteType = useCallback(
+    async (id: string) => {
+      const target = types.find((t) => t.id === id);
+      if (!target) {
+        return { ok: false as const, message: 'Jenis tidak ditemukan.' };
+      }
+      if (target.isSystem) {
+        return {
+          ok: false as const,
+          message:
+            'Jenis bawaan (seeder) tidak bisa dihapus. Nonaktifkan lewat BE nanti.',
+        };
+      }
+
+      if (isApi) {
+        try {
+          await deleteFcDocumentType(id);
+          setTypes((prev) => prev.filter((t) => t.id !== id));
+          return { ok: true as const };
+        } catch (err) {
+          return {
+            ok: false as const,
+            message: getFcApiErrorMessage(err, 'Gagal menghapus jenis dokumen.'),
+          };
+        }
+      }
+
+      setTypes((prev) => prev.filter((t) => t.id !== id));
+      return { ok: true as const };
+    },
+    [isApi, types],
+  );
 
   const value = useMemo(
     () => ({
       types: sorted,
+      loading,
+      error,
+      refresh,
       getTypeBySlug,
       getTypeById,
       addType,
       updateType,
       deleteType,
     }),
-    [sorted, getTypeBySlug, getTypeById, addType, updateType, deleteType],
+    [
+      sorted,
+      loading,
+      error,
+      refresh,
+      getTypeBySlug,
+      getTypeById,
+      addType,
+      updateType,
+      deleteType,
+    ],
   );
 
   return (

@@ -1,6 +1,6 @@
 import type { CoreMember, CoreMemberRole } from '@/modules/family-core/types';
 
-/** Keluarga inti (tanpa mertua). */
+/** Keluarga inti (tanpa mertua). Selaras seed: anak Zahra & Zaka (bukan Raka). */
 const CORE_MEMBERS_BASE: CoreMember[] = [
   {
     id: 'm-father',
@@ -31,11 +31,18 @@ const CORE_MEMBERS_BASE: CoreMember[] = [
     avatarTone: 'bg-violet-500',
   },
   {
-    id: 'm-raka',
-    name: 'Raka',
+    id: 'm-zahra',
+    name: 'Zahra',
     role: 'child',
-    initials: 'Ra',
+    initials: 'Zh',
     avatarTone: 'bg-teal-600',
+  },
+  {
+    id: 'm-zaka',
+    name: 'Zaka',
+    role: 'child',
+    initials: 'Zk',
+    avatarTone: 'bg-cyan-600',
   },
 ];
 

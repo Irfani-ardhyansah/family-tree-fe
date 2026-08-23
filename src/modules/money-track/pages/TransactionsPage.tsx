@@ -9,6 +9,7 @@ import {
   type MoneyUiTx,
 } from '@/modules/money-track/api/moneyApi';
 import { DataSourceBanner } from '@/modules/money-track/components/DataSourceBanner';
+import { MoneyListSkeleton } from '@/modules/money-track/components/MoneySkeleton';
 import {
   FieldInput,
   FieldLabel,
@@ -422,11 +423,11 @@ export function TransactionsPage() {
           <span className="text-right">Nominal</span>
           <span className="text-right">Aksi</span>
         </div>
-        {rows.length === 0 ? (
+        {rows.length === 0 && apiLoading ? (
+          <MoneyListSkeleton rows={7} />
+        ) : rows.length === 0 ? (
           <div className="px-5 py-10 text-center text-sm text-money-faint">
-            {apiLoading
-              ? 'Memuat transaksi…'
-              : 'Tidak ada transaksi untuk filter / sumber data ini.'}
+            Tidak ada transaksi untuk filter / sumber data ini.
           </div>
         ) : (
           rows.map((row) => {

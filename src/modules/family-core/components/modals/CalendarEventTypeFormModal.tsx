@@ -92,30 +92,36 @@ function CalendarEventTypeFormModalInner({
   });
   const PreviewIcon = preview.Icon;
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!label.trim()) {
       setError('Nama tipe wajib diisi.');
       return;
     }
 
-    if (isEdit && existing) {
-      updateType(existing.id, {
-        label: label.trim(),
-        iconKey,
-        toneKey,
-        linksToHealth,
-      });
-    } else {
-      addType({
-        label: label.trim(),
-        iconKey,
-        toneKey,
-        linksToHealth,
-      });
+    try {
+      if (isEdit && existing) {
+        await updateType(existing.id, {
+          label: label.trim(),
+          iconKey,
+          toneKey,
+          linksToHealth,
+        });
+      } else {
+        await addType({
+          label: label.trim(),
+          iconKey,
+          toneKey,
+          linksToHealth,
+        });
+      }
+      setError(null);
+      setSuccess(true);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Gagal menyimpan tipe kalender.',
+      );
     }
-    setError(null);
-    setSuccess(true);
   };
 
   if (success) {
@@ -123,7 +129,7 @@ function CalendarEventTypeFormModalInner({
       <CoreModalShell title="Tersimpan" onClose={onClose}>
         <CoreSuccessPanel
           title={isEdit ? 'Tipe kalender diperbarui' : 'Tipe kalender ditambah'}
-          description="Master data dummy — seeder BE akan pakai nilai default bawaan."
+          description="Master data tersimpan (API atau mock sesuai sumber data)."
           onAgain={isEdit ? undefined : onAgain}
           onDone={onClose}
         />

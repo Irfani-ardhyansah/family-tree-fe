@@ -1,16 +1,16 @@
 import { Link } from 'react-router-dom';
 import { Activity, ArrowRight, Calendar, FileText } from 'react-feather';
+import { CoreHubSkeleton } from '@/modules/family-core/components/CoreSkeleton';
 import { CoreCard } from '@/modules/family-core/components/PageChrome';
 import { useFamilyCoreCalendar } from '@/modules/family-core/context/FamilyCoreCalendarContext';
 import { useFamilyCoreDocuments } from '@/modules/family-core/context/FamilyCoreDocumentsContext';
 import { useFamilyCoreHealth } from '@/modules/family-core/context/FamilyCoreHealthContext';
 import { getDocumentStatus } from '@/modules/family-core/lib/documentStatus';
 import { toDateKey } from '@/modules/family-core/lib/calendarDate';
-import { CORE_MEMBERS } from '@/modules/family-core/mocks/coreMembers';
 import { corePaths } from '@/shared/routes';
 
 export function FamilyCoreHubPage() {
-  const { documents } = useFamilyCoreDocuments();
+  const { documents, members, loading } = useFamilyCoreDocuments();
   const { profiles } = useFamilyCoreHealth();
   const { events } = useFamilyCoreCalendar();
 
@@ -26,6 +26,10 @@ export function FamilyCoreHubPage() {
   const upcomingEvents = events.filter(
     (e) => e.date >= today || (e.endDate && e.endDate >= today),
   ).length;
+
+  if (loading) {
+    return <CoreHubSkeleton />;
+  }
 
   return (
     <div>
@@ -92,7 +96,7 @@ export function FamilyCoreHubPage() {
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2 text-[12px] font-semibold">
                   <span className="rounded-full bg-gray-100 px-2.5 py-1 text-brand-600">
-                    {CORE_MEMBERS.length} anggota
+                    {members.length} anggota
                   </span>
                   <span className="rounded-full bg-rose-50 px-2.5 py-1 text-rose-700">
                     {allergyCount} alergi

@@ -13,6 +13,7 @@ import {
   mapDashboardToUi,
 } from '@/modules/money-track/api/moneyApi';
 import { DataSourceBanner } from '@/modules/money-track/components/DataSourceBanner';
+import { MoneyDashboardSkeleton } from '@/modules/money-track/components/MoneySkeleton';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
 import {
   formatIdr,
@@ -96,6 +97,8 @@ export function DashboardPage() {
     dataSource,
     transactions,
     activityTick,
+    apiLoading,
+    apiReady,
   } = useMoneyTrackUi();
 
   const [scopedDash, setScopedDash] = useState<{
@@ -103,13 +106,16 @@ export function DashboardPage() {
     recentActivity: MoneyActivityItem[];
     periodLabel: string;
   } | null>(null);
+  const [dashLoading, setDashLoading] = useState(dataSource === 'api');
 
   useEffect(() => {
     if (dataSource !== 'api') {
       setScopedDash(null);
+      setDashLoading(false);
       return;
     }
     let cancelled = false;
+    setDashLoading(true);
     void (async () => {
       try {
         const api = await fetchMoneyDashboard(
@@ -126,6 +132,8 @@ export function DashboardPage() {
         });
       } catch {
         if (!cancelled) setScopedDash(null);
+      } finally {
+        if (!cancelled) setDashLoading(false);
       }
     })();
     return () => {
@@ -155,6 +163,14 @@ export function DashboardPage() {
 
   const showJoint = scope === 'all' && data.jointPockets.length > 0;
   const netPositive = summary.net >= 0;
+  const showSkeleton =
+    dataSource === 'api' &&
+    !scopedDash &&
+    (dashLoading || (apiLoading && !apiReady));
+
+  if (showSkeleton) {
+    return <MoneyDashboardSkeleton />;
+  }
 
   return (
     <div>

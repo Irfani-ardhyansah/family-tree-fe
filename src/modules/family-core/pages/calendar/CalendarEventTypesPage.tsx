@@ -27,8 +27,9 @@ export function CalendarEventTypesPage() {
       return;
     }
     if (!window.confirm(`Hapus tipe kalender "${label}"?`)) return;
-    const result = deleteType(id);
-    if (!result.ok) window.alert(result.message);
+    void deleteType(id).then((result) => {
+      if (!result.ok) window.alert(result.message);
+    });
   };
 
   return (

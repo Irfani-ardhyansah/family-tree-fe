@@ -4,10 +4,12 @@ import {
   Calendar,
   FileText,
   Grid,
+  HardDrive,
   Heart,
   Home,
   LogOut,
   Plus,
+  Server,
   X,
 } from 'react-feather';
 import { CoreModalsHost } from '@/modules/family-core/components/modals/CoreModalsHost';
@@ -24,8 +26,8 @@ import { useFamilyCoreCalendar } from '@/modules/family-core/context/FamilyCoreC
 import { useFamilyCoreDocuments } from '@/modules/family-core/context/FamilyCoreDocumentsContext';
 import { toDateKey } from '@/modules/family-core/lib/calendarDate';
 import { getDocumentStatus } from '@/modules/family-core/lib/documentStatus';
-import { CORE_MEMBERS } from '@/modules/family-core/mocks/coreMembers';
 import { useAuth } from '@/shared/context/AuthContext';
+import { useDataSource } from '@/shared/context/DataSourceContext';
 import { appPaths, corePaths } from '@/shared/routes';
 import { Footer } from '@/shared/components/ui/Footer';
 import { ThemeToggle } from '@/shared/ui';
@@ -97,8 +99,9 @@ const QUICK_ACTIONS = [
 function FamilyCoreChrome() {
   const navigate = useNavigate();
   const { logout, person } = useAuth();
+  const { source, setSource, canUseMock, isMock } = useDataSource();
   const { openDocumentModal, openCalendarModal } = useFamilyCoreUi();
-  const { documents } = useFamilyCoreDocuments();
+  const { documents, members, loading, error } = useFamilyCoreDocuments();
   const { events } = useFamilyCoreCalendar();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
@@ -116,8 +119,8 @@ function FamilyCoreChrome() {
     (e) => e.date >= today || (e.endDate && e.endDate >= today),
   ).length;
 
-  const previewMembers = CORE_MEMBERS.slice(0, 5);
-  const extraMembers = Math.max(0, CORE_MEMBERS.length - previewMembers.length);
+  const previewMembers = members.slice(0, 5);
+  const extraMembers = Math.max(0, members.length - previewMembers.length);
 
   const handleQuickAction = (key: (typeof QUICK_ACTIONS)[number]['key']) => {
     setQuickAddOpen(false);
@@ -150,7 +153,8 @@ function FamilyCoreChrome() {
                 Family Core
               </div>
               <div className="truncate text-[11.5px] text-suite-faint">
-                {CORE_MEMBERS.length} anggota · keluarga inti
+                {members.length} anggota ·{' '}
+                {isMock ? 'sumber mock' : 'sumber API'}
               </div>
             </div>
           </div>
@@ -246,7 +250,7 @@ function FamilyCoreChrome() {
           <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center gap-2 px-3 py-2 text-[12.5px] sm:px-6 lg:px-7">
             <span className="font-semibold text-sky-900/80">Ringkasan</span>
             <span className="rounded-full border border-sky-200/80 bg-white px-2.5 py-0.5 text-[11.5px] font-bold text-sky-800">
-              {documents.length} dokumen
+              {loading ? '…' : `${documents.length} dokumen`}
             </span>
             {urgentDocs > 0 ? (
               <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11.5px] font-bold text-amber-800">
@@ -261,9 +265,49 @@ function FamilyCoreChrome() {
               {upcomingEvents} jadwal ke depan
             </span>
 
+            {error &&
+            !/password kedua|unlock|verifikasi/i.test(error) ? (
+              <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11.5px] font-bold text-rose-700">
+                {error}
+              </span>
+            ) : null}
+
+            {canUseMock ? (
+              <div className="inline-flex items-center gap-1 rounded-xl border border-dashed border-sky-200 bg-white/80 p-1">
+                <button
+                  type="button"
+                  onClick={() => setSource('api')}
+                  className={[
+                    'inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold transition-colors',
+                    source === 'api'
+                      ? 'bg-emerald-500 text-white'
+                      : 'text-brand-500 hover:bg-sky-50',
+                  ].join(' ')}
+                  title="Data dari backend API"
+                >
+                  <Server size={12} />
+                  API
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSource('mock')}
+                  className={[
+                    'inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold transition-colors',
+                    source === 'mock'
+                      ? 'bg-violet-500 text-white'
+                      : 'text-brand-500 hover:bg-sky-50',
+                  ].join(' ')}
+                  title="Data mock lokal"
+                >
+                  <HardDrive size={12} />
+                  Mock
+                </button>
+              </div>
+            ) : null}
+
             {/* Mobile avatar peek */}
             <div className="ml-auto flex -space-x-1.5 sm:hidden">
-              {CORE_MEMBERS.slice(0, 4).map((m) => (
+              {members.slice(0, 4).map((m) => (
                 <span
                   key={m.id}
                   className={[

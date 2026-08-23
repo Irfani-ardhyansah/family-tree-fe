@@ -140,7 +140,7 @@ export type ModuleStatusFromAuth = {
   updatedBy?: string | null;
 };
 
-export type SensitiveModuleId = 'admin' | 'money' | 'household';
+export type SensitiveModuleId = 'admin' | 'core' | 'money' | 'household';
 
 export type SecondaryPasswordStatus = {
   isSet: boolean;

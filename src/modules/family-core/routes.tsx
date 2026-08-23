@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router-dom';
+import { SensitiveModuleRoute } from '@/app/routes/SensitiveModuleRoute';
 import { FamilyCoreLayout } from '@/modules/family-core/layout/FamilyCoreLayout';
 import { FamilyCoreHubPage } from '@/modules/family-core/pages/FamilyCoreHubPage';
 import { CalendarEventDetailPage } from '@/modules/family-core/pages/calendar/CalendarEventDetailPage';
@@ -15,21 +16,26 @@ import { corePaths } from '@/shared/routes';
 
 export const familyCoreRoutes: RouteObject[] = [
   {
-    path: corePaths.home,
-    element: <FamilyCoreLayout />,
+    element: <SensitiveModuleRoute />,
     children: [
-      { index: true, element: <FamilyCoreHubPage /> },
-      { path: 'documents', element: <DocumentsPage /> },
-      { path: 'documents/types', element: <DocumentTypesPage /> },
-      { path: 'documents/new', element: <DocumentFormPage /> },
-      { path: 'documents/:documentId', element: <DocumentDetailPage /> },
-      { path: 'documents/:documentId/edit', element: <DocumentFormPage /> },
-      { path: 'health', element: <HealthPage /> },
-      { path: 'health/:memberId', element: <HealthMemberPage /> },
-      { path: 'calendar', element: <CalendarPage /> },
-      { path: 'calendar/types', element: <CalendarEventTypesPage /> },
-      { path: 'calendar/new', element: <CalendarEventFormPage /> },
-      { path: 'calendar/:eventId', element: <CalendarEventDetailPage /> },
+      {
+        path: corePaths.home,
+        element: <FamilyCoreLayout />,
+        children: [
+          { index: true, element: <FamilyCoreHubPage /> },
+          { path: 'documents', element: <DocumentsPage /> },
+          { path: 'documents/types', element: <DocumentTypesPage /> },
+          { path: 'documents/new', element: <DocumentFormPage /> },
+          { path: 'documents/:documentId', element: <DocumentDetailPage /> },
+          { path: 'documents/:documentId/edit', element: <DocumentFormPage /> },
+          { path: 'health', element: <HealthPage /> },
+          { path: 'health/:memberId', element: <HealthMemberPage /> },
+          { path: 'calendar', element: <CalendarPage /> },
+          { path: 'calendar/types', element: <CalendarEventTypesPage /> },
+          { path: 'calendar/new', element: <CalendarEventFormPage /> },
+          { path: 'calendar/:eventId', element: <CalendarEventDetailPage /> },
+        ],
+      },
     ],
   },
 ];

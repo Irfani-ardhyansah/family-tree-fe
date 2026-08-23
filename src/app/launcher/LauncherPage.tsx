@@ -11,7 +11,7 @@ import { Footer } from '@/shared/components/ui/Footer';
 import { ThemeToggle } from '@/shared/ui';
 import { shortPersonName } from '@/shared/utils/personDisplayName';
 
-const SENSITIVE_MODULE_IDS = new Set(['money', 'household']);
+const SENSITIVE_MODULE_IDS = new Set(['core', 'money', 'household']);
 
 const STATUS_STYLES: Record<
   ModuleDevStatus,

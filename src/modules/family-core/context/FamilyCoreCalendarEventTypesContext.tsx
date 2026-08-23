@@ -4,31 +4,45 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
+import {
+  createFcCalendarEventType,
+  deleteFcCalendarEventType,
+  getFcApiErrorMessage,
+  listFcCalendarEventTypes,
+  updateFcCalendarEventType,
+} from '@/modules/family-core/api/familyCoreApi';
 import { slugifyCalendarTypeLabel } from '@/modules/family-core/lib/calendarEventMeta';
 import { INITIAL_CALENDAR_EVENT_TYPES } from '@/modules/family-core/mocks/calendarEventTypesMock';
 import type {
   CoreCalendarEventType,
   CoreCalendarEventTypeDraft,
 } from '@/modules/family-core/types';
+import { useDataSource } from '@/shared/context/DataSourceContext';
 
 type FamilyCoreCalendarEventTypesContextValue = {
   types: CoreCalendarEventType[];
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
   getTypeBySlug: (slug: string) => CoreCalendarEventType | undefined;
   getTypeById: (id: string) => CoreCalendarEventType | undefined;
   addType: (
     draft: Omit<CoreCalendarEventTypeDraft, 'slug' | 'sortOrder' | 'isSystem'> & {
       slug?: string;
     },
-  ) => CoreCalendarEventType;
+  ) => Promise<CoreCalendarEventType>;
   updateType: (
     id: string,
     draft: Partial<CoreCalendarEventTypeDraft>,
-  ) => CoreCalendarEventType | null;
-  deleteType: (id: string) => { ok: true } | { ok: false; message: string };
+  ) => Promise<CoreCalendarEventType | null>;
+  deleteType: (
+    id: string,
+  ) => Promise<{ ok: true } | { ok: false; message: string }>;
 };
 
 const FamilyCoreCalendarEventTypesContext =
@@ -39,9 +53,44 @@ export function FamilyCoreCalendarEventTypesProvider({
 }: {
   children: ReactNode;
 }) {
+  const { isApi, isMock } = useDataSource();
   const [types, setTypes] = useState<CoreCalendarEventType[]>(
     INITIAL_CALENDAR_EVENT_TYPES,
   );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!isApi) {
+      setTypes(INITIAL_CALENDAR_EVENT_TYPES);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const rows = await listFcCalendarEventTypes();
+      setTypes(rows);
+      setError(null);
+    } catch (err) {
+      setError(
+        getFcApiErrorMessage(err, 'Gagal memuat tipe kalender dari API.'),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [isApi]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (isMock) {
+      setTypes(INITIAL_CALENDAR_EVENT_TYPES);
+      setError(null);
+    }
+  }, [isMock]);
 
   const sorted = useMemo(
     () => [...types].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -59,12 +108,22 @@ export function FamilyCoreCalendarEventTypesProvider({
   );
 
   const addType = useCallback(
-    (
-      draft: Omit<
-        CoreCalendarEventTypeDraft,
-        'slug' | 'sortOrder' | 'isSystem'
-      > & { slug?: string },
+    async (
+      draft: Omit<CoreCalendarEventTypeDraft, 'slug' | 'sortOrder' | 'isSystem'> & {
+        slug?: string;
+      },
     ) => {
+      if (isApi) {
+        const created = await createFcCalendarEventType({
+          label: draft.label.trim(),
+          iconKey: draft.iconKey,
+          toneKey: draft.toneKey,
+          linksToHealth: draft.linksToHealth,
+        });
+        setTypes((prev) => [...prev, created]);
+        return created;
+      }
+
       const baseSlug =
         draft.slug?.trim() || slugifyCalendarTypeLabel(draft.label);
       let slug = baseSlug;
@@ -87,11 +146,22 @@ export function FamilyCoreCalendarEventTypesProvider({
       setTypes((prev) => [...prev, created]);
       return created;
     },
-    [types],
+    [isApi, types],
   );
 
   const updateType = useCallback(
-    (id: string, draft: Partial<CoreCalendarEventTypeDraft>) => {
+    async (id: string, draft: Partial<CoreCalendarEventTypeDraft>) => {
+      if (isApi) {
+        const updated = await updateFcCalendarEventType(id, {
+          label: draft.label,
+          iconKey: draft.iconKey,
+          toneKey: draft.toneKey,
+          linksToHealth: draft.linksToHealth,
+        });
+        setTypes((prev) => prev.map((row) => (row.id === id ? updated : row)));
+        return updated;
+      }
+
       let updated: CoreCalendarEventType | null = null;
       setTypes((prev) =>
         prev.map((row) => {
@@ -108,11 +178,11 @@ export function FamilyCoreCalendarEventTypesProvider({
       );
       return updated;
     },
-    [],
+    [isApi],
   );
 
   const deleteType = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const target = types.find((t) => t.id === id);
       if (!target) {
         return { ok: false as const, message: 'Tipe tidak ditemukan.' };
@@ -124,22 +194,49 @@ export function FamilyCoreCalendarEventTypesProvider({
             'Tipe bawaan (seeder) tidak bisa dihapus. Nonaktifkan lewat BE nanti.',
         };
       }
+
+      if (isApi) {
+        try {
+          await deleteFcCalendarEventType(id);
+          setTypes((prev) => prev.filter((t) => t.id !== id));
+          return { ok: true as const };
+        } catch (err) {
+          return {
+            ok: false as const,
+            message: getFcApiErrorMessage(err, 'Gagal menghapus tipe kalender.'),
+          };
+        }
+      }
+
       setTypes((prev) => prev.filter((t) => t.id !== id));
       return { ok: true as const };
     },
-    [types],
+    [isApi, types],
   );
 
   const value = useMemo(
     () => ({
       types: sorted,
+      loading,
+      error,
+      refresh,
       getTypeBySlug,
       getTypeById,
       addType,
       updateType,
       deleteType,
     }),
-    [sorted, getTypeBySlug, getTypeById, addType, updateType, deleteType],
+    [
+      sorted,
+      loading,
+      error,
+      refresh,
+      getTypeBySlug,
+      getTypeById,
+      addType,
+      updateType,
+      deleteType,
+    ],
   );
 
   return (
