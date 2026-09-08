@@ -47,6 +47,7 @@ export const moneyPaths = {
   categories: '/money/categories',
   budgets: '/money/budgets',
   opening: '/money/opening',
+  audit: '/money/audit',
   setup: '/money/setup',
   newTransaction: '/money/new/transaction',
   newTransfer: '/money/new/transfer',

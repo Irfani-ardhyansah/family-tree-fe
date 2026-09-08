@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Plus } from 'react-feather';
 import { createMoneyTransaction } from '@/modules/money-track/api/moneyApi';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
 import { formatIdr } from '@/modules/money-track/types';
@@ -15,7 +16,7 @@ import {
   OptionCard,
   SuccessPanel,
 } from '@/modules/money-track/components/modals/MoneyModalShell';
-import { CategoryIcon } from '@/modules/money-track/lib/categoryIcons';
+import { CategoryIcon, CategoryIconPicker } from '@/modules/money-track/lib/categoryIcons';
 import {
   dateFromFormInput,
   formatDateOnlyLabel,
@@ -34,11 +35,17 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
     dataSource,
     refreshApi,
     bumpActivity,
+    createCategory,
   } = useMoneyTrackUi();
   const [step, setStep] = useState(1);
   const [txType, setTxType] = useState<TxType>('expense');
   const [digits, setDigits] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryIcon, setNewCategoryIcon] = useState('');
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
   const [pocketId, setPocketId] = useState('');
   const [pocketQuery, setPocketQuery] = useState('');
   const [note, setNote] = useState('');
@@ -115,6 +122,38 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
       const next = (prev + d).replace(/^0+(?=\d)/, '');
       return next.slice(0, 12);
     });
+  };
+
+  const resetAddCategoryForm = () => {
+    setShowAddCategory(false);
+    setNewCategoryName('');
+    setNewCategoryIcon('');
+    setCategoryError(null);
+  };
+
+  const handleCreateCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) {
+      setCategoryError('Nama kategori wajib diisi.');
+      return;
+    }
+    setCategorySaving(true);
+    setCategoryError(null);
+    try {
+      const created = await createCategory({
+        name,
+        type: txType,
+        icon: newCategoryIcon.trim() || null,
+      });
+      setCategoryId(created.id);
+      resetAddCategoryForm();
+    } catch (err) {
+      setCategoryError(
+        err instanceof Error ? err.message : 'Gagal menambah kategori.',
+      );
+    } finally {
+      setCategorySaving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -220,8 +259,14 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
           {step > 1 ? (
             <div className="w-28">
               <MoneySecondaryButton
-                disabled={saving}
-                onClick={() => setStep((s) => s - 1)}
+                disabled={saving || categorySaving}
+                onClick={() => {
+                  if (step === 2 && showAddCategory) {
+                    resetAddCategoryForm();
+                    return;
+                  }
+                  setStep((s) => s - 1);
+                }}
               >
                 Kembali
               </MoneySecondaryButton>
@@ -231,8 +276,12 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
             <MoneyPrimaryButton
               disabled={
                 saving ||
+                categorySaving ||
                 (step === 1 && amount <= 0) ||
-                (step === 2 && typedCategories.length === 0) ||
+                (step === 2 &&
+                  (showAddCategory ||
+                    typedCategories.length === 0 ||
+                    !categoryId)) ||
                 (step === 3 && (!selectedPocket || filteredPockets.length === 0))
               }
               onClick={() => {
@@ -308,36 +357,100 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
       )}
 
       {step === 2 && (
-        typedCategories.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-money-faint">
-            Belum ada kategori {txType === 'expense' ? 'pengeluaran' : 'pemasukan'}.
-            Tambah dulu di menu Kategori.
-          </p>
+        showAddCategory ? (
+          <div className="space-y-3">
+            <p className="text-[12.5px] text-money-muted">
+              Kategori {txType === 'expense' ? 'pengeluaran' : 'pemasukan'} baru
+            </p>
+            <div>
+              <FieldLabel>Nama</FieldLabel>
+              <FieldInput
+                value={newCategoryName}
+                onChange={setNewCategoryName}
+                placeholder="mis. Makan"
+              />
+            </div>
+            <CategoryIconPicker
+              value={newCategoryIcon}
+              onChange={setNewCategoryIcon}
+            />
+            {newCategoryIcon ? (
+              <div className="inline-flex items-center gap-2 rounded-[10px] bg-money-soft px-3 py-2 text-[12.5px] text-money-muted">
+                Preview:
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-money-surface text-money-ink">
+                  <CategoryIcon icon={newCategoryIcon} size={16} />
+                </span>
+              </div>
+            ) : null}
+            {categoryError ? (
+              <div className="rounded-[10px] border border-money-rose/30 bg-money-rose-soft px-3 py-2 text-[12.5px] font-semibold text-money-rose">
+                {categoryError}
+              </div>
+            ) : null}
+            <div className="flex gap-2">
+              <MoneyPrimaryButton
+                disabled={categorySaving}
+                onClick={() => void handleCreateCategory()}
+              >
+                {categorySaving ? 'Menyimpan…' : 'Simpan kategori'}
+              </MoneyPrimaryButton>
+              <MoneySecondaryButton
+                disabled={categorySaving}
+                onClick={resetAddCategoryForm}
+              >
+                Batal
+              </MoneySecondaryButton>
+            </div>
+          </div>
         ) : (
-          <div className="grid grid-cols-4 gap-2.5">
-            {typedCategories.map((cat) => (
+          <div className="space-y-3">
+            {typedCategories.length === 0 ? (
+              <p className="text-center text-[13px] text-money-faint">
+                Belum ada kategori{' '}
+                {txType === 'expense' ? 'pengeluaran' : 'pemasukan'}. Tambah
+                kategori baru di bawah.
+              </p>
+            ) : null}
+            <div className="grid grid-cols-4 gap-2.5">
+              {typedCategories.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setCategoryId(cat.id)}
+                  className="flex flex-col items-center gap-1.5"
+                >
+                  <span
+                    className={[
+                      'flex h-12 w-12 items-center justify-center rounded-[14px]',
+                      categoryId === cat.id
+                        ? 'outline outline-2 outline-offset-2 outline-money-brown'
+                        : '',
+                      'bg-money-soft text-money-ink',
+                    ].join(' ')}
+                  >
+                    <CategoryIcon icon={cat.icon} size={20} />
+                  </span>
+                  <span className="text-[10px] font-semibold text-money-muted">
+                    {cat.name}
+                  </span>
+                </button>
+              ))}
               <button
-                key={cat.id}
                 type="button"
-                onClick={() => setCategoryId(cat.id)}
+                onClick={() => {
+                  setCategoryError(null);
+                  setShowAddCategory(true);
+                }}
                 className="flex flex-col items-center gap-1.5"
               >
-                <span
-                  className={[
-                    'flex h-12 w-12 items-center justify-center rounded-[14px]',
-                    categoryId === cat.id
-                      ? 'outline outline-2 outline-offset-2 outline-money-brown'
-                      : '',
-                    'bg-money-soft text-money-ink',
-                  ].join(' ')}
-                >
-                  <CategoryIcon icon={cat.icon} size={20} />
+                <span className="flex h-12 w-12 items-center justify-center rounded-[14px] border-2 border-dashed border-money-border bg-money-soft text-money-muted">
+                  <Plus size={20} />
                 </span>
-                <span className="text-[10px] font-semibold text-money-muted">
-                  {cat.name}
+                <span className="text-[10px] font-semibold text-money-brown-deep">
+                  Tambah
                 </span>
               </button>
-            ))}
+            </div>
           </div>
         )
       )}

@@ -1,6 +1,7 @@
 import {
   BarChart2,
   Briefcase,
+  Clipboard,
   CreditCard,
   DollarSign,
   Home,
@@ -35,6 +36,7 @@ export const MONEY_NAV_ITEMS: MoneyNavItem[] = [
   { to: moneyPaths.reporting, label: 'Reporting', icon: BarChart2, group: 'analysis' },
   { to: moneyPaths.debts, label: 'Utang Piutang', icon: CreditCard, group: 'analysis' },
   { to: moneyPaths.balancing, label: 'Balancing', icon: Sliders, group: 'analysis' },
+  { to: moneyPaths.audit, label: 'Audit Log', icon: Clipboard, group: 'analysis' },
   { to: moneyPaths.categories, label: 'Kategori', icon: Tag, group: 'setup' },
   {
     to: moneyPaths.opening,

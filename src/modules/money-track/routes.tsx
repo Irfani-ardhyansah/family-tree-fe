@@ -1,6 +1,7 @@
 import type { RouteObject } from 'react-router-dom';
 import { SensitiveModuleRoute } from '@/app/routes/SensitiveModuleRoute';
-import { MoneyTrackLayout } from '@/modules/money-track/layout/MoneyTrackLayout';
+import { MoneyTrackProviders } from '@/modules/money-track/layout/MoneyTrackLayout';
+import { AuditLogPage } from '@/modules/money-track/pages/AuditLogPage';
 import { BalancingPage } from '@/modules/money-track/pages/BalancingPage';
 import { BudgetsPage } from '@/modules/money-track/pages/BudgetsPage';
 import { CategoriesPage } from '@/modules/money-track/pages/CategoriesPage';
@@ -27,7 +28,7 @@ export const moneyTrackRoutes: RouteObject[] = [
     children: [
       {
         path: moneyPaths.home,
-        element: <MoneyTrackLayout />,
+        element: <MoneyTrackProviders />,
         children: [
           { index: true, element: <DashboardPage /> },
           { path: 'transactions', element: <TransactionsPage /> },
@@ -41,6 +42,7 @@ export const moneyTrackRoutes: RouteObject[] = [
           { path: 'balancing', element: <BalancingPage /> },
           { path: 'budgets', element: <BudgetsPage /> },
           { path: 'opening', element: <OpeningBalancesPage /> },
+          { path: 'audit', element: <AuditLogPage /> },
           { path: 'setup', element: <SetupPage /> },
           { path: 'new/transaction', element: <NewTransactionPage /> },
           { path: 'new/transfer', element: <NewTransferPage /> },

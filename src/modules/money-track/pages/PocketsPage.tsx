@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Edit2, Plus, RotateCcw, Trash2 } from 'react-feather';
+import { Edit2, List, Plus, RotateCcw, Trash2 } from 'react-feather';
 import { DataSourceBanner } from '@/modules/money-track/components/DataSourceBanner';
+import {
+  PocketHistorySheet,
+  type PocketHistoryTarget,
+} from '@/modules/money-track/components/PocketHistorySheet';
 import {
   MoneyCard,
   PageHeader,
@@ -33,6 +37,9 @@ export function PocketsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<PocketHistoryTarget | null>(
+    null,
+  );
 
   const filteredAccounts = useMemo(() => {
     return accounts.filter((acc) => {
@@ -347,6 +354,24 @@ export function PocketsPage() {
                                 </div>
                                 <button
                                   type="button"
+                                  title="Riwayat transaksi"
+                                  aria-label={`Riwayat ${pocket.name}`}
+                                  onClick={() =>
+                                    setHistoryTarget({
+                                      pocketId: pocket.id,
+                                      pocketName: pocket.name,
+                                      pocketCategory: pocket.category,
+                                      accountName: acc.name,
+                                      personName: acc.personName,
+                                      balance: pocket.balance,
+                                    })
+                                  }
+                                  className="rounded-lg p-1.5 text-money-muted hover:bg-money-soft hover:text-money-ink"
+                                >
+                                  <List size={14} />
+                                </button>
+                                <button
+                                  type="button"
                                   title="Edit pocket"
                                   onClick={() =>
                                     openModal('pocket', {
@@ -441,6 +466,13 @@ export function PocketsPage() {
             ))}
           </MoneyCard>
         </div>
+      ) : null}
+
+      {historyTarget ? (
+        <PocketHistorySheet
+          target={historyTarget}
+          onClose={() => setHistoryTarget(null)}
+        />
       ) : null}
     </div>
   );

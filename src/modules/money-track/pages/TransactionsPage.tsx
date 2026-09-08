@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Edit2, Plus, Trash2, X } from 'react-feather';
+import { Clipboard, Edit2, Plus, Trash2, X } from 'react-feather';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   deleteMoneyCashWithdrawal,
   deleteMoneyTransaction,
   deleteMoneyTransfer,
   fetchMoneyActivity,
   mapActivityToUiTx,
+  moneyEntityApiId,
+  type MoneyAuditEntityType,
   type MoneyUiTx,
 } from '@/modules/money-track/api/moneyApi';
 import { DataSourceBanner } from '@/modules/money-track/components/DataSourceBanner';
@@ -21,25 +24,21 @@ import {
   PageHeader,
 } from '@/modules/money-track/components/PageChrome';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
+import {
+  formatDateOnlyLabel,
+  toDateOnlyIso,
+} from '@/modules/money-track/lib/dateOnly';
 import { formatIdr } from '@/modules/money-track/types';
 import { ApiClientError } from '@/shared/lib/apiClient';
+import { moneyPaths } from '@/shared/routes';
 
 type KindFilter = 'all' | 'income' | 'expense' | 'transfer' | 'cash_withdrawal';
 
-const MONTH_OPTIONS = [
-  { value: '01', label: 'Januari' },
-  { value: '02', label: 'Februari' },
-  { value: '03', label: 'Maret' },
-  { value: '04', label: 'April' },
-  { value: '05', label: 'Mei' },
-  { value: '06', label: 'Juni' },
-  { value: '07', label: 'Juli' },
-  { value: '08', label: 'Agustus' },
-  { value: '09', label: 'September' },
-  { value: '10', label: 'Oktober' },
-  { value: '11', label: 'November' },
-  { value: '12', label: 'Desember' },
-] as const;
+function auditEntityTypeForKind(kind: string): MoneyAuditEntityType {
+  if (kind === 'transfer') return 'transfer';
+  if (kind === 'cash_withdrawal') return 'cash_withdrawal';
+  return 'transaction';
+}
 
 function kindTone(kind: string) {
   if (kind === 'income') return 'bg-money-brown-soft text-money-brown-deep';
@@ -64,21 +63,22 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-function monthRange(year: string, month: string) {
-  const y = Number(year);
-  const m = Number(month);
-  const lastDay = new Date(y, m, 0).getDate();
-  const fromDate = `${year}-${month}-01`;
-  const toDate = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
-  return { fromDate, toDate };
+function currentMonthRange() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+  return {
+    fromDate: `${year}-${month}-01`,
+    toDate: `${year}-${month}-${String(lastDay).padStart(2, '0')}`,
+  };
 }
 
-function buildYearOptions(centerYear: number) {
-  const years: { value: string; label: string }[] = [];
-  for (let y = centerYear + 1; y >= centerYear - 5; y -= 1) {
-    years.push({ value: String(y), label: String(y) });
-  }
-  return years;
+function formatPeriodLabel(fromDate: string, toDate: string) {
+  const fromLabel = formatDateOnlyLabel(fromDate);
+  const toLabel = formatDateOnlyLabel(toDate);
+  if (fromDate === toDate) return fromLabel;
+  return `${fromLabel} – ${toLabel}`;
 }
 
 export function TransactionsPage() {
@@ -95,33 +95,44 @@ export function TransactionsPage() {
     refreshApi,
     removeTransaction,
   } = useMoneyTrackUi();
+  const [searchParams] = useSearchParams();
+  const pocketFromUrl = searchParams.get('pocket');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const now = new Date();
-  const [month, setMonth] = useState(String(now.getMonth() + 1).padStart(2, '0'));
-  const [year, setYear] = useState(String(now.getFullYear()));
-  const yearOptions = useMemo(
-    () => buildYearOptions(now.getFullYear()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fixed around first mount year
-    [],
-  );
+  const defaultPeriod = useMemo(() => currentMonthRange(), []);
+  const [fromDate, setFromDate] = useState(defaultPeriod.fromDate);
+  const [toDate, setToDate] = useState(defaultPeriod.toDate);
+  const periodLabel = formatPeriodLabel(fromDate, toDate);
 
-  const { fromDate, toDate } = useMemo(
-    () => monthRange(year, month),
-    [year, month],
-  );
-  const periodLabel =
-    MONTH_OPTIONS.find((m) => m.value === month)?.label != null
-      ? `${MONTH_OPTIONS.find((m) => m.value === month)!.label} ${year}`
-      : `${month}/${year}`;
+  const handleFromDateChange = (value: string) => {
+    const iso = toDateOnlyIso(value);
+    if (!iso) return;
+    setFromDate(iso);
+    if (iso > toDate) setToDate(iso);
+  };
+
+  const handleToDateChange = (value: string) => {
+    const iso = toDateOnlyIso(value);
+    if (!iso) return;
+    setToDate(iso);
+    if (iso < fromDate) setFromDate(iso);
+  };
 
   const [kind, setKind] = useState<KindFilter>('all');
   const [categoryId, setCategoryId] = useState('all');
-  const [pocketId, setPocketId] = useState('all');
+  const [pocketId, setPocketId] = useState(() =>
+    pocketFromUrl?.trim() ? pocketFromUrl.trim() : 'all',
+  );
   const [query, setQuery] = useState('');
 
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
+
+  useEffect(() => {
+    if (pocketFromUrl?.trim()) {
+      setPocketId(pocketFromUrl.trim());
+    }
+  }, [pocketFromUrl]);
 
   const [apiRows, setApiRows] = useState<MoneyUiTx[]>([]);
   const [apiTotal, setApiTotal] = useState(0);
@@ -224,7 +235,13 @@ export function TransactionsPage() {
       } else if (categoryId !== 'all' && row.categoryId !== categoryId) {
         return false;
       }
-      if (pocketId !== 'all' && row.pocketId !== pocketId) return false;
+      if (
+        pocketId !== 'all' &&
+        row.pocketId !== pocketId &&
+        row.toPocketId !== pocketId
+      ) {
+        return false;
+      }
       if (row.dateIso < fromDate) return false;
       if (row.dateIso > toDate) return false;
       if (q) {
@@ -262,9 +279,13 @@ export function TransactionsPage() {
     setCategoryId('all');
     setPocketId('all');
     setQuery('');
-    setMonth(String(now.getMonth() + 1).padStart(2, '0'));
-    setYear(String(now.getFullYear()));
+    const period = currentMonthRange();
+    setFromDate(period.fromDate);
+    setToDate(period.toDate);
   };
+
+  const isDefaultPeriod =
+    fromDate === defaultPeriod.fromDate && toDate === defaultPeriod.toDate;
 
   const shownCountLabel =
     dataSource === 'api' && apiTotal > rows.length
@@ -292,22 +313,19 @@ export function TransactionsPage() {
       <MoneyCard className="mb-4 p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div>
-            <FieldLabel>Bulan</FieldLabel>
-            <FieldSelect
-              value={month}
-              onChange={setMonth}
-              options={MONTH_OPTIONS.map((m) => ({
-                value: m.value,
-                label: m.label,
-              }))}
+            <FieldLabel>Dari tanggal</FieldLabel>
+            <FieldInput
+              type="date"
+              value={fromDate}
+              onChange={handleFromDateChange}
             />
           </div>
           <div>
-            <FieldLabel>Tahun</FieldLabel>
-            <FieldSelect
-              value={year}
-              onChange={setYear}
-              options={yearOptions}
+            <FieldLabel>Sampai tanggal</FieldLabel>
+            <FieldInput
+              type="date"
+              value={toDate}
+              onChange={handleToDateChange}
             />
           </div>
           <div className="md:col-span-2">
@@ -375,10 +393,7 @@ export function TransactionsPage() {
               }}
             />
           ))}
-          {(kind !== 'all' ||
-            hasExtraFilters ||
-            month !== String(now.getMonth() + 1).padStart(2, '0') ||
-            year !== String(now.getFullYear())) && (
+          {(kind !== 'all' || hasExtraFilters || !isDefaultPeriod) && (
             <button
               type="button"
               onClick={clearFilters}
@@ -415,7 +430,7 @@ export function TransactionsPage() {
       </div>
 
       <MoneyCard className="overflow-hidden">
-        <div className="hidden grid-cols-[110px_1.3fr_1fr_1fr_120px_72px] gap-3 border-b border-money-border bg-money-soft/70 px-5 py-2.5 text-[11px] font-bold uppercase tracking-wide text-money-faint md:grid">
+        <div className="hidden grid-cols-[110px_1.3fr_1fr_1fr_120px_96px] gap-3 border-b border-money-border bg-money-soft/70 px-5 py-2.5 text-[11px] font-bold uppercase tracking-wide text-money-faint md:grid">
           <span>Tanggal</span>
           <span>Judul</span>
           <span>Kategori / Person</span>
@@ -435,7 +450,7 @@ export function TransactionsPage() {
             return (
               <div
                 key={row.id}
-                className="grid grid-cols-1 gap-2 border-t border-money-border px-5 py-3.5 first:border-t-0 md:grid-cols-[110px_1.3fr_1fr_1fr_120px_72px] md:items-center md:gap-3"
+                className="grid grid-cols-1 gap-2 border-t border-money-border px-5 py-3.5 first:border-t-0 md:grid-cols-[110px_1.3fr_1fr_1fr_120px_96px] md:items-center md:gap-3"
               >
                 <div className="text-[12.5px] font-semibold text-money-muted">
                   {row.dateLabel}
@@ -481,6 +496,13 @@ export function TransactionsPage() {
                       : formatIdr(row.amount)}
                 </div>
                 <div className="flex items-center justify-end gap-0.5">
+                  <Link
+                    to={`${moneyPaths.audit}?entityType=${auditEntityTypeForKind(row.kind)}&entityId=${encodeURIComponent(moneyEntityApiId(row.id))}`}
+                    title="Lihat audit"
+                    className="rounded-lg p-1.5 text-money-muted hover:bg-money-soft hover:text-money-ink"
+                  >
+                    <Clipboard size={14} />
+                  </Link>
                   <button
                     type="button"
                     title="Edit"

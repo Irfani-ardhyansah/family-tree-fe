@@ -19,7 +19,7 @@ Related: [`../from-fe/pending/PRD-Money-Track.md`](../from-fe/pending/PRD-Money-
 |------|----|----|
 | Setup / accounts / pockets / categories / txn | ✅ | 🟡 read wired (API mode) |
 | Transfers, cash, opening/balancing, dashboard | ✅ | 🟡 dashboard + lists read |
-| Wishlist, debts, budgets, audit, reminders | ✅ | 🟡 wishlist/debts/balancing read |
+| Wishlist, debts, budgets, audit, reminders | ✅ | 🟡 wishlist/debts/balancing + audit UI |
 | Secondary unlock di `/money/*` | ✅ | ✅ header `X-Module-Unlock` |
 | Write/CRUD dari FE | ✅ | pending (modal masih dummy write) |
 
@@ -600,23 +600,30 @@ FE memakai endpoint ini di halaman Reporting (dummy mode tetap aggregat lokal).
 
 ## 15. Audit logs
 
-`GET /money/audit-logs?entityType=&entityId=&from=&to=&page=`
+Spek penuh (write-path + query + acceptance):  
+[`../from-fe/done/MONEY-AUDIT-LOG-BE-PROMPT.md`](../from-fe/done/MONEY-AUDIT-LOG-BE-PROMPT.md).
+
+`GET /money/audit-logs?q=&actorPersonId=&entityType=&entityId=&action=&from=&to=&page=&pageSize=`  
+`GET /money/audit-logs/:id`
 
 ```json
 {
-  "id": 1,
+  "id": "1",
+  "createdAt": "2026-07-26T10:00:00.000Z",
   "actorPersonId": 1,
   "actorName": "Irfan",
-  "action": "create",
+  "action": "update",
   "entityType": "transaction",
-  "entityId": 55,
-  "before": null,
-  "after": {},
-  "createdAt": "2026-07-26T10:00:00.000Z"
+  "entityId": "55",
+  "summary": "Ubah pengeluaran Makan Rp 85.000 → Rp 90.000",
+  "before": { "amount": 85000 },
+  "after": { "amount": 90000 }
 }
 ```
 
-Wajib untuk create/update/delete: transaction, transfer, cash withdrawal, adjustment, debt payment.
+`entityType` v1: `transaction` | `transfer` | `cash_withdrawal` | `opening_balance` | `balancing_adjustment` | `category` | `pocket` | `account` | `debt` | `debt_payment`.
+
+Write-side otomatis (FE tidak POST audit) untuk create/update/delete pada entity di atas. Akses baca: semua person workspace (couple), bukan admin-only.
 
 ---
 
@@ -708,6 +715,6 @@ Urutan usulan:
 - [ ] Opening + balancing adjust  
 - [ ] Dashboard aggregate  
 - [ ] Wishlist, debts + payments, budgets  
-- [ ] Audit log  
+- [x] Audit log  
 - [ ] Reminders in-app  
 - [ ] Media purpose `money-*`  

@@ -348,10 +348,16 @@ function MoneyTrackChrome() {
   );
 }
 
+/** Chrome layout — dibungkus `MoneyTrackProviders` di route. */
 export function MoneyTrackLayout() {
+  return <MoneyTrackChrome />;
+}
+
+/** Route element: Provider + chrome (satu export komponen untuk HMR). */
+export function MoneyTrackProviders() {
   return (
     <MoneyTrackUiProvider>
-      <MoneyTrackChrome />
+      <MoneyTrackLayout />
     </MoneyTrackUiProvider>
   );
 }

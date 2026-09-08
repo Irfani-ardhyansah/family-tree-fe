@@ -147,6 +147,52 @@ export type MoneyActivityApi = {
   link: string;
 };
 
+export type MoneyAuditAction = 'create' | 'update' | 'delete';
+
+export type MoneyAuditEntityType =
+  | 'transaction'
+  | 'transfer'
+  | 'cash_withdrawal'
+  | 'opening_balance'
+  | 'balancing_adjustment'
+  | 'category'
+  | 'pocket'
+  | 'account'
+  | 'debt'
+  | 'debt_payment';
+
+export type MoneyAuditLogApi = {
+  id: string;
+  createdAt: string;
+  actorPersonId: number | null;
+  actorName: string;
+  action: MoneyAuditAction;
+  entityType: MoneyAuditEntityType;
+  entityId: string;
+  summary: string;
+  before?: Record<string, unknown> | null;
+  after?: Record<string, unknown> | null;
+};
+
+export type MoneyAuditLogQuery = {
+  q?: string;
+  actorPersonId?: string;
+  entityType?: MoneyAuditEntityType | '';
+  entityId?: string;
+  action?: MoneyAuditAction | '';
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export type MoneyAuditLogListResult = {
+  items: MoneyAuditLogApi[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export type MoneyWishlistApi = {
   id: number;
   personId: number | null;
@@ -1064,6 +1110,84 @@ export function mapActivityToUiTx(row: MoneyActivityApi): MoneyUiTx {
     kind: row.kind,
     amount: row.amount,
   };
+}
+
+function normalizeMoneyAuditLog(
+  raw: Partial<MoneyAuditLogApi> & {
+    id?: string | number;
+    actorPersonId?: number | string | null;
+    entityId?: string | number;
+    timestamp?: string;
+    userName?: string;
+  },
+): MoneyAuditLogApi {
+  return {
+    id: sid(raw.id ?? ''),
+    createdAt: raw.createdAt ?? raw.timestamp ?? new Date().toISOString(),
+    actorPersonId:
+      raw.actorPersonId == null || raw.actorPersonId === ''
+        ? null
+        : Number.isFinite(Number(raw.actorPersonId))
+          ? Number(raw.actorPersonId)
+          : null,
+    actorName: raw.actorName ?? raw.userName ?? '—',
+    action: (raw.action as MoneyAuditAction) ?? 'create',
+    entityType: (raw.entityType as MoneyAuditEntityType) ?? 'transaction',
+    entityId: sid(raw.entityId ?? ''),
+    summary: raw.summary ?? '',
+    before: raw.before ?? null,
+    after: raw.after ?? null,
+  };
+}
+
+export async function fetchMoneyAuditLogs(
+  params: MoneyAuditLogQuery = {},
+): Promise<MoneyAuditLogListResult> {
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 20;
+  const data = await apiFetch<{
+    items?: Array<Partial<MoneyAuditLogApi> & { id?: string | number }>;
+    total?: number;
+    page?: number;
+    pageSize?: number;
+    pagination?: {
+      page?: number;
+      pageSize?: number;
+      limit?: number;
+      total?: number;
+    };
+  }>(
+    `/money/audit-logs${buildQuery({
+      q: params.q?.trim() || undefined,
+      actorPersonId: params.actorPersonId || undefined,
+      entityType: params.entityType || undefined,
+      entityId: params.entityId || undefined,
+      action: params.action || undefined,
+      from: params.from || undefined,
+      to: params.to || undefined,
+      page: String(page),
+      pageSize: String(pageSize),
+    })}`,
+  );
+  return {
+    items: (data.items ?? []).map(normalizeMoneyAuditLog),
+    total: data.total ?? data.pagination?.total ?? 0,
+    page: data.page ?? data.pagination?.page ?? page,
+    pageSize:
+      data.pageSize ??
+      data.pagination?.pageSize ??
+      data.pagination?.limit ??
+      pageSize,
+  };
+}
+
+export async function fetchMoneyAuditLogDetail(
+  id: string,
+): Promise<MoneyAuditLogApi> {
+  const data = await apiFetch<
+    Partial<MoneyAuditLogApi> & { id?: string | number }
+  >(`/money/audit-logs/${id}`);
+  return normalizeMoneyAuditLog(data);
 }
 
 export async function fetchMoneyWishlist(): Promise<MoneyWishlistApi[]> {
