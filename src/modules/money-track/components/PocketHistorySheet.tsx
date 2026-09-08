@@ -217,8 +217,7 @@ export function PocketHistorySheet({ target, onClose }: PocketHistorySheetProps)
 
   const handleEdit = (row: MoneyUiTx) => {
     onClose();
-    const isTxn = row.kind === 'income' || row.kind === 'expense';
-    if (isTxn) {
+    if (row.kind === 'income' || row.kind === 'expense') {
       openModal('transaction', {
         transactionId: row.id,
         txType: row.kind,
@@ -233,7 +232,7 @@ export function PocketHistorySheet({ target, onClose }: PocketHistorySheetProps)
     }
     openModal('activityEdit', {
       activityId: row.id,
-      activityKind: row.kind as 'transfer' | 'cash_withdrawal',
+      activityKind: row.kind,
       activityTitle: row.title,
       txAmount: row.amount,
       txNote: row.title,

@@ -1121,14 +1121,15 @@ function normalizeMoneyAuditLog(
     userName?: string;
   },
 ): MoneyAuditLogApi {
+  const actorRaw: unknown = raw.actorPersonId;
   return {
     id: sid(raw.id ?? ''),
     createdAt: raw.createdAt ?? raw.timestamp ?? new Date().toISOString(),
     actorPersonId:
-      raw.actorPersonId == null || raw.actorPersonId === ''
+      actorRaw == null || actorRaw === ''
         ? null
-        : Number.isFinite(Number(raw.actorPersonId))
-          ? Number(raw.actorPersonId)
+        : Number.isFinite(Number(actorRaw))
+          ? Number(actorRaw)
           : null,
     actorName: raw.actorName ?? raw.userName ?? '—',
     action: (raw.action as MoneyAuditAction) ?? 'create',
