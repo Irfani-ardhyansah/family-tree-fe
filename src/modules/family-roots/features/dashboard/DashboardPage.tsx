@@ -305,7 +305,7 @@ export function DashboardPage() {
                   <Link
                     key={deceased.id}
                     to={getMemorialEntryPath(deceased)}
-                    className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition bg-[#fafaf8] block"
+                    className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition bg-suite-soft block"
                   >
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">
                       Kenangan
@@ -327,7 +327,7 @@ export function DashboardPage() {
                 <Link
                   key={item.id}
                   to={getMemorialEntryPath(deceased)}
-                  className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition bg-[#fafaf8] block"
+                  className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition bg-suite-soft block"
                 >
                   <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">
                     Untuk {deceased.fullName}

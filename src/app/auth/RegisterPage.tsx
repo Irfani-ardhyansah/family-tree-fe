@@ -27,7 +27,7 @@ export function RegisterPage() {
   const labelClass = 'mb-1.5 block text-sm font-medium text-suite-muted';
 
   return (
-    <div className="rounded-3xl border border-suite-border border-t-4 border-t-primary-500 bg-suite-surface p-6 shadow-card sm:p-8">
+    <div className="rounded-[28px] border border-suite-border/80 bg-suite-surface/90 p-6 shadow-card backdrop-blur-md sm:p-8">
       <div className="mb-8 text-center">
         <Users className="mx-auto h-10 w-10 text-primary-500" />
         <h1 className="mt-4 text-2xl font-bold tracking-tight text-suite-ink">

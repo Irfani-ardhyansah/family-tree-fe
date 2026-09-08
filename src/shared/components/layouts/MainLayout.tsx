@@ -2,7 +2,6 @@ import { useLocation } from 'react-router-dom';
 import { Navbar } from '@/shared/components/ui/Navbar';
 import { Footer } from '@/shared/components/ui/Footer';
 import { PerspectiveBanner } from '@/shared/components/ui/PerspectiveBanner';
-import { useFamilyPerspective } from '@/modules/family-roots/context/FamilyPerspectiveContext';
 import { rootsPaths } from '@/shared/routes';
 
 type MainLayoutProps = {
@@ -20,7 +19,6 @@ const ROOTS_ROUTES = [
 
 export function MainLayout({ children }: MainLayoutProps) {
   const location = useLocation();
-  const { theme } = useFamilyPerspective();
   const showPerspectiveUI = ROOTS_ROUTES.some((path) => {
     if (path === rootsPaths.home) return location.pathname === rootsPaths.home;
     if (path === rootsPaths.events)
@@ -39,9 +37,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div
       data-module="roots"
-      className={`flex min-h-screen flex-col transition-colors duration-300 ${
-        showPerspectiveUI ? theme.bannerBg : 'bg-suite-bg'
-      }`}
+      className="flex min-h-screen flex-col bg-suite-bg text-suite-ink"
     >
       <Navbar />
       {showPerspectiveUI && <PerspectiveBanner />}

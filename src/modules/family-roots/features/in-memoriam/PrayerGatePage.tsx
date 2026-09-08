@@ -82,7 +82,7 @@ export function PrayerGatePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4] flex items-center justify-center text-slate-500">
+      <div className="min-h-[calc(100vh-4rem)] bg-suite-bg flex items-center justify-center text-slate-500">
         Memuat…
       </div>
     );
@@ -90,7 +90,7 @@ export function PrayerGatePage() {
 
   if (error || accessForbidden) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4] flex items-center justify-center px-6">
+      <div className="min-h-[calc(100vh-4rem)] bg-suite-bg flex items-center justify-center px-6">
         <div className="text-center max-w-md">
           <p className="text-red-600 font-medium">
             {accessForbidden
@@ -119,7 +119,7 @@ export function PrayerGatePage() {
   };
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] -mx-3 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6 lg:-my-8 bg-[#f8f7f4] flex flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-12">
+    <div className="min-h-[calc(100dvh-4rem)] -mx-3 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6 lg:-my-8 bg-suite-bg flex flex-col items-center justify-center px-4 sm:px-6 py-10 sm:py-12">
       <div className="max-w-lg w-full text-center space-y-6 sm:space-y-8">
         {/* Fade-in intro */}
         <p

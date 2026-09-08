@@ -155,7 +155,7 @@ export function MemorialPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4] flex items-center justify-center text-slate-500">
+      <div className="min-h-[calc(100vh-4rem)] bg-suite-bg flex items-center justify-center text-slate-500">
         Memuat halaman kenangan…
       </div>
     );
@@ -163,7 +163,7 @@ export function MemorialPage() {
 
   if (error) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4] flex items-center justify-center px-6">
+      <div className="min-h-[calc(100vh-4rem)] bg-suite-bg flex items-center justify-center px-6">
         <div className="text-center max-w-md">
           <p className="text-red-600 font-medium">{error}</p>
           <Link
@@ -182,7 +182,7 @@ export function MemorialPage() {
 
   if (accessForbidden) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-[#f8f7f4] flex items-center justify-center px-6">
+      <div className="min-h-[calc(100vh-4rem)] bg-suite-bg flex items-center justify-center px-6">
         <div className="text-center max-w-md">
           <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
             <Lock className="text-slate-400" size={28} />
@@ -254,7 +254,7 @@ export function MemorialPage() {
   };
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] -mx-3 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6 lg:-my-8 bg-[#f8f7f4] px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
+    <div className="min-h-[calc(100dvh-4rem)] -mx-3 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6 lg:-my-8 bg-suite-bg px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
       <div className="max-w-4xl mx-auto">
         {/* Back */}
         <Link

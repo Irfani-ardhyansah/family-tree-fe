@@ -70,7 +70,7 @@ function PerspectiveSwitcher({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-gray-100/80 border border-gray-200">
+    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-suite-soft border border-suite-border">
       <button
         type="button"
         disabled={isPerspectiveSaving}
@@ -78,7 +78,7 @@ function PerspectiveSwitcher({ compact = false }: { compact?: boolean }) {
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-60 max-w-[7.5rem] ${
           perspective === 'self'
             ? `${theme.accent} text-white shadow-sm`
-            : 'text-gray-500 hover:text-brand-700 hover:bg-white'
+            : 'text-suite-muted hover:text-suite-ink hover:bg-suite-surface'
         }`}
         title={me?.fullName ?? 'Saya'}
       >
@@ -92,7 +92,7 @@ function PerspectiveSwitcher({ compact = false }: { compact?: boolean }) {
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-60 max-w-[7.5rem] ${
           perspective === 'spouse'
             ? 'bg-secondary-500 text-white shadow-sm'
-            : 'text-gray-500 hover:text-brand-700 hover:bg-white'
+            : 'text-suite-muted hover:text-suite-ink hover:bg-suite-surface'
         }`}
         title={spouse?.fullName ?? 'Pasangan'}
       >
@@ -109,14 +109,14 @@ function DataSourceSwitcher({ compact = false }: { compact?: boolean }) {
   if (!canUseMock) return null;
 
   return (
-    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-gray-100/80 border border-dashed border-gray-300">
+    <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-suite-soft border border-dashed border-suite-border">
       <button
         type="button"
         onClick={() => setSource('api')}
         className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
           source === 'api'
             ? 'bg-emerald-500 text-white shadow-sm'
-            : 'text-gray-500 hover:text-brand-700 hover:bg-white'
+            : 'text-suite-muted hover:text-suite-ink hover:bg-suite-surface'
         }`}
         title="Data dari backend API"
       >
@@ -129,7 +129,7 @@ function DataSourceSwitcher({ compact = false }: { compact?: boolean }) {
         className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
           source === 'mock'
             ? 'bg-violet-500 text-white shadow-sm'
-            : 'text-gray-500 hover:text-brand-700 hover:bg-white'
+            : 'text-suite-muted hover:text-suite-ink hover:bg-suite-surface'
         }`}
         title="Data mock lokal (tanpa backend)"
       >
@@ -161,8 +161,8 @@ function NavItem({
       className={({ isActive }) =>
         `inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
           isActive
-            ? 'bg-primary-50 text-primary-700 shadow-sm ring-1 ring-primary-100'
-            : 'text-brand-600 hover:bg-gray-50 hover:text-primary-600'
+            ? 'bg-primary-50 text-primary-700 shadow-sm ring-1 ring-primary-100 dark:bg-primary-500/15 dark:text-primary-300 dark:ring-primary-500/30'
+            : 'text-suite-muted hover:bg-suite-soft hover:text-primary-600'
         }`
       }
     >

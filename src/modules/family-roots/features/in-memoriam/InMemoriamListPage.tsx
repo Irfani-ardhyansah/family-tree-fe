@@ -58,7 +58,7 @@ export function InMemoriamListPage() {
   const hasActiveFilters = yearFilter !== '' || search.trim() !== '';
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] -mx-3 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6 lg:-my-8 bg-[#f8f7f4] px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
+    <div className="min-h-[calc(100dvh-4rem)] -mx-3 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6 lg:-my-8 bg-suite-bg px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-6 sm:mb-8 text-center sm:text-left">

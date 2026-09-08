@@ -47,33 +47,43 @@ function PasswordField({
   value,
   onChange,
   autoComplete,
+  autoFocus,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
   autoComplete?: string;
+  autoFocus?: boolean;
 }) {
   const [show, setShow] = useState(false);
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-semibold text-zinc-200">
+    <label className="block" htmlFor={id}>
+      <span className="mb-1.5 block text-[13px] font-semibold text-suite-ink">
         {label}
       </span>
       <div className="relative">
+        <Lock
+          size={16}
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-suite-faint"
+          aria-hidden
+        />
         <input
           id={id}
           type={show ? 'text' : 'password'}
           value={value}
+          autoFocus={autoFocus}
           autoComplete={autoComplete}
+          placeholder="••••••••"
           onChange={(e) => onChange(e.target.value)}
-          className="block w-full rounded-xl border border-zinc-700 bg-zinc-950/80 py-2.5 pl-3 pr-10 text-sm text-white placeholder:text-zinc-600 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="block w-full rounded-2xl border border-suite-border bg-suite-soft py-3 pl-11 pr-12 text-sm text-suite-ink placeholder:text-suite-faint transition focus:border-primary-500 focus:bg-suite-surface focus:outline-none focus:ring-2 focus:ring-primary-500/20"
         />
         <button
           type="button"
           onClick={() => setShow((v) => !v)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-suite-faint transition-colors hover:bg-suite-surface hover:text-suite-ink"
           tabIndex={-1}
+          aria-label={show ? 'Sembunyikan password' : 'Tampilkan password'}
         >
           {show ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
@@ -241,19 +251,29 @@ export function SecondaryPasswordGateProvider({
     [ensureUnlocked, openChangePassword],
   );
 
+  const isUnlock = mode === 'verify';
   const title =
     mode === 'setup'
       ? 'Atur password kedua'
       : mode === 'change'
         ? 'Ganti password kedua'
-        : 'Verifikasi password kedua';
+        : 'Buka modul';
 
   const description =
     mode === 'setup'
-      ? 'Password ini melindungi Admin, Money Track, dan Household. Minimal 6 karakter.'
+      ? 'Melindungi Admin, Money Track, dan Household. Minimal 6 karakter.'
       : mode === 'change'
-        ? 'Masukkan password saat ini dan password baru.'
-        : 'Masukkan password kedua untuk membuka modul sensitif (berlaku ~15 menit).';
+        ? 'Masukkan password saat ini, lalu password baru.'
+        : 'Password kedua berlaku sekitar 15 menit setelah berhasil.';
+
+  const submitLabel =
+    busy
+      ? 'Memproses…'
+      : mode === 'setup'
+        ? 'Simpan & buka'
+        : mode === 'change'
+          ? 'Ganti password'
+          : 'Buka';
 
   return (
     <SecondaryPasswordGateContext.Provider value={value}>
@@ -276,97 +296,119 @@ export function SecondaryPasswordGateProvider({
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-[2px]" />
+            <div className="fixed inset-0 bg-ink-950/45 backdrop-blur-sm" />
           </TransitionChild>
 
           <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4">
+            <div className="flex min-h-full items-end justify-center sm:items-center sm:p-4">
               <TransitionChild
                 as={Fragment}
                 enter="ease-out duration-200"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
+                enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                enterTo="opacity-100 translate-y-0 sm:scale-100"
                 leave="ease-in duration-150"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
+                leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
               >
-                <DialogPanel className="w-full max-w-md overflow-hidden rounded-3xl border border-zinc-800/90 border-t-4 border-t-primary-500 bg-zinc-900/95 p-5 text-white shadow-2xl shadow-black/40 sm:p-6">
-                  <div className="mb-4 flex items-start gap-3">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-500/15 text-primary-400">
-                      {mode === 'verify' ? <Lock size={20} /> : <Shield size={20} />}
-                    </span>
-                    <div>
-                      <DialogTitle className="text-lg font-bold tracking-tight text-white">
-                        {title}
-                      </DialogTitle>
-                      <p className="mt-1 text-sm text-zinc-400">{description}</p>
-                    </div>
+                <DialogPanel className="w-full max-w-md overflow-hidden rounded-t-[28px] border border-suite-border bg-suite-surface text-suite-ink shadow-card sm:rounded-[28px]">
+                  <div className="px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 sm:px-7 sm:pb-7 sm:pt-7">
+                    <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-suite-border sm:hidden" />
+
+                    {isUnlock ? (
+                      <div className="mb-6 text-center">
+                        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-500/12 text-primary-600 dark:text-primary-400">
+                          <Lock size={22} />
+                        </span>
+                        <DialogTitle className="mt-4 text-xl font-bold tracking-tight text-suite-ink">
+                          {title}
+                        </DialogTitle>
+                        <p className="mx-auto mt-1.5 max-w-xs text-sm leading-relaxed text-suite-muted">
+                          {description}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="mb-6 flex items-start gap-3">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-500/12 text-primary-600 dark:text-primary-400">
+                          <Shield size={20} />
+                        </span>
+                        <div className="min-w-0 pt-0.5">
+                          <DialogTitle className="text-lg font-bold tracking-tight text-suite-ink">
+                            {title}
+                          </DialogTitle>
+                          <p className="mt-1 text-sm leading-relaxed text-suite-muted">
+                            {description}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <form
+                      onSubmit={(e) => void handleSubmit(e)}
+                      className="space-y-4"
+                    >
+                      {mode === 'change' && (
+                        <PasswordField
+                          id="sp-current"
+                          label="Password saat ini"
+                          value={currentPassword}
+                          onChange={setCurrentPassword}
+                          autoComplete="current-password"
+                          autoFocus
+                        />
+                      )}
+                      <PasswordField
+                        id="sp-password"
+                        label={
+                          mode === 'change' ? 'Password baru' : 'Password kedua'
+                        }
+                        value={password}
+                        onChange={setPassword}
+                        autoComplete={
+                          mode === 'verify' ? 'current-password' : 'new-password'
+                        }
+                        autoFocus={mode !== 'change'}
+                      />
+                      {(mode === 'setup' || mode === 'change') && (
+                        <PasswordField
+                          id="sp-confirm"
+                          label="Konfirmasi password"
+                          value={confirmPassword}
+                          onChange={setConfirmPassword}
+                          autoComplete="new-password"
+                        />
+                      )}
+
+                      {error && (
+                        <p
+                          role="alert"
+                          className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-700 dark:text-rose-300"
+                        >
+                          {error}
+                        </p>
+                      )}
+
+                      <div className="flex flex-col gap-2 pt-1">
+                        <button
+                          type="submit"
+                          disabled={busy}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-500 px-4 py-3.5 text-[15px] font-semibold text-white shadow-sm shadow-primary-900/20 transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {busy && (
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                          )}
+                          {submitLabel}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => closeWith(false)}
+                          className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-suite-muted transition hover:bg-suite-soft hover:text-suite-ink disabled:opacity-50"
+                        >
+                          Batal
+                        </button>
+                      </div>
+                    </form>
                   </div>
-
-                  <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3.5">
-                    {mode === 'change' && (
-                      <PasswordField
-                        id="sp-current"
-                        label="Password saat ini"
-                        value={currentPassword}
-                        onChange={setCurrentPassword}
-                        autoComplete="current-password"
-                      />
-                    )}
-                    <PasswordField
-                      id="sp-password"
-                      label={
-                        mode === 'change' ? 'Password baru' : 'Password kedua'
-                      }
-                      value={password}
-                      onChange={setPassword}
-                      autoComplete={
-                        mode === 'verify' ? 'current-password' : 'new-password'
-                      }
-                    />
-                    {(mode === 'setup' || mode === 'change') && (
-                      <PasswordField
-                        id="sp-confirm"
-                        label="Konfirmasi password"
-                        value={confirmPassword}
-                        onChange={setConfirmPassword}
-                        autoComplete="new-password"
-                      />
-                    )}
-
-                    {error && (
-                      <p
-                        role="alert"
-                        className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300"
-                      >
-                        {error}
-                      </p>
-                    )}
-
-                    <div className="flex justify-end gap-2 pt-1">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => closeWith(false)}
-                        className="rounded-xl px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
-                      >
-                        Batal
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={busy}
-                        className="rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
-                      >
-                        {busy
-                          ? 'Memproses…'
-                          : mode === 'setup'
-                            ? 'Simpan & buka'
-                            : mode === 'change'
-                              ? 'Ganti password'
-                              : 'Buka modul'}
-                      </button>
-                    </div>
-                  </form>
                 </DialogPanel>
               </TransitionChild>
             </div>

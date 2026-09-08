@@ -6,7 +6,7 @@ import { appPaths } from '@/shared/routes';
 
 function SessionLoading() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0b0d10] text-sm text-zinc-400">
+    <div className="flex min-h-screen items-center justify-center bg-suite-bg text-sm text-suite-muted">
       Memuat sesi…
     </div>
   );

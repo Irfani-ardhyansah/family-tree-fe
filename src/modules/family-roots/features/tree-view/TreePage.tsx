@@ -57,6 +57,7 @@ import {
 } from '@/shared/utils/treeLayout';
 import { getMemorialEntryPath } from '@/shared/utils/memoriamAccess';
 import { PersonContactInfo } from '@/shared/components/ui/PersonContactInfo';
+import { useTheme } from '@/shared/context/ThemeContext';
 
 const nodeTypes = {
   personNode: PersonNode,
@@ -193,6 +194,7 @@ function useFullscreen() {
 
 function TreeCanvas() {
   const { fitView, setCenter } = useReactFlow();
+  const { isDark } = useTheme();
   const { containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen();
   const focusPersonIdNum = useFocusPersonId();
   const isNarrow = useIsNarrow(768);
@@ -775,10 +777,15 @@ function TreeCanvas() {
                   nodeStrokeWidth={2}
                   zoomable
                   pannable
-                  className="!bg-white/90 !border !border-gray-200 !rounded-lg"
+                  className="!bg-suite-surface/90 !border !border-suite-border !rounded-lg"
                 />
               )}
-              <Background color="#e2efe2" variant={BackgroundVariant.Dots} gap={16} size={1} />
+              <Background
+                color={isDark ? '#4a5c4a' : '#e2efe2'}
+                variant={BackgroundVariant.Dots}
+                gap={16}
+                size={1}
+              />
 
               <Panel position="top-left" className="!m-2 sm:!m-3 !max-w-[calc(100%-1rem)]">
                 <div className="flex flex-col gap-2 w-[min(100%,18rem)] sm:w-auto">

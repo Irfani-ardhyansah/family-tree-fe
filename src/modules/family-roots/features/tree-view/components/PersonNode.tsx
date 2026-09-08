@@ -42,16 +42,16 @@ function PersonNode({ data }: { data: PersonNodeData }) {
   const showBadge = isFocus;
 
   const borderClass = isFocus
-    ? 'border-primary-500 ring-2 ring-primary-200'
+    ? 'border-primary-500 ring-2 ring-primary-500/30'
     : isSelected
-      ? 'border-amber-500 ring-2 ring-amber-200 shadow-amber-100'
+      ? 'border-amber-500 ring-2 ring-amber-400/30'
       : isAncestorPath && !isSelected
-        ? 'border-violet-400 ring-2 ring-violet-100'
+        ? 'border-violet-400 ring-2 ring-violet-400/30'
         : isDescendantPath
-          ? 'border-teal-400 ring-2 ring-teal-100'
+          ? 'border-teal-400 ring-2 ring-teal-400/30'
           : isHighlighted
-            ? 'border-yellow-400 ring-2 ring-yellow-100'
-            : 'border-gray-200';
+            ? 'border-yellow-400 ring-2 ring-yellow-400/30'
+            : 'border-suite-border';
 
   const opacityClass = isDimmed ? 'opacity-30' : 'opacity-100';
   const hasHeaderBadge =
@@ -69,15 +69,15 @@ function PersonNode({ data }: { data: PersonNodeData }) {
         type="target"
         position={Position.Left}
         id="left"
-        className="!w-2 !h-2 !bg-gray-400 !border-0"
+        className="!w-2 !h-2 !bg-suite-faint !border-0"
       />
 
       <div
         className={`
-          w-44 rounded-xl border-2 bg-white shadow-md transition-all duration-200
+          w-44 rounded-xl border-2 bg-suite-surface shadow-md transition-all duration-200
           hover:shadow-lg hover:-translate-y-0.5
           ${borderClass} ${opacityClass}
-          ${isDeceased ? 'bg-gray-50' : ''}
+          ${isDeceased ? 'bg-suite-soft' : ''}
         `}
       >
         {showBadge && (
@@ -106,7 +106,7 @@ function PersonNode({ data }: { data: PersonNodeData }) {
             <div
               className={`
                 flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center
-                ${person.gender === 'male' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-500'}
+                ${person.gender === 'male' ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300' : 'bg-pink-100 text-pink-600 dark:bg-pink-500/20 dark:text-pink-300'}
                 ${isDeceased ? 'grayscale' : ''}
               `}
             >
@@ -114,10 +114,10 @@ function PersonNode({ data }: { data: PersonNodeData }) {
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-brand-700 leading-tight truncate" title={person.fullName}>
+              <p className="text-xs font-bold text-suite-ink leading-tight truncate" title={person.fullName}>
                 {person.nickname ?? person.fullName.split(' ').slice(-2).join(' ')}
               </p>
-              <p className="text-[10px] text-gray-500 truncate" title={person.fullName}>
+              <p className="text-[10px] text-suite-muted truncate" title={person.fullName}>
                 {person.fullName}
               </p>
             </div>
@@ -125,17 +125,17 @@ function PersonNode({ data }: { data: PersonNodeData }) {
 
           <div className="mt-2 flex items-center justify-between gap-1">
             {person.generationLabel && SHOWN_LABELS.has(person.generationLabel) && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-brand-50 text-brand-600 truncate max-w-[70%]">
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-suite-soft text-suite-muted truncate max-w-[70%]">
                 {person.generationLabel}
               </span>
             )}
-            <span className="text-[9px] text-gray-400 ml-auto">
+            <span className="text-[9px] text-suite-faint ml-auto">
               {isDeceased ? `† ${formatBirthYear(person.birthDate)}` : formatBirthYear(person.birthDate)}
             </span>
           </div>
 
           {isDeceased && (
-            <div className="mt-1.5 text-[9px] text-center text-gray-500 bg-gray-100 rounded py-0.5">
+            <div className="mt-1.5 text-[9px] text-center text-suite-muted bg-suite-soft rounded py-0.5">
               Almarhum{person.gender === 'female' ? 'ah' : ''}
             </div>
           )}
@@ -146,7 +146,7 @@ function PersonNode({ data }: { data: PersonNodeData }) {
         type="source"
         position={Position.Right}
         id="right"
-        className="!w-2 !h-2 !bg-gray-400 !border-0"
+        className="!w-2 !h-2 !bg-suite-faint !border-0"
       />
       <Handle
         type="source"
