@@ -94,10 +94,10 @@ export function ConfirmDialog({
                   <div
                     className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
                       tone === 'danger'
-                        ? 'bg-rose-50 text-rose-600'
+                        ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-300'
                         : tone === 'warning'
-                          ? 'bg-amber-50 text-amber-600'
-                          : 'bg-admin-50 text-admin-700'
+                          ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300'
+                          : 'bg-admin-50 text-admin-700 dark:bg-admin-600/25 dark:text-admin-300'
                     }`}
                   >
                     <AlertTriangle size={20} />
@@ -115,7 +115,7 @@ export function ConfirmDialog({
                 {error && (
                   <p
                     role="alert"
-                    className="mt-4 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700"
+                    className="mt-4 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
                   >
                     {error}
                   </p>

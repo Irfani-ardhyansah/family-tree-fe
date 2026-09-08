@@ -1,0 +1,22 @@
+---
+description: Where to put FE→BE request prompts for Family Tree
+alwaysApply: true
+---
+
+# FE → BE request prompts
+
+When creating a backend request / seeder / API prompt from this FE repo:
+
+1. **Write the new prompt directly to the BE pending folder:**
+   `/Users/irfaniardhyansah/Projects/personal/node-workspace/family-tree-api/docs/requests/from-fe/pending/`
+
+2. Use clear filenames, e.g. `FAMILY-CORE-….md`, `MONEY-….md`.
+
+3. Do **not** leave new BE prompts only under FE `docs/requests/from-fe/pending/` unless the user asks for an FE-local draft first.
+
+4. After BE finishes a prompt, BE typically moves it to:
+   `node-workspace/family-tree-api/docs/requests/from-fe/done/`
+
+5. Optional FE archive: if a copy existed under FE `docs/requests/from-fe/`, move that copy to FE `docs/requests/from-fe/done/`.
+
+Sibling BE repo path (relative from this FE repo): `../../node-workspace/family-tree-api`

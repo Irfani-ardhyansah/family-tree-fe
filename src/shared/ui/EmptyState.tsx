@@ -40,7 +40,7 @@ export function ErrorState({
         <button
           type="button"
           onClick={onRetry}
-          className="rounded-control bg-suite-ink px-4 py-2 text-sm font-semibold text-white hover:bg-suite-muted"
+          className="rounded-control bg-admin-600 px-4 py-2 text-sm font-semibold text-white hover:bg-admin-700"
         >
           Coba lagi
         </button>

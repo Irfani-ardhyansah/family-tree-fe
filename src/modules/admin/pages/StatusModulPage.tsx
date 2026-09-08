@@ -111,25 +111,25 @@ export function StatusModulPage() {
           return (
             <div
               key={mod.id}
-              className={`relative overflow-hidden rounded-2xl border bg-white/90 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+              className={`relative overflow-hidden rounded-2xl border bg-suite-surface/90 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
                 enabled
-                  ? 'border-ink-200/80'
-                  : 'border-ink-200/60 bg-ink-50/80 opacity-90'
+                  ? 'border-suite-border'
+                  : 'border-suite-border/60 bg-suite-soft/80 opacity-90'
               }`}
             >
               <div
                 className={`absolute inset-x-0 top-0 h-1 ${
-                  enabled ? 'bg-admin-500' : 'bg-ink-300'
+                  enabled ? 'bg-admin-500' : 'bg-suite-border'
                 }`}
               />
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-900 text-admin-300">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-admin-700 text-admin-100 dark:bg-admin-600/40 dark:text-admin-200">
                     <Icon size={22} />
                   </span>
                   <div>
-                    <h3 className="font-semibold text-ink-900">{mod.title}</h3>
-                    <p className="text-xs text-ink-400">{mod.subtitle}</p>
+                    <h3 className="font-semibold text-suite-ink">{mod.title}</h3>
+                    <p className="text-xs text-suite-faint">{mod.subtitle}</p>
                   </div>
                 </div>
                 <Switch
@@ -137,20 +137,20 @@ export function StatusModulPage() {
                   disabled={busy}
                   onChange={(v) => handleToggle(mod.id, v)}
                   className={`${
-                    enabled ? 'bg-admin-600' : 'bg-ink-300'
+                    enabled ? 'bg-admin-600' : 'bg-suite-border'
                   } relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full transition disabled:opacity-50`}
                 >
                   <span
                     className={`${
                       enabled ? 'translate-x-6' : 'translate-x-1'
-                    } pointer-events-none inline-block h-5 w-5 translate-y-1 transform rounded-full bg-white shadow transition`}
+                    } pointer-events-none inline-block h-5 w-5 translate-y-1 transform rounded-full bg-white shadow transition dark:bg-suite-ink`}
                   />
                 </Switch>
               </div>
-              <p className="mt-4 text-sm leading-relaxed text-ink-500">
+              <p className="mt-4 text-sm leading-relaxed text-suite-muted">
                 {mod.description}
               </p>
-              <p className="mt-4 text-xs text-ink-400">
+              <p className="mt-4 text-xs text-suite-faint">
                 {status
                   ? `Diubah ${formatRelativeTime(status.updatedAt)} oleh ${status.updatedBy}`
                   : 'Belum ada riwayat perubahan'}

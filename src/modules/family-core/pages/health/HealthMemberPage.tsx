@@ -74,16 +74,16 @@ function SectionHeader({
 }) {
   return (
     <div className="mb-2 flex items-center justify-between gap-2">
-      <h2 className="text-[13px] font-bold uppercase tracking-wide text-brand-400">
+      <h2 className="text-[13px] font-bold uppercase tracking-wide text-suite-faint">
         {title}
         {typeof count === 'number' ? (
-          <span className="ml-1.5 text-brand-300">({count})</span>
+          <span className="ml-1.5 text-suite-faint/80">({count})</span>
         ) : null}
       </h2>
       {onEditBasics ? (
         <button
           type="button"
-          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11.5px] font-bold text-sky-700 hover:bg-sky-50"
+          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11.5px] font-bold text-sky-700 hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-950/50"
           onClick={onEditBasics}
         >
           <Edit2 size={12} />
@@ -93,7 +93,7 @@ function SectionHeader({
       {onAdd ? (
         <button
           type="button"
-          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11.5px] font-bold text-sky-700 hover:bg-sky-50"
+          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11.5px] font-bold text-sky-700 hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-950/50"
           onClick={onAdd}
         >
           <Plus size={12} />
@@ -106,16 +106,20 @@ function SectionHeader({
 
 function EmptyLine({ text }: { text: string }) {
   return (
-    <p className="rounded-[12px] bg-gray-50 px-3 py-3 text-[13px] text-brand-400">
+    <p className="rounded-[12px] border border-suite-border bg-suite-soft px-3 py-3 text-[13px] text-suite-faint">
       {text}
     </p>
   );
 }
 
 function allergyTone(kind: AllergyKind) {
-  if (kind === 'obat') return 'bg-rose-50 text-rose-700';
-  if (kind === 'makanan') return 'bg-amber-50 text-amber-800';
-  return 'bg-gray-100 text-brand-600';
+  if (kind === 'obat') {
+    return 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300';
+  }
+  if (kind === 'makanan') {
+    return 'bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200';
+  }
+  return 'bg-suite-soft text-suite-muted';
 }
 
 function AllergyBadge({ item }: { item: HealthAllergy }) {
@@ -139,16 +143,18 @@ function GrowthChart({ points }: { points: GrowthPoint[] }) {
   return (
     <div className="space-y-4">
       <div>
-        <p className="mb-2 text-[12px] font-semibold text-brand-500">Tinggi (cm)</p>
+        <p className="mb-2 text-[12px] font-semibold text-suite-muted">Tinggi (cm)</p>
         <div className="flex items-end gap-2">
           {points.map((p) => (
             <div key={`h-${p.id}`} className="flex flex-1 flex-col items-center gap-1">
-              <span className="text-[10px] font-bold text-sky-700">{p.heightCm}</span>
+              <span className="text-[10px] font-bold text-sky-700 dark:text-sky-300">
+                {p.heightCm}
+              </span>
               <div
-                className="w-full max-w-[36px] rounded-t-md bg-sky-400/80"
+                className="w-full max-w-[36px] rounded-t-md bg-sky-400/80 dark:bg-sky-500/70"
                 style={{ height: `${Math.max(12, (p.heightCm / maxH) * 88)}px` }}
               />
-              <span className="text-[9px] text-brand-400">
+              <span className="text-[9px] text-suite-faint">
                 {formatDate(p.date).replace(/ \d{4}$/, '')}
               </span>
             </div>
@@ -156,16 +162,18 @@ function GrowthChart({ points }: { points: GrowthPoint[] }) {
         </div>
       </div>
       <div>
-        <p className="mb-2 text-[12px] font-semibold text-brand-500">Berat (kg)</p>
+        <p className="mb-2 text-[12px] font-semibold text-suite-muted">Berat (kg)</p>
         <div className="flex items-end gap-2">
           {points.map((p) => (
             <div key={`w-${p.id}`} className="flex flex-1 flex-col items-center gap-1">
-              <span className="text-[10px] font-bold text-teal-700">{p.weightKg}</span>
+              <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300">
+                {p.weightKg}
+              </span>
               <div
-                className="w-full max-w-[36px] rounded-t-md bg-teal-400/80"
+                className="w-full max-w-[36px] rounded-t-md bg-teal-400/80 dark:bg-teal-500/70"
                 style={{ height: `${Math.max(12, (p.weightKg / maxW) * 72)}px` }}
               />
-              <span className="text-[9px] text-brand-400">
+              <span className="text-[9px] text-suite-faint">
                 {formatDate(p.date).replace(/ \d{4}$/, '')}
               </span>
             </div>
@@ -195,7 +203,7 @@ export function HealthMemberPage() {
       <div className="mb-4">
         <Link
           to={corePaths.health}
-          className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-500 hover:text-sky-700"
+          className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-suite-muted hover:text-sky-700 dark:hover:text-sky-300"
         >
           <ArrowLeft size={15} />
           Semua anggota
@@ -224,32 +232,32 @@ export function HealthMemberPage() {
             onEditBasics={() => open('basics')}
           />
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-[12px] bg-rose-50 px-3 py-3 text-center">
-              <Heart size={14} className="mx-auto text-rose-500" />
-              <p className="mt-1 text-[11px] font-bold text-brand-400">Gol. darah</p>
-              <p className="text-[16px] font-bold text-brand-800">
+            <div className="rounded-[12px] bg-rose-50 px-3 py-3 text-center dark:bg-rose-950/40">
+              <Heart size={14} className="mx-auto text-rose-500 dark:text-rose-400" />
+              <p className="mt-1 text-[11px] font-bold text-suite-faint">Gol. darah</p>
+              <p className="text-[16px] font-bold text-suite-ink">
                 {profile.basics.bloodType ?? '—'}
               </p>
             </div>
-            <div className="rounded-[12px] bg-sky-50 px-3 py-3 text-center">
-              <Activity size={14} className="mx-auto text-sky-600" />
-              <p className="mt-1 text-[11px] font-bold text-brand-400">Tinggi</p>
-              <p className="text-[16px] font-bold text-brand-800">
+            <div className="rounded-[12px] bg-sky-50 px-3 py-3 text-center dark:bg-sky-950/40">
+              <Activity size={14} className="mx-auto text-sky-600 dark:text-sky-400" />
+              <p className="mt-1 text-[11px] font-bold text-suite-faint">Tinggi</p>
+              <p className="text-[16px] font-bold text-suite-ink">
                 {profile.basics.heightCm != null ? `${profile.basics.heightCm}` : '—'}
-                <span className="text-[11px] font-semibold text-brand-400"> cm</span>
+                <span className="text-[11px] font-semibold text-suite-faint"> cm</span>
               </p>
             </div>
-            <div className="rounded-[12px] bg-teal-50 px-3 py-3 text-center">
-              <Thermometer size={14} className="mx-auto text-teal-600" />
-              <p className="mt-1 text-[11px] font-bold text-brand-400">Berat</p>
-              <p className="text-[16px] font-bold text-brand-800">
+            <div className="rounded-[12px] bg-teal-50 px-3 py-3 text-center dark:bg-teal-950/40">
+              <Thermometer size={14} className="mx-auto text-teal-600 dark:text-teal-400" />
+              <p className="mt-1 text-[11px] font-bold text-suite-faint">Berat</p>
+              <p className="text-[16px] font-bold text-suite-ink">
                 {profile.basics.weightKg != null ? `${profile.basics.weightKg}` : '—'}
-                <span className="text-[11px] font-semibold text-brand-400"> kg</span>
+                <span className="text-[11px] font-semibold text-suite-faint"> kg</span>
               </p>
             </div>
           </div>
           {profile.basics.notes ? (
-            <p className="mt-3 text-[13px] text-brand-500">{profile.basics.notes}</p>
+            <p className="mt-3 text-[13px] text-suite-muted">{profile.basics.notes}</p>
           ) : null}
         </CoreCard>
 
@@ -262,39 +270,39 @@ export function HealthMemberPage() {
           {profile.allergies.length === 0 ? (
             <EmptyLine text="Tidak ada alergi tercatat." />
           ) : (
-            <CoreCard className="overflow-hidden divide-y divide-gray-100">
+            <CoreCard className="overflow-hidden divide-y divide-suite-border">
               {profile.allergies.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => open('allergy', item.id)}
-                  className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-rose-50/40"
+                  className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-rose-50/40 dark:hover:bg-rose-950/30"
                 >
                   <AlertTriangle
                     size={16}
                     className={
                       item.severity === 'berat'
-                        ? 'mt-0.5 text-rose-600'
-                        : 'mt-0.5 text-amber-600'
+                        ? 'mt-0.5 text-rose-600 dark:text-rose-400'
+                        : 'mt-0.5 text-amber-600 dark:text-amber-400'
                     }
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-[14px] font-semibold text-brand-800">
+                      <p className="text-[14px] font-semibold text-suite-ink">
                         {item.name}
                       </p>
                       <AllergyBadge item={item} />
-                      <span className="text-[11px] font-bold uppercase text-brand-400">
+                      <span className="text-[11px] font-bold uppercase text-suite-faint">
                         {item.severity}
                       </span>
                     </div>
                     {item.notes ? (
-                      <p className="mt-0.5 text-[12.5px] text-brand-500">
+                      <p className="mt-0.5 text-[12.5px] text-suite-muted">
                         {item.notes}
                       </p>
                     ) : null}
                   </div>
-                  <Edit2 size={14} className="mt-1 shrink-0 text-brand-300" />
+                  <Edit2 size={14} className="mt-1 shrink-0 text-suite-faint" />
                 </button>
               ))}
             </CoreCard>
@@ -310,29 +318,29 @@ export function HealthMemberPage() {
           {profile.medications.length === 0 ? (
             <EmptyLine text="Belum ada obat rutin." />
           ) : (
-            <CoreCard className="overflow-hidden divide-y divide-gray-100">
+            <CoreCard className="overflow-hidden divide-y divide-suite-border">
               {profile.medications.map((med) => (
                 <button
                   key={med.id}
                   type="button"
                   onClick={() => open('medication', med.id)}
-                  className="w-full px-4 py-3 text-left transition-colors hover:bg-sky-50/50"
+                  className="w-full px-4 py-3 text-left transition-colors hover:bg-sky-50/50 dark:hover:bg-sky-950/30"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-[14px] font-semibold text-brand-800">
+                    <p className="text-[14px] font-semibold text-suite-ink">
                       {med.name}
                     </p>
-                    <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-bold text-sky-700">
+                    <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-bold text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
                       {med.dose}
                     </span>
                     {med.reminderEnabled ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
                         <Clock size={10} />
                         Reminder
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-0.5 text-[12.5px] text-brand-500">
+                  <p className="mt-0.5 text-[12.5px] text-suite-muted">
                     {med.schedule}
                   </p>
                 </button>
@@ -350,30 +358,30 @@ export function HealthMemberPage() {
           {profile.appointments.length === 0 ? (
             <EmptyLine text="Tidak ada jadwal kontrol." />
           ) : (
-            <CoreCard className="overflow-hidden divide-y divide-gray-100">
+            <CoreCard className="overflow-hidden divide-y divide-suite-border">
               {profile.appointments.map((appt) => (
                 <div key={appt.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <button
                       type="button"
                       onClick={() => open('appointment', appt.id)}
-                      className="text-left text-[14px] font-semibold text-brand-800 hover:text-sky-700"
+                      className="text-left text-[14px] font-semibold text-suite-ink hover:text-sky-700 dark:hover:text-sky-300"
                     >
                       {appt.title}
                     </button>
                     {appt.calendarEventId ? (
                       <Link
                         to={corePaths.calendarEvent(appt.calendarEventId)}
-                        className="text-[11.5px] font-bold text-sky-700 hover:underline"
+                        className="text-[11.5px] font-bold text-sky-700 hover:underline dark:text-sky-300"
                       >
                         Lihat di kalender
                       </Link>
                     ) : null}
                   </div>
-                  <p className="mt-0.5 text-[12.5px] text-brand-500">
+                  <p className="mt-0.5 text-[12.5px] text-suite-muted">
                     {appt.doctor} · {appt.place}
                   </p>
-                  <p className="mt-0.5 text-[12px] font-medium text-amber-700">
+                  <p className="mt-0.5 text-[12px] font-medium text-amber-700 dark:text-amber-300">
                     {formatDateTime(appt.at)}
                     {appt.reminderEnabled ? ' · Reminder on' : ''}
                   </p>
@@ -392,23 +400,23 @@ export function HealthMemberPage() {
           {profile.conditions.length === 0 ? (
             <EmptyLine text="Tidak ada diagnosis tercatat." />
           ) : (
-            <CoreCard className="overflow-hidden divide-y divide-gray-100">
+            <CoreCard className="overflow-hidden divide-y divide-suite-border">
               {profile.conditions.map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => open('condition', c.id)}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50"
+                  className="w-full px-4 py-3 text-left hover:bg-suite-soft"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-[14px] font-semibold text-brand-800">
+                    <p className="text-[14px] font-semibold text-suite-ink">
                       {c.name}
                     </p>
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-brand-600">
+                    <span className="rounded-full bg-suite-soft px-2 py-0.5 text-[11px] font-bold text-suite-muted">
                       {c.status}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-[12.5px] text-brand-500">
+                  <p className="mt-0.5 text-[12.5px] text-suite-muted">
                     Diagnosis {formatDate(c.diagnosedAt)}
                     {c.notes ? ` · ${c.notes}` : ''}
                   </p>
@@ -427,18 +435,18 @@ export function HealthMemberPage() {
           {profile.surgeries.length === 0 ? (
             <EmptyLine text="Tidak ada riwayat operasi." />
           ) : (
-            <CoreCard className="overflow-hidden divide-y divide-gray-100">
+            <CoreCard className="overflow-hidden divide-y divide-suite-border">
               {profile.surgeries.map((s) => (
                 <button
                   key={s.id}
                   type="button"
                   onClick={() => open('surgery', s.id)}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50"
+                  className="w-full px-4 py-3 text-left hover:bg-suite-soft"
                 >
-                  <p className="text-[14px] font-semibold text-brand-800">
+                  <p className="text-[14px] font-semibold text-suite-ink">
                     {s.name}
                   </p>
-                  <p className="mt-0.5 text-[12.5px] text-brand-500">
+                  <p className="mt-0.5 text-[12.5px] text-suite-muted">
                     {formatDate(s.date)} · {s.hospital || '—'}
                   </p>
                 </button>
@@ -456,18 +464,18 @@ export function HealthMemberPage() {
           {profile.vaccines.length === 0 ? (
             <EmptyLine text="Belum ada riwayat vaksin." />
           ) : (
-            <CoreCard className="overflow-hidden divide-y divide-gray-100">
+            <CoreCard className="overflow-hidden divide-y divide-suite-border">
               {profile.vaccines.map((v) => (
                 <button
                   key={v.id}
                   type="button"
                   onClick={() => open('vaccine', v.id)}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50"
+                  className="w-full px-4 py-3 text-left hover:bg-suite-soft"
                 >
-                  <p className="text-[14px] font-semibold text-brand-800">
+                  <p className="text-[14px] font-semibold text-suite-ink">
                     {v.name}
                   </p>
-                  <p className="mt-0.5 text-[12.5px] text-brand-500">
+                  <p className="mt-0.5 text-[12.5px] text-suite-muted">
                     {formatDate(v.date)} · {v.doseLabel}
                   </p>
                 </button>
@@ -485,28 +493,28 @@ export function HealthMemberPage() {
           {profile.notes.length === 0 ? (
             <EmptyLine text="Belum ada catatan." />
           ) : (
-            <CoreCard className="overflow-hidden divide-y divide-gray-100">
+            <CoreCard className="overflow-hidden divide-y divide-suite-border">
               {profile.notes.map((n) => (
                 <button
                   key={n.id}
                   type="button"
                   onClick={() => open('note', n.id)}
-                  className="flex w-full gap-3 px-4 py-3 text-left hover:bg-gray-50"
+                  className="flex w-full gap-3 px-4 py-3 text-left hover:bg-suite-soft"
                 >
-                  <FileText size={16} className="mt-0.5 shrink-0 text-brand-400" />
+                  <FileText size={16} className="mt-0.5 shrink-0 text-suite-faint" />
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-[14px] font-semibold text-brand-800">
+                      <p className="text-[14px] font-semibold text-suite-ink">
                         {n.title}
                       </p>
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-brand-500">
+                      <span className="rounded-full bg-suite-soft px-2 py-0.5 text-[11px] font-bold text-suite-muted">
                         {n.kind}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[12px] text-brand-400">
+                    <p className="mt-0.5 text-[12px] text-suite-faint">
                       {formatDate(n.date)}
                     </p>
-                    <p className="mt-1 text-[13px] text-brand-600">{n.summary}</p>
+                    <p className="mt-1 text-[13px] text-suite-muted">{n.summary}</p>
                   </div>
                 </button>
               ))}
@@ -523,45 +531,45 @@ export function HealthMemberPage() {
           {(profile.xrays ?? []).length === 0 ? (
             <EmptyLine text="Belum ada foto rontgen." />
           ) : (
-            <CoreCard className="overflow-hidden divide-y divide-gray-100">
+            <CoreCard className="overflow-hidden divide-y divide-suite-border">
               {(profile.xrays ?? []).map((x) => (
                 <button
                   key={x.id}
                   type="button"
                   onClick={() => open('xray', x.id)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-suite-soft"
                 >
                   {x.imageUrl ? (
                     <img
                       src={x.imageUrl}
                       alt={x.title}
-                      className="h-14 w-11 shrink-0 rounded-lg object-cover ring-1 ring-gray-200"
+                      className="h-14 w-11 shrink-0 rounded-lg object-cover ring-1 ring-suite-border"
                     />
                   ) : (
-                    <span className="flex h-14 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-slate-300">
+                    <span className="flex h-14 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-slate-300 dark:bg-slate-800">
                       <Image size={16} />
                     </span>
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-[14px] font-semibold text-brand-800">
+                      <p className="truncate text-[14px] font-semibold text-suite-ink">
                         {x.title}
                       </p>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                      <span className="rounded-full bg-suite-soft px-2 py-0.5 text-[11px] font-bold text-suite-muted">
                         {XRAY_BODY_LABEL[x.bodyPart]}
                       </span>
                     </div>
-                    <p className="mt-0.5 truncate text-[12.5px] text-brand-500">
+                    <p className="mt-0.5 truncate text-[12.5px] text-suite-muted">
                       {formatDate(x.date)}
                       {x.facility ? ` · ${x.facility}` : ''}
                     </p>
                     {x.notes ? (
-                      <p className="mt-0.5 truncate text-[12px] text-brand-400">
+                      <p className="mt-0.5 truncate text-[12px] text-suite-faint">
                         {x.notes}
                       </p>
                     ) : null}
                   </div>
-                  <Edit2 size={14} className="shrink-0 text-brand-300" />
+                  <Edit2 size={14} className="shrink-0 text-suite-faint" />
                 </button>
               ))}
             </CoreCard>
@@ -575,7 +583,7 @@ export function HealthMemberPage() {
               count={profile.growth.length}
               onAdd={() => open('growth')}
             />
-            <p className="mb-3 text-[12.5px] text-brand-400">
+            <p className="mb-3 text-[12.5px] text-suite-faint">
               Tinggi & berat berkala — terutama untuk anak.
             </p>
             <GrowthChart points={profile.growth} />

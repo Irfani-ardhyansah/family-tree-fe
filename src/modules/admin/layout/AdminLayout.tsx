@@ -95,19 +95,19 @@ export function AdminLayout() {
                 </button>
 
                 <div className="flex min-w-0 items-center gap-2.5 lg:hidden">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-admin-50 text-admin-700">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-admin-50 text-admin-700 dark:bg-admin-600/25 dark:text-admin-300">
                     <Shield size={18} />
                   </div>
                   <div className="hidden min-w-0 leading-tight sm:block">
-                    <div className="truncate text-[15px] font-bold">
+                    <div className="truncate text-[15px] font-bold text-suite-ink">
                       Admin Console
                     </div>
                   </div>
                 </div>
 
                 <div className="ml-1 hidden min-w-0 flex-1 sm:block">
-                  <span className="inline-flex max-w-[16rem] items-center gap-1.5 truncate rounded-full border border-admin-200 bg-admin-50 px-2.5 py-1 text-[12px] font-bold text-admin-800">
-                    <span className="h-1.5 w-1.5 rounded-full bg-admin-500" />
+                  <span className="inline-flex max-w-[16rem] items-center gap-1.5 truncate rounded-full border border-admin-200 bg-admin-50 px-2.5 py-1 text-[12px] font-bold text-admin-800 dark:border-admin-500/40 dark:bg-admin-600/20 dark:text-admin-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-admin-500 dark:bg-admin-300" />
                     Operator · {loginName}
                   </span>
                 </div>
@@ -125,7 +125,7 @@ export function AdminLayout() {
                   <button
                     type="button"
                     onClick={() => void logout()}
-                    className="inline-flex items-center gap-1 rounded-control px-2 py-1.5 text-xs font-semibold text-suite-muted hover:bg-money-rose-soft hover:text-money-rose"
+                    className="inline-flex items-center gap-1 rounded-control px-2 py-1.5 text-xs font-semibold text-suite-muted hover:bg-money-rose-soft hover:text-money-rose dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
                   >
                     <LogOut size={15} />
                     <span className="hidden sm:inline">Keluar</span>

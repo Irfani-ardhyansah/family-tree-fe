@@ -97,7 +97,7 @@ export function DashboardPage() {
             className="suite-card p-4 transition hover:-translate-y-0.5 hover:shadow-md"
           >
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">
+              <p className="text-xs font-semibold uppercase tracking-wider text-suite-faint">
                 {label}
               </p>
               <span
@@ -127,7 +127,7 @@ export function DashboardPage() {
             </Link>
           </div>
           <Card className="overflow-hidden">
-            <ul className="divide-y divide-ink-100">
+            <ul className="divide-y divide-suite-border">
               {data.recentLogs.map((log) => (
                 <li
                   key={log.id}
@@ -135,10 +135,10 @@ export function DashboardPage() {
                 >
                   <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-admin-500" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-ink-800">
+                    <p className="text-sm font-medium text-suite-ink">
                       {log.summary}
                     </p>
-                    <p className="mt-0.5 text-xs text-ink-400">
+                    <p className="mt-0.5 text-xs text-suite-faint">
                       {log.userName} · {formatRelativeTime(log.timestamp)}
                     </p>
                   </div>
@@ -159,16 +159,16 @@ export function DashboardPage() {
                 to={to}
                 className="suite-card group flex items-center gap-3 px-4 py-3.5 transition hover:-translate-y-0.5 hover:border-admin-200 hover:shadow-md"
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink-900 text-admin-300 transition group-hover:bg-admin-600 group-hover:text-white">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-admin-700 text-admin-100 transition group-hover:bg-admin-600 group-hover:text-white dark:bg-admin-600/40 dark:text-admin-200">
                   <Icon size={18} />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-ink-800">{label}</p>
-                  <p className="text-xs text-ink-400">{hint}</p>
+                  <p className="text-sm font-semibold text-suite-ink">{label}</p>
+                  <p className="text-xs text-suite-faint">{hint}</p>
                 </div>
                 <ArrowRight
                   size={16}
-                  className="ml-auto text-ink-300 transition group-hover:translate-x-0.5 group-hover:text-admin-600"
+                  className="ml-auto text-suite-faint transition group-hover:translate-x-0.5 group-hover:text-admin-600 dark:group-hover:text-admin-300"
                 />
               </Link>
             ))}

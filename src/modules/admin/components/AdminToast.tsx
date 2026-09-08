@@ -44,14 +44,14 @@ export function AdminToastProvider({ children }: { children: ReactNode }) {
             key={t.id}
             className={`pointer-events-auto flex items-start gap-2.5 rounded-2xl border px-3.5 py-3 shadow-lg backdrop-blur-md animate-[adminSlideIn_0.28s_ease-out] ${
               t.kind === 'success'
-                ? 'border-admin-200 bg-white/95 text-ink-800'
-                : 'border-rose-200 bg-white/95 text-ink-800'
+                ? 'border-admin-200 bg-suite-surface/95 text-suite-ink dark:border-admin-500/40'
+                : 'border-rose-200 bg-suite-surface/95 text-suite-ink dark:border-rose-500/40'
             }`}
           >
             {t.kind === 'success' ? (
-              <CheckCircle size={18} className="mt-0.5 shrink-0 text-admin-600" />
+              <CheckCircle size={18} className="mt-0.5 shrink-0 text-admin-600 dark:text-admin-300" />
             ) : (
-              <AlertCircle size={18} className="mt-0.5 shrink-0 text-rose-500" />
+              <AlertCircle size={18} className="mt-0.5 shrink-0 text-rose-500 dark:text-rose-300" />
             )}
             <p className="flex-1 text-sm font-medium leading-snug">{t.message}</p>
             <button
@@ -59,7 +59,7 @@ export function AdminToastProvider({ children }: { children: ReactNode }) {
               onClick={() =>
                 setItems((prev) => prev.filter((x) => x.id !== t.id))
               }
-              className="rounded-lg p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+              className="rounded-lg p-1 text-suite-faint hover:bg-suite-soft hover:text-suite-ink"
             >
               <X size={14} />
             </button>

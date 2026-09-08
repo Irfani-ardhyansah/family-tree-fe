@@ -2,13 +2,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
 import { moneyPaths } from '@/shared/routes';
 
-/** Banner + hint when switching Dummy ↔ API. */
+/** Banner hanya untuk error / setup / saldo awal — tanpa card info Mode API. */
 export function DataSourceBanner() {
   const location = useLocation();
   const {
     dataSource,
-    apiReady,
-    apiLoading,
     apiError,
     setup,
     needsOpeningBalancesUi,
@@ -18,34 +16,18 @@ export function DataSourceBanner() {
   const onOpeningPage = location.pathname === moneyPaths.opening;
   const pocketCount = accounts.reduce((n, a) => n + a.pockets.length, 0);
 
-  if (dataSource === 'dummy') {
-    return (
-      <div className="mb-4 rounded-[10px] border border-[#cfd8e2] bg-money-brown-soft/70 px-4 py-2.5 text-[12.5px] text-money-brown-deep">
-        Mode <b>Dummy</b> — menampilkan data mock untuk verifikasi layout.
-      </div>
-    );
-  }
-
-  if (apiLoading) {
-    return (
-      <div className="mb-4 rounded-[10px] border border-money-blue/25 bg-money-blue-soft px-4 py-2.5 text-[12.5px] text-money-blue">
-        Mode <b>API</b> — memuat data dari backend…
-      </div>
-    );
-  }
-
-  if (apiError) {
+  if (dataSource === 'api' && apiError) {
     return (
       <div className="mb-4 rounded-[10px] border border-money-rose/30 bg-money-rose-soft px-4 py-2.5 text-[12.5px] text-money-rose">
-        Mode <b>API</b> — {apiError}
+        {apiError}
       </div>
     );
   }
 
-  if (setup && !setup.isConfigured) {
+  if (dataSource === 'api' && setup && !setup.isConfigured) {
     return (
       <div className="mb-4 rounded-[10px] border border-money-amber/30 bg-money-amber-soft px-4 py-2.5 text-[12.5px] text-[#7a561f]">
-        Mode <b>API</b> — workspace belum dikonfigurasi.{' '}
+        Workspace belum dikonfigurasi.{' '}
         <Link to={moneyPaths.setup} className="font-bold underline">
           Buka setup
         </Link>
@@ -53,32 +35,28 @@ export function DataSourceBanner() {
     );
   }
 
-  return (
-    <div className="mb-4 space-y-2">
-      <div className="rounded-[10px] border border-money-blue/25 bg-money-blue-soft px-4 py-2.5 text-[12.5px] text-money-blue">
-        Mode <b>API</b>
-        {apiReady ? ' — data dari backend.' : ' — menunggu data workspace.'}
+  if (dataSource === 'api' && needsOpeningBalancesUi && !onOpeningPage) {
+    return (
+      <div className="mb-4 rounded-[10px] border border-money-amber/35 bg-money-amber-soft px-4 py-2.5 text-[12.5px] text-[#7a561f]">
+        {pocketCount === 0 ? (
+          <>
+            Data contoh sudah dihapus. Tambah account &amp; pocket dulu, lalu isi{' '}
+            <Link to={moneyPaths.opening} className="font-bold underline">
+              Saldo Awal
+            </Link>
+            .
+          </>
+        ) : (
+          <>
+            Langkah berikutnya: isi saldo riil per kantong.{' '}
+            <Link to={moneyPaths.opening} className="font-bold underline">
+              Buka Saldo Awal
+            </Link>
+          </>
+        )}
       </div>
-      {needsOpeningBalancesUi && !onOpeningPage ? (
-        <div className="rounded-[10px] border border-money-amber/35 bg-money-amber-soft px-4 py-2.5 text-[12.5px] text-[#7a561f]">
-          {pocketCount === 0 ? (
-            <>
-              Data contoh sudah dihapus. Tambah account &amp; pocket dulu, lalu isi{' '}
-              <Link to={moneyPaths.opening} className="font-bold underline">
-                Saldo Awal
-              </Link>
-              .
-            </>
-          ) : (
-            <>
-              Langkah berikutnya: isi saldo riil per kantong.{' '}
-              <Link to={moneyPaths.opening} className="font-bold underline">
-                Buka Saldo Awal
-              </Link>
-            </>
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
+    );
+  }
+
+  return null;
 }

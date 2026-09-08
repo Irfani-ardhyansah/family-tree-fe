@@ -39,36 +39,40 @@ const NAV_ITEMS = [
     label: 'Beranda',
     end: true,
     Icon: Home,
-    activeClass: 'bg-sky-100 text-sky-800 ring-sky-200',
+    activeClass:
+      'bg-sky-100 text-sky-800 ring-sky-200 dark:bg-sky-950/60 dark:text-sky-200 dark:ring-sky-800',
     iconActive: 'bg-sky-600 text-white',
-    iconIdle: 'bg-sky-50 text-sky-600',
+    iconIdle: 'bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300',
   },
   {
     to: corePaths.documents,
     label: 'Dokumen',
     end: false,
     Icon: FileText,
-    activeClass: 'bg-sky-100 text-sky-800 ring-sky-200',
+    activeClass:
+      'bg-sky-100 text-sky-800 ring-sky-200 dark:bg-sky-950/60 dark:text-sky-200 dark:ring-sky-800',
     iconActive: 'bg-sky-600 text-white',
-    iconIdle: 'bg-sky-50 text-sky-600',
+    iconIdle: 'bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300',
   },
   {
     to: corePaths.health,
     label: 'Health',
     end: false,
     Icon: Heart,
-    activeClass: 'bg-rose-50 text-rose-800 ring-rose-200',
+    activeClass:
+      'bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-950/50 dark:text-rose-200 dark:ring-rose-900',
     iconActive: 'bg-rose-500 text-white',
-    iconIdle: 'bg-rose-50 text-rose-500',
+    iconIdle: 'bg-rose-50 text-rose-500 dark:bg-rose-950/40 dark:text-rose-300',
   },
   {
     to: corePaths.calendar,
     label: 'Kalender',
     end: false,
     Icon: Calendar,
-    activeClass: 'bg-teal-50 text-teal-800 ring-teal-200',
+    activeClass:
+      'bg-teal-50 text-teal-800 ring-teal-200 dark:bg-teal-950/50 dark:text-teal-200 dark:ring-teal-900',
     iconActive: 'bg-teal-600 text-white',
-    iconIdle: 'bg-teal-50 text-teal-600',
+    iconIdle: 'bg-teal-50 text-teal-600 dark:bg-teal-950/40 dark:text-teal-300',
   },
 ] as const;
 
@@ -131,12 +135,12 @@ function FamilyCoreChrome() {
 
   return (
     <div data-module="core" className="flex min-h-screen flex-col bg-suite-bg text-suite-ink">
-      <header className="sticky top-0 z-40 border-b border-sky-100/80 bg-suite-surface/85 shadow-[0_1px_0_rgba(14,116,144,0.06)] backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-suite-border bg-suite-surface/90 shadow-[0_1px_0_rgba(14,116,144,0.06)] backdrop-blur-md dark:shadow-[0_1px_0_rgba(0,0,0,0.35)]">
         {/* Brand row — extra vertical room so icons/shadows aren’t clipped by backdrop-blur */}
         <div className="mx-auto flex w-full max-w-[1280px] items-center gap-2.5 px-3 py-3 sm:gap-3 sm:px-6 sm:py-3.5 lg:px-7">
           <Link
             to={appPaths.launcher}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-brand-500 transition-colors hover:bg-sky-50 hover:text-sky-700"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-suite-muted transition-colors hover:bg-suite-soft hover:text-sky-600 dark:hover:text-sky-300"
             title="Semua modul"
             aria-label="Semua modul"
           >
@@ -146,7 +150,7 @@ function FamilyCoreChrome() {
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
             <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-gradient-to-br from-sky-500 to-sky-700 text-white sm:h-10 sm:w-10 sm:rounded-[12px]">
               <Home size={17} />
-              <span className="absolute bottom-0.5 right-0.5 h-2 w-2 rounded-full border-[1.5px] border-white bg-emerald-400" />
+              <span className="absolute bottom-0.5 right-0.5 h-2 w-2 rounded-full border-[1.5px] border-white bg-emerald-400 dark:border-suite-surface" />
             </span>
             <div className="min-w-0 leading-tight">
               <div className="truncate text-[15px] font-bold tracking-tight text-suite-ink">
@@ -167,7 +171,7 @@ function FamilyCoreChrome() {
                   key={m.id}
                   title={m.name}
                   className={[
-                    'flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white shadow-sm',
+                    'flex h-8 w-8 items-center justify-center rounded-full border-2 border-suite-surface text-[10px] font-bold text-white shadow-sm',
                     m.avatarTone,
                   ].join(' ')}
                 >
@@ -175,7 +179,7 @@ function FamilyCoreChrome() {
                 </span>
               ))}
               {extraMembers > 0 ? (
-                <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[10px] font-bold text-slate-600 shadow-sm">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-suite-surface bg-suite-soft text-[10px] font-bold text-suite-muted shadow-sm">
                   +{extraMembers}
                 </span>
               ) : null}
@@ -204,7 +208,7 @@ function FamilyCoreChrome() {
             <button
               type="button"
               onClick={() => void logout()}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-[12.5px] font-medium leading-none text-gray-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-[12.5px] font-medium leading-none text-suite-muted transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
             >
               <LogOut size={15} className="shrink-0" />
               <span className="hidden sm:inline">Keluar</span>
@@ -224,7 +228,7 @@ function FamilyCoreChrome() {
                   'group inline-flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-control px-2.5 py-2.5 text-[13px] font-semibold leading-none transition-all sm:justify-start sm:px-3',
                   isActive
                     ? `${item.activeClass} ring-1 ring-inset shadow-sm`
-                    : 'text-brand-500 hover:bg-white/80 hover:text-brand-700',
+                    : 'text-suite-muted hover:bg-suite-soft hover:text-suite-ink',
                 ].join(' ')
               }
             >
@@ -246,34 +250,34 @@ function FamilyCoreChrome() {
         </nav>
 
         {/* Context strip */}
-        <div className="border-t border-sky-100/70 bg-gradient-to-r from-sky-50/90 via-white to-teal-50/60">
+        <div className="border-t border-suite-border bg-suite-soft/80 dark:bg-suite-soft/40">
           <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center gap-2 px-3 py-2 text-[12.5px] sm:px-6 lg:px-7">
-            <span className="font-semibold text-sky-900/80">Ringkasan</span>
-            <span className="rounded-full border border-sky-200/80 bg-white px-2.5 py-0.5 text-[11.5px] font-bold text-sky-800">
+            <span className="font-semibold text-suite-muted">Ringkasan</span>
+            <span className="rounded-full border border-suite-border bg-suite-surface px-2.5 py-0.5 text-[11.5px] font-bold text-sky-700 dark:text-sky-300">
               {loading ? '…' : `${documents.length} dokumen`}
             </span>
             {urgentDocs > 0 ? (
-              <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11.5px] font-bold text-amber-800">
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11.5px] font-bold text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
                 {urgentDocs} perlu perhatian
               </span>
             ) : (
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11.5px] font-bold text-emerald-700">
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11.5px] font-bold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
                 Dokumen aman
               </span>
             )}
-            <span className="rounded-full border border-teal-200/80 bg-white px-2.5 py-0.5 text-[11.5px] font-bold text-teal-800">
+            <span className="rounded-full border border-suite-border bg-suite-surface px-2.5 py-0.5 text-[11.5px] font-bold text-teal-700 dark:text-teal-300">
               {upcomingEvents} jadwal ke depan
             </span>
 
             {error &&
             !/password kedua|unlock|verifikasi/i.test(error) ? (
-              <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11.5px] font-bold text-rose-700">
+              <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11.5px] font-bold text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
                 {error}
               </span>
             ) : null}
 
             {canUseMock ? (
-              <div className="inline-flex items-center gap-1 rounded-xl border border-dashed border-sky-200 bg-white/80 p-1">
+              <div className="inline-flex items-center gap-1 rounded-xl border border-dashed border-suite-border bg-suite-surface p-1">
                 <button
                   type="button"
                   onClick={() => setSource('api')}
@@ -281,7 +285,7 @@ function FamilyCoreChrome() {
                     'inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold transition-colors',
                     source === 'api'
                       ? 'bg-emerald-500 text-white'
-                      : 'text-brand-500 hover:bg-sky-50',
+                      : 'text-suite-muted hover:bg-suite-soft',
                   ].join(' ')}
                   title="Data dari backend API"
                 >
@@ -295,7 +299,7 @@ function FamilyCoreChrome() {
                     'inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold transition-colors',
                     source === 'mock'
                       ? 'bg-violet-500 text-white'
-                      : 'text-brand-500 hover:bg-sky-50',
+                      : 'text-suite-muted hover:bg-suite-soft',
                   ].join(' ')}
                   title="Data mock lokal"
                 >
@@ -311,7 +315,7 @@ function FamilyCoreChrome() {
                 <span
                   key={m.id}
                   className={[
-                    'flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[9px] font-bold text-white',
+                    'flex h-6 w-6 items-center justify-center rounded-full border-2 border-suite-surface text-[9px] font-bold text-white',
                     m.avatarTone,
                   ].join(' ')}
                 >
@@ -363,15 +367,17 @@ function FamilyCoreChrome() {
                   onClick={() => handleQuickAction(action.key)}
                   className={[
                     'flex w-full items-center gap-3 rounded-control px-2.5 py-2.5 text-left transition-colors hover:bg-suite-soft',
-                    index === 0 ? 'bg-sky-50/80' : '',
+                    index === 0 ? 'bg-sky-50/80 dark:bg-sky-950/40' : '',
                   ].join(' ')}
                 >
                   <span
                     className={[
                       'flex h-10 w-10 items-center justify-center rounded-[11px]',
                       action.tone === 'sky' && 'bg-sky-600 text-white',
-                      action.tone === 'teal' && 'bg-teal-100 text-teal-700',
-                      action.tone === 'rose' && 'bg-rose-100 text-rose-600',
+                      action.tone === 'teal' &&
+                        'bg-teal-100 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300',
+                      action.tone === 'rose' &&
+                        'bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-300',
                     ]
                       .filter(Boolean)
                       .join(' ')}

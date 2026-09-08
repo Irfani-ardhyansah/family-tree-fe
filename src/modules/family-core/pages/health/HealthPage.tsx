@@ -32,26 +32,26 @@ export function HealthPage() {
 
       <div className="mb-4 grid grid-cols-2 gap-3">
         <CoreCard className="p-4">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-brand-400">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-suite-faint">
             Jadwal dokter
           </p>
-          <p className="mt-1 text-2xl font-bold text-brand-800">
+          <p className="mt-1 text-2xl font-bold text-suite-ink">
             {upcomingCount}
           </p>
-          <p className="text-[12px] text-brand-400">tercatat (dummy)</p>
+          <p className="text-[12px] text-suite-faint">tercatat (dummy)</p>
         </CoreCard>
         <CoreCard className="p-4">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-brand-400">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-suite-faint">
             Reminder obat
           </p>
-          <p className="mt-1 text-2xl font-bold text-brand-800">
+          <p className="mt-1 text-2xl font-bold text-suite-ink">
             {medReminderCount}
           </p>
-          <p className="text-[12px] text-brand-400">aktif</p>
+          <p className="text-[12px] text-suite-faint">aktif</p>
         </CoreCard>
       </div>
 
-      <CoreCard className="overflow-hidden divide-y divide-gray-100">
+      <CoreCard className="overflow-hidden divide-y divide-suite-border">
         {CORE_MEMBERS.map((member) => {
           const profile = getProfile(member.id);
           const allergyCount = profile.allergies.length;
@@ -62,7 +62,7 @@ export function HealthPage() {
             <Link
               key={member.id}
               to={corePaths.healthMember(member.id)}
-              className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-rose-50/50"
+              className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-rose-50/50 dark:hover:bg-rose-950/30"
             >
               <span
                 className={[
@@ -74,7 +74,7 @@ export function HealthPage() {
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-[14px] font-semibold text-brand-800">
+                  <p className="text-[14px] font-semibold text-suite-ink">
                     {member.name}
                   </p>
                   <span
@@ -82,20 +82,20 @@ export function HealthPage() {
                       'rounded-full px-2 py-0.5 text-[10.5px] font-bold',
                       member.role === 'father_in_law' ||
                       member.role === 'mother_in_law'
-                        ? 'bg-amber-50 text-amber-800'
-                        : 'bg-gray-100 text-brand-500',
+                        ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200'
+                        : 'bg-suite-soft text-suite-muted',
                     ].join(' ')}
                   >
                     {CORE_MEMBER_ROLE_LABEL[member.role]}
                   </span>
                   {profile.basics.bloodType ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
                       <Heart size={10} />
                       {profile.basics.bloodType}
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-0.5 truncate text-[12.5px] text-brand-500">
+                <p className="mt-0.5 truncate text-[12.5px] text-suite-muted">
                   {[
                     profile.basics.heightCm
                       ? `${profile.basics.heightCm} cm`
@@ -110,18 +110,18 @@ export function HealthPage() {
                     .join(' · ') || 'Belum ada data dasar'}
                 </p>
                 {nextAppt ? (
-                  <p className="mt-0.5 flex items-center gap-1 text-[11.5px] font-medium text-amber-700">
+                  <p className="mt-0.5 flex items-center gap-1 text-[11.5px] font-medium text-amber-700 dark:text-amber-300">
                     <Activity size={11} />
                     {nextAppt.title}
                   </p>
                 ) : allergyCount > 0 ? (
-                  <p className="mt-0.5 flex items-center gap-1 text-[11.5px] font-medium text-brand-400">
+                  <p className="mt-0.5 flex items-center gap-1 text-[11.5px] font-medium text-suite-faint">
                     <AlertCircle size={11} />
                     Catat alergi untuk keadaan darurat
                   </p>
                 ) : null}
               </div>
-              <ChevronRight size={16} className="shrink-0 text-brand-300" />
+              <ChevronRight size={16} className="shrink-0 text-suite-faint" />
             </Link>
           );
         })}

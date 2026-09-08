@@ -16,7 +16,13 @@ export function ThemeToggle({
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={(event) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        toggle({
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        });
+      }}
       title={isDark ? 'Mode siang' : 'Mode malam'}
       aria-label={isDark ? 'Aktifkan mode siang' : 'Aktifkan mode malam'}
       className={cx(
