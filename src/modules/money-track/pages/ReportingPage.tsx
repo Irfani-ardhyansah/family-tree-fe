@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, EyeOff } from 'react-feather';
+import { ChevronRight, Download, EyeOff, List } from 'react-feather';
 import { fetchMoneyMonthlyReport } from '@/modules/money-track/api/moneyApi';
 import { DataSourceBanner } from '@/modules/money-track/components/DataSourceBanner';
+import {
+  MoneyDetailSheet,
+  type MoneyDetailRequest,
+} from '@/modules/money-track/components/MoneyDetailSheet';
 import {
   FieldLabel,
   FieldSelect,
@@ -241,18 +245,20 @@ function DonutChart({
   return (
     <div className="relative mx-auto h-[240px] w-[240px]">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={cx} cy={cy} r={outerR + 2} fill="#efeae3" />
+        <circle className="fill-money-soft" cx={cx} cy={cy} r={outerR + 2} />
         {segments.map(({ slice, start, end, active, dimmed, excluded, dx, dy }) => (
           <g
             key={slice.key}
-            className={excluded ? 'cursor-default' : 'cursor-pointer'}
+            className={[
+              excluded ? 'cursor-default' : 'cursor-pointer',
+              active
+                ? 'drop-shadow-[0_4px_8px_rgba(31,42,31,0.22)] dark:drop-shadow-[0_4px_10px_rgba(0,0,0,0.55)]'
+                : '',
+            ].join(' ')}
             style={{
               transform: `translate(${dx}px, ${dy}px)`,
-              opacity: excluded ? 0.2 : dimmed ? 0.32 : 1,
+              opacity: excluded ? 0.28 : dimmed ? 0.38 : 1,
               transition: 'transform 320ms ease-out, opacity 280ms ease-out',
-              filter: active
-                ? 'drop-shadow(0 4px 8px rgba(31, 42, 31, 0.22))'
-                : 'none',
             }}
             role="button"
             tabIndex={excluded ? -1 : 0}
@@ -274,10 +280,13 @@ function DonutChart({
             <path
               d={donutSegmentPath(cx, cy, innerR, outerR, start, end)}
               fill={slice.color}
+              className="dark:brightness-125 dark:saturate-125"
+              stroke="rgb(var(--suite-surface))"
+              strokeWidth={1.25}
             />
           </g>
         ))}
-        <circle cx={cx} cy={cy} r={innerR - 1} fill="#fffdf9" />
+        <circle className="fill-money-surface" cx={cx} cy={cy} r={innerR - 1} />
       </svg>
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
         {selected ? (
@@ -780,7 +789,13 @@ function PersonBreakdown({ bars }: { bars: PersonBar[] }) {
   );
 }
 
-function PocketBreakdown({ bars }: { bars: PocketBar[] }) {
+function PocketBreakdown({
+  bars,
+  onOpen,
+}: {
+  bars: PocketBar[];
+  onOpen: (bar: PocketBar) => void;
+}) {
   const max = Math.max(1, ...bars.map((b) => b.expense));
   if (bars.length === 0) {
     return (
@@ -793,26 +808,35 @@ function PocketBreakdown({ bars }: { bars: PocketBar[] }) {
     <ul className="space-y-3">
       {bars.slice(0, 8).map((bar) => (
         <li key={bar.key}>
-          <div className="mb-1 flex items-baseline justify-between gap-2">
-            <span className="truncate text-[13px] font-bold">{bar.label}</span>
-            <span className="font-money-mono shrink-0 text-[12px] font-extrabold text-money-rose">
-              {formatIdr(bar.expense)}
-            </span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-money-soft">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: `${(bar.expense / max) * 100}%`,
-                backgroundColor: COLOR_EXPENSE,
-              }}
-            />
-          </div>
-          {bar.income > 0 ? (
-            <div className="mt-0.5 text-[11px] text-money-faint">
-              Masuk {formatIdr(bar.income)}
+          <button
+            type="button"
+            onClick={() => onOpen(bar)}
+            className="w-full rounded-[10px] text-left hover:bg-money-soft/70"
+          >
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <span className="truncate text-[13px] font-bold">{bar.label}</span>
+              <span className="flex shrink-0 items-center gap-1">
+                <span className="font-money-mono text-[12px] font-extrabold text-money-rose">
+                  {formatIdr(bar.expense)}
+                </span>
+                <ChevronRight size={14} className="text-money-faint" />
+              </span>
             </div>
-          ) : null}
+            <div className="h-2 overflow-hidden rounded-full bg-money-soft">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${(bar.expense / max) * 100}%`,
+                  backgroundColor: COLOR_EXPENSE,
+                }}
+              />
+            </div>
+            {bar.income > 0 ? (
+              <div className="mt-0.5 text-[11px] text-money-faint">
+                Masuk {formatIdr(bar.income)}
+              </div>
+            ) : null}
+          </button>
         </li>
       ))}
     </ul>
@@ -838,6 +862,7 @@ export function ReportingPage() {
   const [kind, setKind] = useState<ReportKind>('expense');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [hoverDay, setHoverDay] = useState<number | null>(null);
+  const [detail, setDetail] = useState<MoneyDetailRequest | null>(null);
   const [excluded, setExcluded] = useState(readExcludedCategories);
   const excludedExpenseKeys = useMemo(
     () => new Set(excluded.expense.map((item) => item.key)),
@@ -1044,6 +1069,47 @@ export function ReportingPage() {
     });
   };
 
+  const personId = scope === 'all' ? undefined : scope;
+
+  const openActivityDetail = (
+    input: Omit<
+      Extract<MoneyDetailRequest, { mode: 'activity' }>,
+      'mode' | 'from' | 'to' | 'personId'
+    > & { from?: string; to?: string },
+  ) => {
+    setDetail({
+      mode: 'activity',
+      from: input.from ?? fromDate,
+      to: input.to ?? toDate,
+      personId,
+      title: input.title,
+      subtitle: input.subtitle,
+      kind: input.kind,
+      categoryId: input.categoryId,
+      uncategorized: input.uncategorized,
+      categoryKey: input.categoryKey,
+      pocketId: input.pocketId,
+      pocketLabel: input.pocketLabel,
+      excludeCategoryKeys: input.excludeCategoryKeys,
+    });
+  };
+
+  const openCategoryDetail = (slice: CategorySlice) => {
+    openActivityDetail({
+      title: slice.label,
+      subtitle: `${kind === 'expense' ? 'Pengeluaran' : 'Pemasukan'} · ${periodLabel}`,
+      kind,
+      categoryId: slice.categoryId ?? undefined,
+      uncategorized: slice.categoryId == null,
+      categoryKey: slice.key,
+    });
+  };
+
+  const focusedSlice =
+    selectedKey && !activeExcludedKeys.has(selectedKey)
+      ? (allSlices.find((slice) => slice.key === selectedKey) ?? null)
+      : null;
+
   const handleExport = () => {
     if (!report) return;
     downloadMonthlyCsv({
@@ -1124,18 +1190,50 @@ export function ReportingPage() {
       ) : null}
 
       <div className="mb-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MoneyCard className="px-5 py-4">
-          <div className="text-[11px] font-bold uppercase tracking-wide text-money-faint">
-            Pemasukan
+        <MoneyCard
+          className="px-5 py-4"
+          onClick={() =>
+            openActivityDetail({
+              title: 'Pemasukan',
+              subtitle:
+                excluded.income.length > 0
+                  ? `${periodLabel} · kategori dikecualikan disembunyikan`
+                  : periodLabel,
+              kind: 'income',
+              excludeCategoryKeys: excluded.income.map((item) => item.key),
+            })
+          }
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-money-faint">
+              Pemasukan
+            </div>
+            <ChevronRight size={15} className="text-money-faint" aria-hidden />
           </div>
           <div className="mt-1 font-money-mono text-xl font-extrabold text-money-brown-deep">
             {loading ? '…' : formatIdr(incomeTotal)}
           </div>
           {!loading ? <MomBadge pct={incomeMom} /> : null}
         </MoneyCard>
-        <MoneyCard className="px-5 py-4">
-          <div className="text-[11px] font-bold uppercase tracking-wide text-money-faint">
-            Pengeluaran
+        <MoneyCard
+          className="px-5 py-4"
+          onClick={() =>
+            openActivityDetail({
+              title: 'Pengeluaran',
+              subtitle:
+                excluded.expense.length > 0
+                  ? `${periodLabel} · kategori dikecualikan disembunyikan`
+                  : periodLabel,
+              kind: 'expense',
+              excludeCategoryKeys: excluded.expense.map((item) => item.key),
+            })
+          }
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-money-faint">
+              Pengeluaran
+            </div>
+            <ChevronRight size={15} className="text-money-faint" aria-hidden />
           </div>
           <div className="mt-1 font-money-mono text-xl font-extrabold text-money-rose">
             {loading ? '…' : formatIdr(expenseTotal)}
@@ -1168,9 +1266,21 @@ export function ReportingPage() {
             </div>
           ) : null}
         </MoneyCard>
-        <MoneyCard className="px-5 py-4">
-          <div className="text-[11px] font-bold uppercase tracking-wide text-money-faint">
-            Utang / Piutang open
+        <MoneyCard
+          className="px-5 py-4"
+          onClick={() =>
+            setDetail({
+              mode: 'debts',
+              title: 'Utang / Piutang',
+              subtitle: `Catatan terbuka · ${scopeLabel}`,
+            })
+          }
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-money-faint">
+              Utang / Piutang open
+            </div>
+            <ChevronRight size={15} className="text-money-faint" aria-hidden />
           </div>
           <div className="mt-1 font-money-mono text-[15px] font-extrabold text-money-ink">
             −{formatIdr(debtSnapshot.utang)}
@@ -1265,28 +1375,42 @@ export function ReportingPage() {
                 Belum ada pengeluaran.
               </p>
             ) : (
-              <ol className="space-y-3">
+              <ol className="space-y-1">
                 {topExpenseDays.map((d, i) => (
-                  <li
-                    key={d.dateIso}
-                    className="flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-money-soft text-[12px] font-extrabold text-money-muted">
-                        {i + 1}
-                      </span>
-                      <div>
-                        <div className="text-[13.5px] font-bold">
-                          Tanggal {d.day}
-                        </div>
-                        <div className="text-[11px] text-money-faint">
-                          Masuk {formatIdr(d.income)}
+                  <li key={d.dateIso}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openActivityDetail({
+                          title: `Tanggal ${d.day}`,
+                          subtitle: `Pengeluaran · ${periodLabel}`,
+                          kind: 'expense',
+                          from: d.dateIso,
+                          to: d.dateIso,
+                        })
+                      }
+                      className="flex w-full items-center justify-between gap-3 rounded-[10px] px-1 py-2 text-left hover:bg-money-soft/70"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-money-soft text-[12px] font-extrabold text-money-muted">
+                          {i + 1}
+                        </span>
+                        <div>
+                          <div className="text-[13.5px] font-bold">
+                            Tanggal {d.day}
+                          </div>
+                          <div className="text-[11px] text-money-faint">
+                            Masuk {formatIdr(d.income)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="font-money-mono text-[14px] font-extrabold text-money-rose">
-                      {formatIdr(d.expense)}
-                    </div>
+                      <span className="flex shrink-0 items-center gap-1">
+                        <span className="font-money-mono text-[14px] font-extrabold text-money-rose">
+                          {formatIdr(d.expense)}
+                        </span>
+                        <ChevronRight size={14} className="text-money-faint" />
+                      </span>
+                    </button>
                   </li>
                 ))}
               </ol>
@@ -1307,7 +1431,18 @@ export function ReportingPage() {
                 Memuat…
               </p>
             ) : (
-              <PocketBreakdown bars={pocketBars} />
+              <PocketBreakdown
+                bars={pocketBars}
+                onOpen={(bar) =>
+                  openActivityDetail({
+                    title: bar.label,
+                    subtitle: `Pengeluaran · ${periodLabel}`,
+                    kind: 'expense',
+                    pocketId: bar.pocketId ?? undefined,
+                    pocketLabel: bar.pocketId ? undefined : bar.label,
+                  })
+                }
+              />
             )}
           </MoneyCard>
 
@@ -1408,6 +1543,37 @@ export function ReportingPage() {
                   ? 'Komposisi pengeluaran'
                   : 'Komposisi pemasukan'}
               </p>
+              <button
+                type="button"
+                title={
+                  focusedSlice
+                    ? `Rincian ${focusedSlice.label}`
+                    : 'Rincian komposisi'
+                }
+                aria-label={
+                  focusedSlice
+                    ? `Rincian ${focusedSlice.label}`
+                    : 'Rincian komposisi'
+                }
+                onClick={() => {
+                  if (focusedSlice) {
+                    openCategoryDetail(focusedSlice);
+                    return;
+                  }
+                  openActivityDetail({
+                    title: kind === 'expense' ? 'Pengeluaran' : 'Pemasukan',
+                    subtitle:
+                      activeExcluded.length > 0
+                        ? `${periodLabel} · kategori dikecualikan disembunyikan`
+                        : periodLabel,
+                    kind,
+                    excludeCategoryKeys: [...activeExcludedKeys],
+                  });
+                }}
+                className="mt-3 flex h-8 w-8 items-center justify-center rounded-full bg-money-soft text-money-muted transition-colors hover:bg-money-brown-soft hover:text-money-brown-deep"
+              >
+                <List size={15} />
+              </button>
             </>
           )}
         </MoneyCard>
@@ -1519,6 +1685,15 @@ export function ReportingPage() {
                     </button>
                     <button
                       type="button"
+                      title={`Rincian ${slice.label}`}
+                      aria-label={`Rincian ${slice.label}`}
+                      onClick={() => openCategoryDetail(slice)}
+                      className="shrink-0 self-center px-2 py-2 text-money-faint hover:text-money-brown-deep"
+                    >
+                      <List size={16} />
+                    </button>
+                    <button
+                      type="button"
                       title={
                         excluded
                           ? `Hitung lagi ${slice.label}`
@@ -1551,6 +1726,9 @@ export function ReportingPage() {
           )}
         </MoneyCard>
       </div>
+      {detail ? (
+        <MoneyDetailSheet request={detail} onClose={() => setDetail(null)} />
+      ) : null}
     </div>
   );
 }

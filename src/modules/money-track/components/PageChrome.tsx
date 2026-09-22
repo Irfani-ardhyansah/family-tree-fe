@@ -16,10 +16,26 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
 export function MoneyCard({
   children,
   className = '',
+  onClick,
 }: {
   children: ReactNode;
   className?: string;
+  onClick?: () => void;
 }) {
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cx(
+          'suite-card w-full cursor-pointer text-left font-[inherit] text-inherit transition-colors hover:border-money-brown/40',
+          className,
+        )}
+      >
+        {children}
+      </button>
+    );
+  }
   return <Card className={className}>{children}</Card>;
 }
 

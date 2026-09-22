@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
+  CreditCard,
   Home,
   TrendingUp,
 } from 'react-feather';
@@ -13,8 +14,20 @@ import {
   mapDashboardToUi,
 } from '@/modules/money-track/api/moneyApi';
 import { DataSourceBanner } from '@/modules/money-track/components/DataSourceBanner';
+import {
+  MoneyDetailSheet,
+  type MoneyDetailRequest,
+} from '@/modules/money-track/components/MoneyDetailSheet';
+import {
+  PocketHistorySheet,
+  type PocketHistoryTarget,
+} from '@/modules/money-track/components/PocketHistorySheet';
 import { MoneyDashboardSkeleton } from '@/modules/money-track/components/MoneySkeleton';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
+import {
+  monthDateRange,
+  yearMonthFromPeriodLabel,
+} from '@/modules/money-track/lib/dateOnly';
 import {
   formatIdr,
   formatIdrShort,
@@ -99,12 +112,18 @@ export function DashboardPage() {
     activityTick,
     apiLoading,
     apiReady,
+    debts,
   } = useMoneyTrackUi();
 
+  const [detail, setDetail] = useState<MoneyDetailRequest | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<PocketHistoryTarget | null>(
+    null,
+  );
   const [scopedDash, setScopedDash] = useState<{
     summary: MoneyDashboardMock['summary'];
     recentActivity: MoneyActivityItem[];
     periodLabel: string;
+    yearMonth: string;
   } | null>(null);
   const [dashLoading, setDashLoading] = useState(dataSource === 'api');
 
@@ -129,6 +148,7 @@ export function DashboardPage() {
           summary: mapped.summary,
           recentActivity: mapped.recentActivity,
           periodLabel: mapped.periodLabel,
+          yearMonth: api.period.yearMonth,
         });
       } catch {
         if (!cancelled) setScopedDash(null);
@@ -155,6 +175,38 @@ export function DashboardPage() {
     dataSource === 'api' && scopedDash
       ? scopedDash.periodLabel
       : data.periodLabel;
+  const yearMonth =
+    dataSource === 'api' && scopedDash?.yearMonth
+      ? scopedDash.yearMonth
+      : yearMonthFromPeriodLabel(periodLabel);
+  const periodRange = monthDateRange(yearMonth);
+
+  const debtSnapshot = useMemo(() => {
+    let utang = 0;
+    let piutang = 0;
+    let count = 0;
+    for (const row of debts) {
+      if (scope !== 'all' && row.personId !== scope) continue;
+      if (row.status === 'paid') continue;
+      count += 1;
+      if (row.direction === 'utang') utang += row.remaining;
+      else piutang += row.remaining;
+    }
+    return { utang, piutang, count };
+  }, [debts, scope]);
+
+  const openFlowDetail = (kind: 'income' | 'expense') => {
+    if (!periodRange) return;
+    setDetail({
+      mode: 'activity',
+      title: kind === 'income' ? 'Pemasukan' : 'Pengeluaran',
+      subtitle: periodLabel,
+      from: periodRange.from,
+      to: periodRange.to,
+      personId: scope === 'all' ? undefined : scope,
+      kind,
+    });
+  };
 
   const visiblePersons =
     scope === 'all'
@@ -201,7 +253,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="mb-[18px] grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-[18px] grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           tone="income"
           label="Pemasukan"
@@ -215,6 +267,7 @@ export function DashboardPage() {
           }
           subTone="up"
           icon={<ArrowUpRight size={16} />}
+          onDetail={() => openFlowDetail('income')}
         />
         <StatCard
           tone="expense"
@@ -229,6 +282,7 @@ export function DashboardPage() {
           }
           subTone="down"
           icon={<ArrowDownLeft size={16} />}
+          onDetail={() => openFlowDetail('expense')}
         />
         <StatCard
           tone="diff"
@@ -246,6 +300,26 @@ export function DashboardPage() {
           value={formatIdr(summary.totalSavings)}
           sub="Tabungan + Investasi"
           icon={<Home size={16} />}
+        />
+        <StatCard
+          tone="expense"
+          label="Utang / Piutang"
+          value={`−${formatIdr(debtSnapshot.utang)}`}
+          valueClassName="text-[18px] text-money-ink"
+          extra={
+            <div className="font-money-mono text-[18px] font-extrabold tracking-tight text-money-brown-deep">
+              +{formatIdr(debtSnapshot.piutang)}
+            </div>
+          }
+          sub={`${debtSnapshot.count} catatan terbuka`}
+          icon={<CreditCard size={16} />}
+          onDetail={() =>
+            setDetail({
+              mode: 'debts',
+              title: 'Utang / Piutang',
+              subtitle: `Catatan terbuka · ${scopeLabel}`,
+            })
+          }
         />
       </div>
 
@@ -285,36 +359,53 @@ export function DashboardPage() {
                   </span>
                 </div>
               </div>
-              {person.pockets.map((pocket) => (
-                <div
-                  key={pocket.id}
-                  className="flex items-center gap-2.5 border-t border-money-border py-2.5 first:border-t-0 first:pt-0"
-                >
-                  <div
-                    className={[
-                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-                      pocketIconClass(pocket.category),
-                    ].join(' ')}
+              <div className="mt-1 space-y-0.5">
+                {person.pockets.map((pocket) => (
+                  <button
+                    key={pocket.id}
+                    type="button"
+                    onClick={() =>
+                      setHistoryTarget({
+                        pocketId: pocket.id,
+                        pocketName: pocket.name,
+                        pocketCategory: pocket.category,
+                        accountName: pocket.accountName,
+                        personName: person.name,
+                        balance: pocket.balance,
+                      })
+                    }
+                    className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-2.5 rounded-[12px] px-2.5 py-2 text-left transition-colors duration-200 ease-out hover:bg-money-brown-soft/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-money-brown/25"
                   >
-                    <span className="text-[10px] font-bold">
-                      {pocket.category === 'transaksi'
-                        ? '💳'
-                        : pocket.category === 'tabungan'
-                          ? '🏦'
-                          : '📈'}
-                    </span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-semibold">{pocket.name}</div>
-                    <div className="text-[11px] text-money-faint">
-                      {pocket.accountName}
+                    <div
+                      className={[
+                        'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 ease-out group-hover:scale-105',
+                        pocketIconClass(pocket.category),
+                      ].join(' ')}
+                    >
+                      <span className="text-[10px] font-bold">
+                        {pocket.category === 'transaksi'
+                          ? '💳'
+                          : pocket.category === 'tabungan'
+                            ? '🏦'
+                            : '📈'}
+                      </span>
                     </div>
-                  </div>
-                  <div className="font-money-mono text-[13.5px] font-bold">
-                    {formatIdr(pocket.balance)}
-                  </div>
-                </div>
-              ))}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-semibold">{pocket.name}</div>
+                      <div className="text-[11px] text-money-faint">
+                        {pocket.accountName}
+                      </div>
+                    </div>
+                    <div className="font-money-mono text-[13.5px] font-bold">
+                      {formatIdr(pocket.balance)}
+                    </div>
+                    <ChevronRight
+                      size={14}
+                      className="shrink-0 text-money-faint transition-all duration-200 ease-out group-hover:translate-x-0.5 group-hover:text-money-brown-deep"
+                    />
+                  </button>
+                ))}
+              </div>
             </section>
           );
         })}
@@ -325,8 +416,21 @@ export function DashboardPage() {
               key={joint.id}
               className="rounded-[14px] border border-money-border bg-money-surface p-[18px_20px] shadow-[0_1px_2px_rgba(31,42,31,0.04),0_8px_24px_-12px_rgba(31,42,31,0.10)] lg:col-span-2"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-money-violet-soft text-money-violet">
+              <button
+                type="button"
+                onClick={() =>
+                  setHistoryTarget({
+                    pocketId: joint.id,
+                    pocketName: joint.name,
+                    pocketCategory: 'custom',
+                    accountName: 'Bersama',
+                    personName: data.persons.map((p) => p.name).join(' & '),
+                    balance: joint.balance,
+                  })
+                }
+                className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-[12px] px-2 py-1.5 text-left transition-colors duration-200 ease-out hover:bg-money-violet-soft/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-money-violet/25"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-money-violet-soft text-money-violet transition-transform duration-200 ease-out group-hover:scale-105">
                   <Home size={20} />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -338,17 +442,23 @@ export function DashboardPage() {
                     {data.persons.map((p) => p.name).join(' & ')}
                   </div>
                 </div>
-                <div className="text-right">
-                  <b className="font-money-mono block text-base">
-                    {formatIdr(joint.balance)}
-                  </b>
-                  {joint.goalAmount != null && (
-                    <span className="text-[11px] text-money-faint">
-                      Target {formatIdr(joint.goalAmount)}
-                    </span>
-                  )}
+                <div className="flex items-center gap-1 text-right">
+                  <div>
+                    <b className="font-money-mono block text-base">
+                      {formatIdr(joint.balance)}
+                    </b>
+                    {joint.goalAmount != null && (
+                      <span className="text-[11px] text-money-faint">
+                        Target {formatIdr(joint.goalAmount)}
+                      </span>
+                    )}
+                  </div>
+                  <ChevronRight
+                    size={14}
+                    className="shrink-0 text-money-faint transition-all duration-200 ease-out group-hover:translate-x-0.5 group-hover:text-money-violet"
+                  />
                 </div>
-              </div>
+              </button>
               {joint.goalAmount != null && (
                 <div className="mt-2.5">
                   <div className="h-1.5 overflow-hidden rounded-full bg-money-soft">
@@ -481,6 +591,15 @@ export function DashboardPage() {
           ))}
         </aside>
       </div>
+      {detail ? (
+        <MoneyDetailSheet request={detail} onClose={() => setDetail(null)} />
+      ) : null}
+      {historyTarget ? (
+        <PocketHistorySheet
+          target={historyTarget}
+          onClose={() => setHistoryTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -489,18 +608,22 @@ function StatCard({
   tone,
   label,
   value,
+  extra,
   sub,
   subTone,
   icon,
   valueClassName,
+  onDetail,
 }: {
   tone: 'income' | 'expense' | 'diff' | 'saving';
   label: string;
   value: string;
+  extra?: ReactNode;
   sub: string;
   subTone?: 'up' | 'down';
   icon: ReactNode;
   valueClassName?: string;
+  onDetail?: () => void;
 }) {
   const iconWrap =
     tone === 'income'
@@ -511,16 +634,28 @@ function StatCard({
           ? 'bg-money-blue-soft text-money-blue'
           : 'bg-money-amber-soft text-money-amber';
 
-  return (
-    <div className="rounded-[14px] border border-money-border bg-money-surface p-[16px_18px] shadow-[0_1px_2px_rgba(31,42,31,0.04),0_8px_24px_-12px_rgba(31,42,31,0.10)]">
-      <div className="mb-3 flex items-center justify-between">
+  const className = [
+    'rounded-[14px] border border-money-border bg-money-surface p-[16px_18px] text-left shadow-[0_1px_2px_rgba(31,42,31,0.04),0_8px_24px_-12px_rgba(31,42,31,0.10)]',
+    onDetail
+      ? 'w-full cursor-pointer font-[inherit] text-inherit transition-colors hover:border-money-brown/40'
+      : '',
+  ].join(' ');
+
+  const body = (
+    <>
+      <div className="mb-3 flex items-center justify-between gap-2">
         <span className="text-[12px] font-bold uppercase tracking-wide text-money-faint">
           {label}
         </span>
-        <span
-          className={`flex h-8 w-8 items-center justify-center rounded-xl ${iconWrap}`}
-        >
-          {icon}
+        <span className="flex items-center gap-1.5">
+          {onDetail ? (
+            <ChevronRight size={15} className="text-money-faint" aria-hidden />
+          ) : null}
+          <span
+            className={`flex h-8 w-8 items-center justify-center rounded-xl ${iconWrap}`}
+          >
+            {icon}
+          </span>
         </span>
       </div>
       <div
@@ -533,6 +668,7 @@ function StatCard({
       >
         {value}
       </div>
+      {extra}
       <div
         className={[
           'mt-1 text-[12px] font-semibold',
@@ -545,8 +681,18 @@ function StatCard({
       >
         {sub}
       </div>
-    </div>
+    </>
   );
+
+  if (onDetail) {
+    return (
+      <button type="button" onClick={onDetail} className={className}>
+        {body}
+      </button>
+    );
+  }
+
+  return <div className={className}>{body}</div>;
 }
 
 function QuickLink({

@@ -22,6 +22,7 @@ export type PersonBar = {
 export type PocketBar = {
   key: string;
   label: string;
+  pocketId: string | null;
   income: number;
   expense: number;
 };
@@ -39,6 +40,8 @@ export type CategorySlice = {
   amount: number;
   pct: number;
   color: string;
+  /** null = tanpa kategori */
+  categoryId: string | null;
 };
 
 export type MonthlyReportView = {
@@ -91,13 +94,20 @@ const SLICE_COLORS = [
 function mapCategoryRows(
   rows: MoneyMonthlyReportApi['byCategory']['expense'],
 ): CategorySlice[] {
-  return (rows ?? []).map((row, index) => ({
-    key: String(row.categoryId ?? row.categoryName ?? index),
-    label: row.categoryName || 'Tanpa kategori',
-    amount: row.amount,
-    pct: row.pct,
-    color: SLICE_COLORS[index % SLICE_COLORS.length],
-  }));
+  return (rows ?? []).map((row, index) => {
+    const categoryId =
+      row.categoryId != null && String(row.categoryId) !== ''
+        ? String(row.categoryId)
+        : null;
+    return {
+      key: String(row.categoryId ?? row.categoryName ?? index),
+      label: row.categoryName || 'Tanpa kategori',
+      amount: row.amount,
+      pct: row.pct,
+      color: SLICE_COLORS[index % SLICE_COLORS.length],
+      categoryId,
+    };
+  });
 }
 
 export function mapMoneyMonthlyReport(
@@ -128,9 +138,14 @@ export function mapMoneyMonthlyReport(
   const pockets: PocketBar[] = (api.byPocket ?? []).map((p, i) => {
     const name = p.pocketName || 'Tanpa kantong';
     const account = p.accountName?.trim();
+    const pocketId =
+      p.pocketId != null && String(p.pocketId) !== ''
+        ? String(p.pocketId)
+        : null;
     return {
-      key: String(p.pocketId ?? `${name}-${i}`),
+      key: pocketId ?? `${name}-${i}`,
       label: account ? `${name} · ${account}` : name,
+      pocketId,
       income: p.income,
       expense: p.expense,
     };
@@ -325,7 +340,10 @@ export function applyCategoryExclusions(
 }
 
 function buildCategorySlicesLocal(rows: MoneyUiTx[]): CategorySlice[] {
-  const totals = new Map<string, { label: string; amount: number }>();
+  const totals = new Map<
+    string,
+    { label: string; amount: number; categoryId: string | null }
+  >();
   for (const row of rows) {
     const key = categoryKeyFromTx(row);
     const label =
@@ -335,6 +353,7 @@ function buildCategorySlicesLocal(rows: MoneyUiTx[]): CategorySlice[] {
     totals.set(key, {
       label: prev?.label ?? label,
       amount: (prev?.amount ?? 0) + row.amount,
+      categoryId: prev?.categoryId ?? row.categoryId,
     });
   }
   const grand = [...totals.values()].reduce((s, r) => s + r.amount, 0);
@@ -346,6 +365,7 @@ function buildCategorySlicesLocal(rows: MoneyUiTx[]): CategorySlice[] {
       amount: row.amount,
       pct: (row.amount / grand) * 100,
       color: SLICE_COLORS[index % SLICE_COLORS.length],
+      categoryId: row.categoryId,
     }))
     .sort((a, b) => b.amount - a.amount);
 }
@@ -442,9 +462,16 @@ export function buildPocketBars(rows: MoneyUiTx[]): PocketBar[] {
   const map = new Map<string, PocketBar>();
   for (const row of rows) {
     if (row.kind !== 'income' && row.kind !== 'expense') continue;
-    const key = row.pocketId || row.pocket || 'unknown';
+    const pocketId = row.pocketId || null;
+    const key = pocketId || row.pocket || 'unknown';
     const label = row.pocket?.trim() || 'Tanpa kantong';
-    const prev = map.get(key) ?? { key, label, income: 0, expense: 0 };
+    const prev = map.get(key) ?? {
+      key,
+      label,
+      pocketId,
+      income: 0,
+      expense: 0,
+    };
     if (row.kind === 'income') prev.income += row.amount;
     else prev.expense += row.amount;
     map.set(key, prev);

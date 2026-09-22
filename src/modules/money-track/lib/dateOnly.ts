@@ -29,6 +29,49 @@ export function todayDateOnlyIso(): string {
   return toDateOnlyIso(new Date());
 }
 
+const ID_MONTHS = [
+  'januari',
+  'februari',
+  'maret',
+  'april',
+  'mei',
+  'juni',
+  'juli',
+  'agustus',
+  'september',
+  'oktober',
+  'november',
+  'desember',
+];
+
+/** "Juli 2026" → `2026-07`. Fallback: bulan berjalan. */
+export function yearMonthFromPeriodLabel(label: string): string {
+  const parts = label.trim().toLowerCase().split(/\s+/);
+  const year = parts.find((part) => /^\d{4}$/.test(part));
+  const monthName = parts.find((part) => ID_MONTHS.includes(part));
+  if (year && monthName) {
+    const month = ID_MONTHS.indexOf(monthName) + 1;
+    return `${year}-${String(month).padStart(2, '0')}`;
+  }
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Batas kalender `YYYY-MM` → `from`/`to` inklusif. */
+export function monthDateRange(
+  yearMonth: string,
+): { from: string; to: string } | null {
+  const match = /^(\d{4})-(\d{2})$/.exec(yearMonth);
+  if (!match) return null;
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return null;
+  const last = new Date(Number(match[1]), month, 0).getDate();
+  return {
+    from: `${match[1]}-${match[2]}-01`,
+    to: `${match[1]}-${match[2]}-${String(last).padStart(2, '0')}`,
+  };
+}
+
 /** Label tampilan id-ID dari tanggal kalender (tanpa UTC shift). */
 export function formatDateOnlyLabel(value: string): string {
   const iso = toDateOnlyIso(value);
