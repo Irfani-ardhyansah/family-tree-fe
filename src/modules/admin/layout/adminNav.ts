@@ -1,6 +1,7 @@
 import {
   Activity,
   Archive,
+  BarChart2,
   Bell,
   Clipboard,
   Settings,
@@ -15,6 +16,7 @@ export type AdminNavItem = {
   label: string;
   icon: typeof Shield;
   end?: boolean;
+  title?: string;
 };
 
 export type AdminNavGroup = {
@@ -32,6 +34,18 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { to: adminPaths.modules, label: 'Status Modul', icon: Sliders },
       { to: adminPaths.audit, label: 'Audit Log', icon: Clipboard },
       { to: adminPaths.sessions, label: 'Session', icon: Users },
+    ],
+  },
+  {
+    id: 'portfolio',
+    label: 'Portfolio',
+    items: [
+      {
+        to: adminPaths.analytics,
+        label: 'Analytics',
+        icon: BarChart2,
+        title: 'Portfolio · Analytics',
+      },
     ],
   },
   {

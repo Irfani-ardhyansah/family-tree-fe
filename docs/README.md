@@ -77,6 +77,7 @@ docs/
 |------|--------|
 | [`requests/from-be/done/WEB-PUSH-FE-PROMPT.md`](./requests/from-be/done/WEB-PUSH-FE-PROMPT.md) | Web Push (VAPID) — FE wired |
 | [`requests/from-be/done/SECONDARY-PASSWORD-FE-PROMPT.md`](./requests/from-be/done/SECONDARY-PASSWORD-FE-PROMPT.md) | Password kedua (Admin / Money / Household) |
+| [`requests/from-be/done/PORTFOLIO-ANALYTICS-ADMIN-FE-PROMPT.md`](./requests/from-be/done/PORTFOLIO-ANALYTICS-ADMIN-FE-PROMPT.md) | Admin Portfolio analytics |
 
 ## Requests from BE — pending
 

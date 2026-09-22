@@ -84,8 +84,8 @@ export function AdminSidebar({
                     key={item.to}
                     to={item.to}
                     end={item.end}
-                    title={item.label}
-                    aria-label={item.label}
+                    title={item.title ?? item.label}
+                    aria-label={item.title ?? item.label}
                     onClick={onNavigate}
                     className={({ isActive }) =>
                       cx(

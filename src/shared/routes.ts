@@ -61,6 +61,7 @@ export const householdPaths = {
 
 export const adminPaths = {
   home: '/admin',
+  analytics: '/admin/analytics',
   rbac: '/admin/rbac',
   modules: '/admin/modules',
   audit: '/admin/audit',

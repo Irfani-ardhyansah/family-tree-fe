@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Activity,
   ArrowRight,
+  BarChart2,
   Bell,
   Clipboard,
   Sliders,
@@ -20,6 +21,12 @@ import { adminPaths } from '@/shared/routes';
 import { Card } from '@/shared/ui';
 
 const QUICK_LINKS = [
+  {
+    to: adminPaths.analytics,
+    label: 'Portfolio analytics',
+    hint: 'Traffic & lead site',
+    icon: BarChart2,
+  },
   {
     to: adminPaths.modules,
     label: 'Status Modul',

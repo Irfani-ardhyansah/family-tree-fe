@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router-dom';
 import { AdminRoute } from '@/app/routes/guards';
 import { SensitiveModuleRoute } from '@/app/routes/SensitiveModuleRoute';
 import { AdminLayout } from '@/modules/admin/layout/AdminLayout';
+import { AnalyticsPage } from '@/modules/admin/pages/AnalyticsPage';
 import { AuditLogPage } from '@/modules/admin/pages/AuditLogPage';
 import { BackupExportPage } from '@/modules/admin/pages/BackupExportPage';
 import { BroadcastPage } from '@/modules/admin/pages/BroadcastPage';
@@ -23,6 +24,7 @@ export const adminRoutes: RouteObject[] = [
             element: <AdminLayout />,
             children: [
               { index: true, element: <DashboardPage /> },
+              { path: 'analytics', element: <AnalyticsPage /> },
               // RBAC Modul — disembunyikan sementara
               { path: 'modules', element: <StatusModulPage /> },
               { path: 'audit', element: <AuditLogPage /> },
