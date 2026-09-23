@@ -69,6 +69,7 @@ export const adminPaths = {
   broadcast: '/admin/broadcast',
   settings: '/admin/settings',
   backup: '/admin/backup',
+  biometric: '/admin/biometric',
 } as const;
 
 export const modulePaths = {

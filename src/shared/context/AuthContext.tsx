@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { AuthMeResponse, AuthPerson } from '@/shared/types/api';
+import type { AuthMeResponse, AuthPerson, LoginResponse } from '@/shared/types/api';
 import {
   bootstrapSession,
   clearModuleUnlockToken,
@@ -107,6 +107,10 @@ type AuthContextValue = {
     code: string,
     remember: boolean,
   ) => Promise<{ ok: true; personId: number } | { ok: false; message: string }>;
+  /** Setelah token biometrik sudah disimpan, samakan person state dengan login kode keluarga. */
+  acceptLoginSession: (
+    data: LoginResponse,
+  ) => Promise<{ ok: true; personId: number }>;
   logout: () => Promise<void>;
   refreshPerson: () => Promise<void>;
   setReadFocusPersonId: (personId: number) => Promise<void>;
@@ -169,6 +173,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
   }, []);
 
+  const acceptLoginSession = useCallback(async (data: LoginResponse) => {
+    try {
+      const fullMe = await fetchMe();
+      const merged = mergeAuthPerson(data.person, {
+        ...fullMe,
+        secondaryPassword:
+          fullMe.secondaryPassword ?? data.secondaryPassword,
+      });
+      setPerson(merged);
+      persistAuthPerson(merged);
+    } catch {
+      const fallback: AuthMeResponse = {
+        ...data.person,
+        familyId: 0,
+        secondaryPassword: data.secondaryPassword,
+      };
+      setPerson(fallback);
+      persistAuthPerson(fallback);
+    }
+
+    return { ok: true as const, personId: data.person.id };
+  }, []);
+
   const login = useCallback(async (rawCode: string, remember: boolean) => {
     const code = normalizeLoginCode(rawCode);
 
@@ -189,34 +216,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const data = await loginRequest(code, remember);
-
-      try {
-        const fullMe = await fetchMe();
-        const merged = mergeAuthPerson(data.person, {
-          ...fullMe,
-          secondaryPassword:
-            fullMe.secondaryPassword ?? data.secondaryPassword,
-        });
-        setPerson(merged);
-        persistAuthPerson(merged);
-      } catch {
-        const fallback: AuthMeResponse = {
-          ...data.person,
-          familyId: 0,
-          secondaryPassword: data.secondaryPassword,
-        };
-        setPerson(fallback);
-        persistAuthPerson(fallback);
-      }
-
-      return { ok: true as const, personId: data.person.id };
+      return await acceptLoginSession(data);
     } catch (error) {
       return {
         ok: false as const,
         message: mapLoginError(error),
       };
     }
-  }, []);
+  }, [acceptLoginSession]);
 
   const logout = useCallback(async () => {
     try {
@@ -318,6 +325,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mustSetupSecondaryPassword,
       hasSecondaryPassword,
       login,
+      acceptLoginSession,
       logout,
       refreshPerson,
       setReadFocusPersonId,
@@ -330,6 +338,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mustSetupSecondaryPassword,
       hasSecondaryPassword,
       login,
+      acceptLoginSession,
       logout,
       refreshPerson,
       setReadFocusPersonId,

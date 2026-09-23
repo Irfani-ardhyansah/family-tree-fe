@@ -15,6 +15,7 @@ import type {
   BroadcastMessage,
   CreateAgeRuleInput,
   ModuleRuntimeStatus,
+  StatusModuleId,
   SendBroadcastInput,
   UpdateAgeRuleInput,
 } from '@/modules/admin/types';
@@ -80,7 +81,7 @@ function normalizeModuleStatus(
   raw: Partial<ModuleRuntimeStatus> & { moduleId: string },
 ): ModuleRuntimeStatus {
   return {
-    moduleId: raw.moduleId as AppModuleId,
+    moduleId: raw.moduleId as StatusModuleId,
     enabled: Boolean(raw.enabled),
     updatedAt: raw.updatedAt ?? new Date().toISOString(),
     updatedBy: raw.updatedBy ?? '—',
@@ -201,7 +202,7 @@ export async function fetchModuleStatuses(): Promise<ModuleRuntimeStatus[]> {
 }
 
 export async function toggleModuleStatus(
-  moduleId: AppModuleId,
+  moduleId: StatusModuleId,
   enabled: boolean,
   _actorName = 'Admin',
 ): Promise<ModuleRuntimeStatus> {

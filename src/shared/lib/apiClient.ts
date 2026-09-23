@@ -434,23 +434,33 @@ export async function apiBlobFetch(
   return { blob: await res.blob(), filename };
 }
 
-export async function loginRequest(
-  code: string,
-  remember: boolean,
-): Promise<LoginResponse> {
-  const res = await fetch(`${BASE}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, remember }),
-  });
-
-  const data = await parseResponse<LoginResponse>(res);
-
+/** Simpan access, refresh, dan session id dengan aturan remember yang sama seperti login kode keluarga. */
+export function commitAuthSession(data: LoginResponse, remember: boolean) {
   accessToken = data.accessToken;
   refreshToken = data.refreshToken;
   persistTokens(data.accessToken, data.refreshToken, remember);
   applySessionIdFromAuth(data.sessionId);
+}
 
+/** POST JSON tanpa Bearer. Untuk login kode keluarga dan login biometrik. */
+export async function publicJsonFetch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return parseResponse<T>(res);
+}
+
+export async function loginRequest(
+  code: string,
+  remember: boolean,
+): Promise<LoginResponse> {
+  const data = await publicJsonFetch<LoginResponse>('/auth/login', {
+    code,
+    remember,
+  });
+  commitAuthSession(data, remember);
   return data;
 }
 

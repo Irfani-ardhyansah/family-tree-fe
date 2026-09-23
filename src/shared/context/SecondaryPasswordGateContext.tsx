@@ -17,7 +17,25 @@ import {
   type ReactNode,
 } from 'react';
 import { Eye, EyeOff, Lock, Shield } from 'react-feather';
+import {
+  browserSupportsWebAuthn,
+  platformAuthenticatorIsAvailable,
+} from '@simplewebauthn/browser';
 import { ApiClientError, hasValidModuleUnlock, SECONDARY_UNLOCK_REQUIRED_EVENT } from '@/shared/lib/apiClient';
+import { BiometricActionButton } from '@/shared/components/ui/BiometricActionButton';
+import {
+  clearBiometricLoginMarker,
+  hasBiometricLoginMarker,
+  isBiometricModuleEnabled,
+} from '@/shared/lib/biometricLocal';
+import {
+  isBiometricCancelled,
+  isBiometricRouteMissing,
+  isBiometricUnsupported,
+  mapBiometricMessage,
+  shouldClearBiometricMarker,
+} from '@/shared/lib/webauthnErrors';
+import { unlockWithWebAuthn } from '@/shared/lib/webauthnApi';
 import {
   changeSecondaryPassword,
   setupSecondaryPassword,
@@ -105,7 +123,7 @@ export function SecondaryPasswordGateProvider({
 }: {
   children: ReactNode;
 }) {
-  const { isAuthenticated, mustSetupSecondaryPassword, setSecondaryPasswordStatus } =
+  const { isAuthenticated, mustSetupSecondaryPassword, setSecondaryPasswordStatus, person } =
     useAuth();
   const [mode, setMode] = useState<GateMode>(null);
   const [password, setPassword] = useState('');
@@ -113,6 +131,9 @@ export function SecondaryPasswordGateProvider({
   const [currentPassword, setCurrentPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [biometricOffered, setBiometricOffered] = useState(false);
+  const [biometricBusy, setBiometricBusy] = useState(false);
+  const [quietNotice, setQuietNotice] = useState('');
   const pendingRef = useRef<PendingResolver | null>(null);
 
   const resetForm = () => {
@@ -121,6 +142,8 @@ export function SecondaryPasswordGateProvider({
     setCurrentPassword('');
     setError('');
     setBusy(false);
+    setBiometricBusy(false);
+    setQuietNotice('');
   };
 
   const closeWith = useCallback((ok: boolean) => {
@@ -174,6 +197,49 @@ export function SecondaryPasswordGateProvider({
     return () =>
       window.removeEventListener(SECONDARY_UNLOCK_REQUIRED_EVENT, onRequired);
   }, [isAuthenticated, mode, mustSetupSecondaryPassword, openMode]);
+
+  useEffect(() => {
+    if (mode !== 'verify') {
+      setBiometricOffered(false);
+      return;
+    }
+    if (!isBiometricModuleEnabled(person?.moduleStatuses)) return;
+    if (!hasBiometricLoginMarker()) return;
+    if (!window.isSecureContext || !browserSupportsWebAuthn()) return;
+
+    let cancelled = false;
+    void platformAuthenticatorIsAvailable().then((ok) => {
+      if (!cancelled && ok) setBiometricOffered(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, person?.moduleStatuses]);
+
+  const handleBiometricUnlock = async () => {
+    setError('');
+    setQuietNotice('');
+    setBiometricBusy(true);
+    try {
+      await unlockWithWebAuthn();
+      closeWith(true);
+    } catch (err) {
+      if (shouldClearBiometricMarker(err)) {
+        clearBiometricLoginMarker();
+        setBiometricOffered(false);
+        setError(mapBiometricMessage(err));
+      } else if (isBiometricRouteMissing(err) || isBiometricUnsupported(err)) {
+        setBiometricOffered(false);
+        setError('Buka dengan sidik jari belum tersedia. Masukkan password kedua.');
+      } else if (isBiometricCancelled(err)) {
+        setQuietNotice('Dibatalkan.');
+      } else {
+        setError(mapBiometricMessage(err));
+      }
+    } finally {
+      setBiometricBusy(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,8 +330,11 @@ export function SecondaryPasswordGateProvider({
       ? 'Melindungi Admin, Money Track, dan Household. Minimal 6 karakter.'
       : mode === 'change'
         ? 'Masukkan password saat ini, lalu password baru.'
-        : 'Password kedua berlaku sekitar 15 menit setelah berhasil.';
+        : biometricOffered
+          ? 'Pakai password kedua, atau sidik jari di perangkat ini. Berlaku sekitar 15 menit.'
+          : 'Password kedua berlaku sekitar 15 menit setelah berhasil.';
 
+  const locked = busy || biometricBusy;
   const submitLabel =
     busy
       ? 'Memproses…'
@@ -284,7 +353,7 @@ export function SecondaryPasswordGateProvider({
           as="div"
           className="relative z-[70]"
           onClose={() => {
-            if (!busy) closeWith(false);
+            if (!locked) closeWith(false);
           }}
         >
           <TransitionChild
@@ -390,7 +459,7 @@ export function SecondaryPasswordGateProvider({
                       <div className="flex flex-col gap-2 pt-1">
                         <button
                           type="submit"
-                          disabled={busy}
+                          disabled={locked}
                           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-500 px-4 py-3.5 text-[15px] font-semibold text-white shadow-sm shadow-primary-900/20 transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {busy && (
@@ -398,9 +467,28 @@ export function SecondaryPasswordGateProvider({
                           )}
                           {submitLabel}
                         </button>
+                        {mode === 'verify' && biometricOffered && (
+                          <div className="space-y-3 pt-1">
+                            <div className="flex items-center gap-3 text-xs font-medium text-suite-faint">
+                              <span className="h-px flex-1 bg-suite-border" />
+                              atau
+                              <span className="h-px flex-1 bg-suite-border" />
+                            </div>
+                            {quietNotice && (
+                              <p className="text-center text-sm text-suite-muted">{quietNotice}</p>
+                            )}
+                            <BiometricActionButton
+                              title="Buka dengan biometrik"
+                              hint="Tanpa mengetik password kedua"
+                              busy={biometricBusy}
+                              disabled={busy}
+                              onClick={() => void handleBiometricUnlock()}
+                            />
+                          </div>
+                        )}
                         <button
                           type="button"
-                          disabled={busy}
+                          disabled={locked}
                           onClick={() => closeWith(false)}
                           className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-suite-muted transition hover:bg-suite-soft hover:text-suite-ink disabled:opacity-50"
                         >

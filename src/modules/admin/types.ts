@@ -10,8 +10,10 @@ export type AgeAccessRule = {
   updatedAt: string;
 };
 
+export type StatusModuleId = AppModuleId | 'biometric';
+
 export type ModuleRuntimeStatus = {
-  moduleId: AppModuleId;
+  moduleId: StatusModuleId;
   enabled: boolean;
   updatedAt: string;
   updatedBy: string;

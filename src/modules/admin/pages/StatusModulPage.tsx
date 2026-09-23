@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Switch } from '@headlessui/react';
+import { Smartphone } from 'react-feather';
 import {
   fetchModuleStatuses,
   toggleModuleStatus,
@@ -11,10 +12,10 @@ import {
   AdminPageHeader,
 } from '@/modules/admin/components/PageState';
 import { useAdminToast } from '@/modules/admin/components/AdminToast';
-import type { ModuleRuntimeStatus } from '@/modules/admin/types';
+import type { ModuleRuntimeStatus, StatusModuleId } from '@/modules/admin/types';
 import { formatRelativeTime } from '@/modules/admin/utils/format';
 import { useAuth } from '@/shared/context/AuthContext';
-import { MODULE_CATALOG, type AppModuleId } from '@/shared/data/moduleCatalog';
+import { MODULE_CATALOG } from '@/shared/data/moduleCatalog';
 import { shortPersonName } from '@/shared/utils/personDisplayName';
 
 export function StatusModulPage() {
@@ -23,8 +24,8 @@ export function StatusModulPage() {
   const [statuses, setStatuses] = useState<ModuleRuntimeStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [pendingOff, setPendingOff] = useState<AppModuleId | null>(null);
-  const [togglingId, setTogglingId] = useState<AppModuleId | null>(null);
+  const [pendingOff, setPendingOff] = useState<StatusModuleId | null>(null);
+  const [togglingId, setTogglingId] = useState<StatusModuleId | null>(null);
 
   const actorName = person
     ? shortPersonName(person, person.fullName)
@@ -43,7 +44,7 @@ export function StatusModulPage() {
 
   useEffect(load, []);
 
-  const applyToggle = async (moduleId: AppModuleId, enabled: boolean) => {
+  const applyToggle = async (moduleId: StatusModuleId, enabled: boolean) => {
     const prev = statuses;
     setTogglingId(moduleId);
     setStatuses((list) =>
@@ -83,7 +84,7 @@ export function StatusModulPage() {
     }
   };
 
-  const handleToggle = (moduleId: AppModuleId, next: boolean) => {
+  const handleToggle = (moduleId: StatusModuleId, next: boolean) => {
     if (!next) {
       setPendingOff(moduleId);
       return;
@@ -158,12 +159,22 @@ export function StatusModulPage() {
             </div>
           );
         })}
+        <BiometricModuleCard
+          enabled={statuses.find((s) => s.moduleId === 'biometric')?.enabled ?? false}
+          status={statuses.find((s) => s.moduleId === 'biometric')}
+          busy={togglingId === 'biometric'}
+          onToggle={(next) => handleToggle('biometric', next)}
+        />
       </div>
 
       <ConfirmDialog
         isOpen={pendingOff != null}
         title="Matikan modul?"
-        description="Modul ini akan tidak bisa diakses oleh semua user. Lanjutkan?"
+        description={
+          pendingOff === 'biometric'
+            ? 'Tombol login biometrik dan popup akan disembunyikan. Perangkat yang sudah tersimpan tidak dihapus.'
+            : 'Modul ini akan tidak bisa diakses oleh semua user. Lanjutkan?'
+        }
         confirmLabel="Matikan modul"
         tone="warning"
         onClose={() => setPendingOff(null)}
@@ -171,6 +182,67 @@ export function StatusModulPage() {
           if (pendingOff) await applyToggle(pendingOff, false);
         }}
       />
+    </div>
+  );
+}
+
+function BiometricModuleCard({
+  enabled,
+  status,
+  busy,
+  onToggle,
+}: {
+  enabled: boolean;
+  status: ModuleRuntimeStatus | undefined;
+  busy: boolean;
+  onToggle: (next: boolean) => void;
+}) {
+  return (
+    <div
+      className={`relative overflow-hidden rounded-2xl border bg-suite-surface/90 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+        enabled
+          ? 'border-suite-border'
+          : 'border-suite-border/60 bg-suite-soft/80 opacity-90'
+      }`}
+    >
+      <div
+        className={`absolute inset-x-0 top-0 h-1 ${
+          enabled ? 'bg-admin-500' : 'bg-suite-border'
+        }`}
+      />
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-admin-700 text-admin-100 dark:bg-admin-600/40 dark:text-admin-200">
+            <Smartphone size={22} />
+          </span>
+          <div>
+            <h3 className="font-semibold text-suite-ink">Login biometrik</h3>
+            <p className="text-xs text-suite-faint">WebAuthn</p>
+          </div>
+        </div>
+        <Switch
+          checked={enabled}
+          disabled={busy}
+          onChange={onToggle}
+          className={`${
+            enabled ? 'bg-admin-600' : 'bg-suite-border'
+          } relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full transition disabled:opacity-50`}
+        >
+          <span
+            className={`${
+              enabled ? 'translate-x-6' : 'translate-x-1'
+            } pointer-events-none inline-block h-5 w-5 translate-y-1 transform rounded-full bg-white shadow transition dark:bg-suite-ink`}
+          />
+        </Switch>
+      </div>
+      <p className="mt-4 text-sm leading-relaxed text-suite-muted">
+        Masuk dengan sidik jari di perangkat yang sudah didaftarkan. Mematikan modul tidak menghapus perangkat yang tersimpan.
+      </p>
+      <p className="mt-4 text-xs text-suite-faint">
+        {status
+          ? `Diubah ${formatRelativeTime(status.updatedAt)} oleh ${status.updatedBy}`
+          : 'Belum ada riwayat perubahan'}
+      </p>
     </div>
   );
 }

@@ -1,12 +1,26 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Disclosure,
   DisclosureButton,
   DisclosurePanel,
 } from '@headlessui/react';
+import {
+  browserSupportsWebAuthn,
+  platformAuthenticatorIsAvailable,
+} from '@simplewebauthn/browser';
 import { ChevronDown, Eye, EyeOff, Key, LogIn } from 'react-feather';
+import { BiometricActionButton } from '@/shared/components/ui/BiometricActionButton';
 import { useAuth } from '@/shared/context/AuthContext';
+import { hasBiometricLoginMarker, clearBiometricLoginMarker } from '@/shared/lib/biometricLocal';
+import { loginWithWebAuthn } from '@/shared/lib/webauthnApi';
+import {
+  isBiometricCancelled,
+  isBiometricRouteMissing,
+  isBiometricUnsupported,
+  mapBiometricMessage,
+  shouldClearBiometricMarker,
+} from '@/shared/lib/webauthnErrors';
 import { appPaths } from '@/shared/routes';
 import { cx } from '@/shared/ui/cx';
 import { normalizeLoginCode, LOGIN_CODE_MAX_LENGTH } from '@/shared/utils/loginCode';
@@ -21,14 +35,35 @@ export function LoginPage() {
   const [remember, setRemember] = useState(true);
   const [showCode, setShowCode] = useState(false);
   const [error, setError] = useState('');
+  const [quietNotice, setQuietNotice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [biometricOffered, setBiometricOffered] = useState(false);
+  const [biometricBusy, setBiometricBusy] = useState(false);
 
-  const { login } = useAuth();
+  const { login, acceptLoginSession } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkDevice() {
+      if (!hasBiometricLoginMarker()) return;
+      if (!window.isSecureContext) return;
+      if (!browserSupportsWebAuthn()) return;
+      const platform = await platformAuthenticatorIsAvailable();
+      if (!cancelled && platform) setBiometricOffered(true);
+    }
+
+    void checkDevice();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setQuietNotice('');
     setIsSubmitting(true);
 
     const result = await login(code, remember);
@@ -40,6 +75,31 @@ export function LoginPage() {
     }
 
     navigate(appPaths.launcher, { replace: true });
+  };
+
+  const handleBiometric = async () => {
+    setError('');
+    setQuietNotice('');
+    setBiometricBusy(true);
+    try {
+      const session = await loginWithWebAuthn(remember);
+      await acceptLoginSession(session);
+      navigate(appPaths.launcher, { replace: true });
+    } catch (err) {
+      if (shouldClearBiometricMarker(err)) {
+        clearBiometricLoginMarker();
+        setBiometricOffered(false);
+        setError(mapBiometricMessage(err));
+      } else if (isBiometricRouteMissing(err) || isBiometricUnsupported(err)) {
+        setBiometricOffered(false);
+      } else if (isBiometricCancelled(err)) {
+        setQuietNotice('Dibatalkan.');
+      } else {
+        setError(mapBiometricMessage(err));
+      }
+    } finally {
+      setBiometricBusy(false);
+    }
   };
 
   const handleCodeChange = (value: string) => {
@@ -140,7 +200,7 @@ export function LoginPage() {
 
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || biometricBusy}
           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-500 px-4 py-3.5 text-[15px] font-semibold text-white shadow-sm shadow-primary-900/20 transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? (
@@ -151,6 +211,26 @@ export function LoginPage() {
           {isSubmitting ? 'Memproses…' : 'Masuk'}
         </button>
       </form>
+
+      {biometricOffered && (
+        <div className="mt-4">
+          <div className="mb-4 flex items-center gap-3 text-xs font-medium text-suite-faint">
+            <span className="h-px flex-1 bg-suite-border" />
+            atau
+            <span className="h-px flex-1 bg-suite-border" />
+          </div>
+          {quietNotice && (
+            <p className="mb-3 text-center text-sm text-suite-muted">{quietNotice}</p>
+          )}
+          <BiometricActionButton
+            title="Masuk dengan biometrik"
+            hint="Sidik jari di perangkat ini"
+            busy={biometricBusy}
+            disabled={isSubmitting}
+            onClick={() => void handleBiometric()}
+          />
+        </div>
+      )}
 
       <Disclosure as="div" className="mt-6 border-t border-suite-border/80 pt-4">
         {({ open }) => (

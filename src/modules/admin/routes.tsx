@@ -5,6 +5,7 @@ import { AdminLayout } from '@/modules/admin/layout/AdminLayout';
 import { AnalyticsPage } from '@/modules/admin/pages/AnalyticsPage';
 import { AuditLogPage } from '@/modules/admin/pages/AuditLogPage';
 import { BackupExportPage } from '@/modules/admin/pages/BackupExportPage';
+import { BiometricAdminPage } from '@/modules/admin/pages/BiometricAdminPage';
 import { BroadcastPage } from '@/modules/admin/pages/BroadcastPage';
 import { DashboardPage } from '@/modules/admin/pages/DashboardPage';
 import { SessionManagementPage } from '@/modules/admin/pages/SessionManagementPage';
@@ -27,6 +28,7 @@ export const adminRoutes: RouteObject[] = [
               { path: 'analytics', element: <AnalyticsPage /> },
               // RBAC Modul — disembunyikan sementara
               { path: 'modules', element: <StatusModulPage /> },
+              { path: 'biometric', element: <BiometricAdminPage /> },
               { path: 'audit', element: <AuditLogPage /> },
               { path: 'sessions', element: <SessionManagementPage /> },
               { path: 'broadcast', element: <BroadcastPage /> },

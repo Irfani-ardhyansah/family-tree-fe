@@ -8,6 +8,7 @@ import {
 } from '@headlessui/react';
 import { ArrowRight, ChevronDown, Home, Key, LogOut, Shield } from 'react-feather';
 import { NotificationBell } from '@/shared/components/ui/NotificationBell';
+import { BiometricPanel } from '@/app/launcher/BiometricPanel';
 import { useAuth } from '@/shared/context/AuthContext';
 import { useSecondaryPasswordGate } from '@/shared/context/SecondaryPasswordGateContext';
 import {
@@ -290,6 +291,8 @@ export function LauncherPage() {
             );
           })}
         </section>
+
+        <BiometricPanel />
 
         {isAdmin && (
           <button

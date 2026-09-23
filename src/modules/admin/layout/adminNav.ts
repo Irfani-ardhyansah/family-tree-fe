@@ -7,6 +7,7 @@ import {
   Settings,
   Shield,
   Sliders,
+  Smartphone,
   Users,
 } from 'react-feather';
 import { adminPaths } from '@/shared/routes';
@@ -32,6 +33,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     items: [
       { to: adminPaths.home, label: 'Dashboard', icon: Activity, end: true },
       { to: adminPaths.modules, label: 'Status Modul', icon: Sliders },
+      { to: adminPaths.biometric, label: 'Login biometrik', icon: Smartphone },
       { to: adminPaths.audit, label: 'Audit Log', icon: Clipboard },
       { to: adminPaths.sessions, label: 'Session', icon: Users },
     ],
