@@ -136,8 +136,10 @@ export function FamilyCoreDocumentsProvider({
         setDocuments((prev) => [created, ...prev]);
         return created;
       }
+      const { mediaIds: _mediaIds, files, ...rest } = draft;
       const created: CoreDocument = {
-        ...draft,
+        ...rest,
+        files: files ?? [],
         id: `doc-${crypto.randomUUID().slice(0, 8)}`,
         createdAt: nowIso(),
         updatedAt: nowIso(),
@@ -164,7 +166,19 @@ export function FamilyCoreDocumentsProvider({
           if (doc.id !== id) return doc;
           updated = {
             ...doc,
-            ...draft,
+            memberId: draft.memberId,
+            type: draft.type,
+            title: draft.title,
+            number: draft.number,
+            issuedAt: draft.issuedAt,
+            expiresAt: draft.expiresAt,
+            lifetime: draft.lifetime,
+            notes: draft.notes,
+            reminderEnabled: draft.reminderEnabled,
+            reminderDays: draft.reminderDays,
+            extras: draft.extras,
+            scanUrl: draft.scanUrl,
+            files: draft.files ?? doc.files,
             id: doc.id,
             createdAt: doc.createdAt,
             updatedAt: nowIso(),

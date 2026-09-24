@@ -16,7 +16,15 @@ import { useFamilyCoreDocuments } from '@/modules/family-core/context/FamilyCore
 import { useFamilyCoreUi } from '@/modules/family-core/context/FamilyCoreUiContext';
 import { resolveDocumentType } from '@/modules/family-core/lib/documentTypeMeta';
 import { CORE_MEMBER_ROLE_LABEL } from '@/modules/family-core/mocks/coreMembers';
+import { ImageDropzone } from '@/shared/components/ui/ImageDropzone';
 import { useDataSource } from '@/shared/context/DataSourceContext';
+import { useMediaModalSession } from '@/shared/hooks/useMediaModalSession';
+import {
+  MEDIA_MAX_FC_DOCUMENT,
+  documentFilesToMediaItems,
+  mediaItemsToOrderedIds,
+  type MediaUploadItem,
+} from '@/shared/types/media';
 import type {
   CoreDocumentDraft,
   DocumentTypeSlug,
@@ -50,8 +58,13 @@ type FormState = {
 export function DocumentFormModal() {
   const { documentModal, closeDocumentModal, openDocumentModal } =
     useFamilyCoreUi();
-  const { members, getDocument, addDocument, updateDocument, ensureDocumentDetail } =
-    useFamilyCoreDocuments();
+  const {
+    members,
+    getDocument,
+    addDocument,
+    updateDocument,
+    ensureDocumentDetail,
+  } = useFamilyCoreDocuments();
   const { types, getTypeBySlug } = useFamilyCoreDocumentTypes();
   const { isApi } = useDataSource();
 
@@ -121,6 +134,7 @@ function DocumentFormModalInner({
   onAgain: () => void;
 }) {
   const { isMock } = useDataSource();
+  const mediaSession = useMediaModalSession();
   const isEdit = Boolean(documentId && existing);
   const defaultSlug = existing?.type ?? types[0]?.slug ?? 'ktp';
   const meta0 = resolveDocumentType(getTypeBySlug(defaultSlug));
@@ -156,8 +170,20 @@ function DocumentFormModalInner({
           extras: {},
         },
   );
+  const [scans, setScans] = useState<MediaUploadItem[]>(() => {
+    if (existing?.files?.length) {
+      return documentFilesToMediaItems(existing.files);
+    }
+    if (existing?.scanUrl && existing.scanUrl !== 'api') {
+      return documentFilesToMediaItems([
+        { mediaId: `local-${existing.id}`, url: existing.scanUrl },
+      ]);
+    }
+    return [];
+  });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!isApi || !documentId) return;
@@ -177,10 +203,14 @@ function DocumentFormModalInner({
         reminderDays: detail.reminderDays,
         extras: { ...detail.extras },
       }));
+      if (detail.files?.length) {
+        setScans(documentFilesToMediaItems(detail.files));
+      }
     });
   }, [documentId, ensureDocumentDetail, getTypeBySlug, isApi]);
 
   const typeMeta = resolveDocumentType(getTypeBySlug(form.type));
+  const isUploading = scans.some((s) => s.uploading);
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -197,6 +227,11 @@ function DocumentFormModalInner({
       extras: {},
       expiresAt: meta.defaultLifetime ? '' : prev.expiresAt,
     }));
+  };
+
+  const handleClose = () => {
+    void mediaSession.cleanupPending();
+    onClose();
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -217,6 +252,25 @@ function DocumentFormModalInner({
       setError('Isi tanggal kadaluarsa, atau aktifkan Seumur hidup.');
       return;
     }
+    if (isUploading) {
+      setError('Tunggu unggahan scan selesai.');
+      return;
+    }
+    if (scans.some((s) => s.error)) {
+      setError('Ada file gagal diunggah. Hapus atau unggah ulang.');
+      return;
+    }
+
+    const readyScans = scans.filter((s) => !s.uploading && !s.error);
+    const mediaIds = mediaItemsToOrderedIds(readyScans);
+    const mockFiles = isMock
+      ? readyScans.map((s, idx) => ({
+          id: idx + 1,
+          mediaId: s.id,
+          url: s.url,
+          sortOrder: idx,
+        }))
+      : undefined;
 
     const draft: CoreDocumentDraft = {
       memberId: form.memberId,
@@ -232,24 +286,27 @@ function DocumentFormModalInner({
       reminderEnabled: form.lifetime ? false : form.reminderEnabled,
       reminderDays: form.reminderDays,
       extras: { ...form.extras },
-      scanUrl: null,
+      scanUrl: readyScans[0]?.url ?? null,
+      mediaIds: isApi ? mediaIds : undefined,
+      files: mockFiles,
     };
 
+    setSaving(true);
     try {
       if (isEdit && existing) {
-        await updateDocument(existing.id, {
-          ...draft,
-          scanUrl: existing.scanUrl,
-        });
+        await updateDocument(existing.id, draft);
       } else {
         await addDocument(draft);
       }
+      mediaSession.commitPending();
       setError(null);
       setSuccess(true);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Gagal menyimpan dokumen.',
       );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -274,13 +331,14 @@ function DocumentFormModalInner({
     <CoreModalShell
       title={isEdit ? 'Edit dokumen' : 'Tambah dokumen'}
       subtitle="Dokumen penting"
-      onClose={onClose}
+      onClose={handleClose}
       wide
       footer={
         <CoreFormFooter
           formId={FORM_ID}
-          onCancel={onClose}
+          onCancel={handleClose}
           submitLabel={isEdit ? 'Simpan perubahan' : 'Simpan dokumen'}
+          disabled={saving || isUploading}
         />
       }
     >
@@ -300,7 +358,7 @@ function DocumentFormModalInner({
         <div>
           <FieldLabel>Jenis dokumen</FieldLabel>
           {types.length === 0 ? (
-            <p className="rounded-[12px] bg-rose-50 px-3 py-3 text-[12.5px] font-semibold text-rose-700">
+            <p className="rounded-[12px] bg-rose-50 px-3 py-3 text-[12.5px] font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
               Belum ada jenis dokumen. Tambah dulu di menu Jenis dokumen.
             </p>
           ) : (
@@ -318,7 +376,7 @@ function DocumentFormModalInner({
                       'flex flex-col items-center gap-1 rounded-[12px] border-2 px-1.5 py-2 text-[10.5px] font-bold transition-colors',
                       active
                         ? `${resolved.toneBg} ${resolved.toneText} border-current`
-                        : 'border-gray-200 bg-white text-brand-500 hover:border-gray-300',
+                        : 'border-gray-200 bg-white text-brand-500 hover:border-gray-300 dark:border-suite-border dark:bg-suite-surface dark:text-suite-muted',
                     ].join(' ')}
                   >
                     <Icon size={15} />
@@ -384,7 +442,7 @@ function DocumentFormModalInner({
               value={form.expiresAt}
               disabled={form.lifetime}
               onChange={(e) => setField('expiresAt', e.target.value)}
-              className="w-full rounded-[10px] border border-gray-200 bg-gray-50 px-3 py-2.5 text-[13.5px] font-semibold text-brand-800 outline-none focus:border-sky-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-[10px] border border-gray-200 bg-gray-50 px-3 py-2.5 text-[13.5px] font-semibold text-brand-800 outline-none focus:border-sky-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-suite-border dark:bg-suite-soft dark:text-suite-ink"
             />
           </div>
         </div>
@@ -434,17 +492,27 @@ function DocumentFormModalInner({
           />
         </div>
 
-        <div className="rounded-[12px] border border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-center">
-          <p className="text-[13px] font-semibold text-brand-600">
-            Upload scan dokumen
+        <div>
+          <FieldLabel>Scan dokumen</FieldLabel>
+          <p className="mb-2 text-[12px] text-suite-faint">
+            Foto atau scan, maks {MEDIA_MAX_FC_DOCUMENT} file, masing-masing 5
+            MB. JPEG / PNG / WebP / GIF.
           </p>
-          <p className="mt-1 text-[12px] text-brand-400">
-            Dummy — media upload menyusul.
-          </p>
+          <ImageDropzone
+            value={scans}
+            onChange={setScans}
+            purpose="fc_document"
+            contextId={documentId}
+            multiple
+            maxFiles={MEDIA_MAX_FC_DOCUMENT}
+            onPendingTrack={mediaSession.trackPending}
+            onPendingUntrack={mediaSession.untrackPending}
+            disabled={saving}
+          />
         </div>
 
         {error ? (
-          <p className="rounded-xl bg-rose-50 px-3 py-2 text-[13px] font-semibold text-rose-700">
+          <p className="rounded-xl bg-rose-50 px-3 py-2 text-[13px] font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
             {error}
           </p>
         ) : null}

@@ -81,13 +81,17 @@ export function BiometricPanel() {
         setOpen(false);
       });
 
-    void platformAuthenticatorIsAvailable()
-      .then((ok) => {
-        if (!cancelled) setSensor(ok);
-      })
-      .catch(() => {
-        if (!cancelled) setSensor(false);
-      });
+    if (!window.isSecureContext) {
+      if (!cancelled) setSensor(false);
+    } else {
+      void platformAuthenticatorIsAvailable()
+        .then((ok) => {
+          if (!cancelled) setSensor(ok);
+        })
+        .catch(() => {
+          if (!cancelled) setSensor(false);
+        });
+    }
 
     return () => {
       cancelled = true;
@@ -426,9 +430,15 @@ export function BiometricPanel() {
                 </p>
               )}
 
-              {sensor === false && (
+              {sensor === false && !window.isSecureContext && (
                 <p className="mt-5 text-sm text-suite-muted">
-                  Perangkat ini tidak punya sensor biometrik.
+                  Sidik jari hanya bisa dipakai lewat https domain Tailscale, termasuk saat di rumah. Alamat IP dan http ditolak browser.
+                </p>
+              )}
+
+              {sensor === false && window.isSecureContext && (
+                <p className="mt-5 text-sm text-suite-muted">
+                  Browser ini tidak bisa memakai sidik jari. Di Android pakai Chrome.
                 </p>
               )}
             </DialogPanel>

@@ -248,6 +248,7 @@ export function mapFcDocumentListItem(dto: FcDocumentListItemDto): CoreDocument 
     reminderDays: asReminderDays(dto.reminderDays),
     extras: dto.extras ?? {},
     scanUrl: dto.fileCount > 0 ? 'api' : null,
+    files: [],
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
   };
@@ -268,6 +269,12 @@ export function mapFcDocumentDetail(dto: FcDocumentDetailDto): CoreDocument {
     reminderDays: asReminderDays(dto.reminderDays),
     extras: dto.extras ?? {},
     scanUrl: dto.files?.[0]?.url ?? (dto.fileCount > 0 ? 'api' : null),
+    files: (dto.files ?? []).map((f) => ({
+      id: f.id,
+      mediaId: f.mediaId,
+      url: f.url,
+      sortOrder: f.sortOrder,
+    })),
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
   };
@@ -290,6 +297,7 @@ function draftToApiBody(draft: CoreDocumentDraft) {
     extras: draft.extras,
     reminderEnabled: draft.reminderEnabled,
     reminderDays: draft.reminderEnabled ? draft.reminderDays : null,
+    ...(draft.mediaIds !== undefined ? { mediaIds: draft.mediaIds } : {}),
   };
 }
 

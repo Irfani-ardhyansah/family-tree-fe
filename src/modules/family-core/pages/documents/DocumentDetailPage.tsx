@@ -70,6 +70,7 @@ export function DocumentDetailPage() {
   const { openDocumentModal } = useFamilyCoreUi();
   const [toast, setToast] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!documentId || !isApi) return;
@@ -128,6 +129,13 @@ export function DocumentDetailPage() {
     }))
     .filter((row) => Boolean(row.value));
 
+  const scanFiles =
+    doc.files?.length > 0
+      ? [...doc.files].sort((a, b) => a.sortOrder - b.sortOrder)
+      : doc.scanUrl && doc.scanUrl !== 'api'
+        ? [{ id: 0, mediaId: 'local', url: doc.scanUrl, sortOrder: 0 }]
+        : [];
+
   return (
     <div>
       <div className="mb-4">
@@ -157,20 +165,40 @@ export function DocumentDetailPage() {
 
       <div className="space-y-4">
         <CoreCard className="overflow-hidden">
-          {doc.scanUrl ? (
-            <button
-              type="button"
-              className="block w-full bg-gray-50"
-              onClick={() => window.open(doc.scanUrl!, '_blank')}
-            >
-              <img
-                src={doc.scanUrl}
-                alt={`Scan ${doc.title}`}
-                className="max-h-64 w-full object-contain"
-              />
-            </button>
+          {scanFiles.length > 0 ? (
+            <div className="bg-gray-50 p-3 dark:bg-suite-soft">
+              <div
+                className={
+                  scanFiles.length === 1
+                    ? 'grid grid-cols-1'
+                    : 'grid grid-cols-2 gap-2'
+                }
+              >
+                {scanFiles.map((file, idx) => (
+                  <button
+                    key={`${file.mediaId}-${file.id}`}
+                    type="button"
+                    className="overflow-hidden rounded-xl bg-white ring-1 ring-suite-border dark:bg-suite-surface"
+                    onClick={() => setLightboxUrl(file.url)}
+                  >
+                    <img
+                      src={file.url}
+                      alt={`Scan ${doc.title} ${idx + 1}`}
+                      className={
+                        scanFiles.length === 1
+                          ? 'max-h-72 w-full object-contain'
+                          : 'aspect-[3/4] w-full object-cover'
+                      }
+                    />
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-center text-[11.5px] text-suite-faint">
+                Ketuk untuk tampilan penuh · {scanFiles.length} file
+              </p>
+            </div>
           ) : (
-            <div className="flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-sky-50 to-white px-4 py-10 text-center">
+            <div className="flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-sky-50 to-white px-4 py-10 text-center dark:from-sky-950/30 dark:to-suite-surface">
               <span
                 className={[
                   'flex h-14 w-14 items-center justify-center rounded-2xl',
@@ -180,11 +208,11 @@ export function DocumentDetailPage() {
               >
                 <Icon size={26} />
               </span>
-              <p className="text-[13px] font-semibold text-brand-600">
+              <p className="text-[13px] font-semibold text-suite-ink">
                 Belum ada scan dokumen
               </p>
-              <p className="text-[12px] text-brand-400">
-                Upload bisa ditambahkan saat edit (dummy UI).
+              <p className="text-[12px] text-suite-faint">
+                Tambahkan foto/scan lewat tombol Edit.
               </p>
             </div>
           )}
@@ -271,6 +299,23 @@ export function DocumentDetailPage() {
             : 'Sumber API — tersimpan di Family Core'}
         </p>
       </div>
+
+      
+      {lightboxUrl ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxUrl(null)}
+          aria-label="Tutup pratinjau"
+        >
+          <img
+            src={lightboxUrl}
+            alt="Pratinjau scan"
+            className="max-h-full max-w-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </button>
+      ) : null}
 
       {toast ? (
         <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full bg-brand-800 px-4 py-2 text-[12.5px] font-semibold text-white shadow-lg">

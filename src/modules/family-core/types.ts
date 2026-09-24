@@ -75,6 +75,13 @@ export type DocumentStatus = 'active' | 'expiring' | 'expired';
 
 export type ReminderDays = 7 | 14 | 30 | 60 | 90;
 
+export type CoreDocumentFile = {
+  id: number;
+  mediaId: string;
+  url: string;
+  sortOrder: number;
+};
+
 export type CoreDocument = {
   id: string;
   memberId: string;
@@ -91,16 +98,23 @@ export type CoreDocument = {
   reminderDays: ReminderDays;
   /** Extra type-specific fields */
   extras: Record<string, string>;
-  /** Optional scan preview URL (dummy) */
+  /** First scan preview URL (convenience); prefer `files` for gallery */
   scanUrl: string | null;
+  /** Attached scan files (detail); list may be empty until detail loaded */
+  files: CoreDocumentFile[];
   createdAt: string;
   updatedAt: string;
 };
 
 export type CoreDocumentDraft = Omit<
   CoreDocument,
-  'id' | 'createdAt' | 'updatedAt'
->;
+  'id' | 'createdAt' | 'updatedAt' | 'files'
+> & {
+  /** Final ordered media ids for create/update (replace-all on PATCH) */
+  mediaIds?: string[];
+  files?: CoreDocumentFile[];
+};
+
 
 /* ─── Health Tracker ─── */
 
