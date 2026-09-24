@@ -39,8 +39,11 @@ function readFileAsDataUrl(file: File): Promise<string> {
 }
 
 function validateFile(file: File): string | null {
+  if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
+    return 'PDF belum didukung. Gunakan JPEG, PNG, WEBP, atau GIF.';
+  }
   if (!ALLOWED_TYPES.has(file.type)) {
-    return 'Format harus JPEG, PNG, WEBP, atau GIF';
+    return 'Format harus JPEG, PNG, WEBP, atau GIF (PDF belum didukung).';
   }
   if (file.size > MEDIA_MAX_BYTES) {
     return 'Ukuran file maksimal 5 MB';
@@ -61,6 +64,7 @@ export function ImageDropzone({
 }: ImageDropzoneProps) {
   const { source } = useDataSource();
   const [dragging, setDragging] = useState(false);
+  const [rejectMessage, setRejectMessage] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const cancelledTempIds = useRef(new Set<string>());
   const valueRef = useRef(value);
@@ -77,7 +81,11 @@ export function ImageDropzone({
 
   const uploadOne = async (file: File) => {
     const validationError = validateFile(file);
-    if (validationError) return;
+    if (validationError) {
+      setRejectMessage(validationError);
+      return;
+    }
+    setRejectMessage(null);
 
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const placeholder: MediaUploadItem = {
@@ -148,10 +156,22 @@ export function ImageDropzone({
 
   const processFiles = async (files: FileList | File[]) => {
     if (disabled) return;
-    const imageFiles = Array.from(files)
-      .filter((f) => f.type.startsWith('image/'))
-      .slice(0, slots);
-    for (const file of imageFiles) {
+    const list = Array.from(files);
+    if (list.length === 0) return;
+
+    // Validate all selected files so PDF / wrong MIME is not silently ignored.
+    let remainingSlots = slots;
+    for (const file of list) {
+      const validationError = validateFile(file);
+      if (validationError) {
+        setRejectMessage(validationError);
+        continue;
+      }
+      if (remainingSlots <= 0) {
+        setRejectMessage(`Maksimal ${maxFiles} file.`);
+        break;
+      }
+      remainingSlots -= 1;
       await uploadOne(file);
     }
   };
@@ -196,6 +216,11 @@ export function ImageDropzone({
 
   return (
     <div className="space-y-2">
+      {rejectMessage ? (
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-[12.5px] font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+          {rejectMessage}
+        </p>
+      ) : null}
       {canAdd && (
         <div
           onDragOver={handleDragOver}

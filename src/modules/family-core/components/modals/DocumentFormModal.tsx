@@ -495,8 +495,7 @@ function DocumentFormModalInner({
         <div>
           <FieldLabel>Scan dokumen</FieldLabel>
           <p className="mb-2 text-[12px] text-suite-faint">
-            Foto atau scan, maks {MEDIA_MAX_FC_DOCUMENT} file, masing-masing 5
-            MB. JPEG / PNG / WebP / GIF.
+            Foto atau scan, maks 5 file, masing-masing 5 MB. JPEG / PNG / WebP / GIF.
           </p>
           <ImageDropzone
             value={scans}
