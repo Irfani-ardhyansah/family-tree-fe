@@ -13,6 +13,8 @@ const ACCESS_TOKEN_KEY = 'familyroots_access_token';
 const REFRESH_TOKEN_KEY = 'familyroots_refresh_token';
 const SESSION_ID_KEY = 'familyroots_session_id';
 const REMEMBER_KEY = 'familyroots_remember';
+const MODULE_UNLOCK_TOKEN_KEY = 'familyroots_module_unlock_token';
+const MODULE_UNLOCK_EXPIRES_KEY = 'familyroots_module_unlock_expires';
 
 export class ApiClientError extends Error {
   readonly code: string;
@@ -95,6 +97,23 @@ function readStoredSessionId(): string | null {
   }
 }
 
+function readStoredModuleUnlockToken(): string | null {
+  try {
+    return sessionStorage.getItem(MODULE_UNLOCK_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function readStoredModuleUnlockExpires(): number {
+  try {
+    const val = sessionStorage.getItem(MODULE_UNLOCK_EXPIRES_KEY);
+    return val ? Number.parseInt(val, 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+
 function persistSessionId(sessionId: string | null | undefined, remember: boolean) {
   try {
     if (!sessionId) {
@@ -111,11 +130,27 @@ function persistSessionId(sessionId: string | null | undefined, remember: boolea
   }
 }
 
+function persistModuleUnlockToken(token: string | null, expiresAt: number) {
+  try {
+    if (!token) {
+      sessionStorage.removeItem(MODULE_UNLOCK_TOKEN_KEY);
+      sessionStorage.removeItem(MODULE_UNLOCK_EXPIRES_KEY);
+      return;
+    }
+    sessionStorage.setItem(MODULE_UNLOCK_TOKEN_KEY, token);
+    sessionStorage.setItem(MODULE_UNLOCK_EXPIRES_KEY, String(expiresAt));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function clearStoredTokens() {
   try {
     sessionStorage.removeItem(ACCESS_TOKEN_KEY);
     sessionStorage.removeItem(REFRESH_TOKEN_KEY);
     sessionStorage.removeItem(SESSION_ID_KEY);
+    sessionStorage.removeItem(MODULE_UNLOCK_TOKEN_KEY);
+    sessionStorage.removeItem(MODULE_UNLOCK_EXPIRES_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(SESSION_ID_KEY);
     localStorage.removeItem(REMEMBER_KEY);
@@ -127,8 +162,8 @@ export function clearStoredTokens() {
 let accessToken: string | null = readStoredAccessToken();
 let refreshToken: string | null = readStoredRefreshToken();
 let sessionId: string | null = readStoredSessionId();
-let moduleUnlockToken: string | null = null;
-let moduleUnlockExpiresAt = 0;
+let moduleUnlockToken: string | null = readStoredModuleUnlockToken();
+let moduleUnlockExpiresAt = readStoredModuleUnlockExpires();
 /** Saat bootstrap, jangan fire event redirect — AuthContext yang handle. */
 let suppressSessionExpiredEvent = false;
 
@@ -159,11 +194,13 @@ export function setModuleUnlockToken(token: string, expiresInSeconds: number) {
   moduleUnlockToken = token;
   // skew 5s supaya tidak kirim token hampir expired
   moduleUnlockExpiresAt = Date.now() + Math.max(0, expiresInSeconds) * 1000 - 5000;
+  persistModuleUnlockToken(token, moduleUnlockExpiresAt);
 }
 
 export function clearModuleUnlockToken() {
   moduleUnlockToken = null;
   moduleUnlockExpiresAt = 0;
+  persistModuleUnlockToken(null, 0);
 }
 
 export function getModuleUnlockToken(): string | null {
@@ -495,7 +532,8 @@ export async function bootstrapSession(): Promise<AuthMeResponse | null> {
   accessToken = readStoredAccessToken();
   refreshToken = readStoredRefreshToken();
   sessionId = readStoredSessionId();
-  // unlock token sengaja memory-only — refresh tab = harus verify lagi
+  moduleUnlockToken = readStoredModuleUnlockToken();
+  moduleUnlockExpiresAt = readStoredModuleUnlockExpires();
 
   if (!accessToken && !refreshToken) {
     return null;

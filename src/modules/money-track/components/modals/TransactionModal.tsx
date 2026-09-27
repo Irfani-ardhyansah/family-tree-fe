@@ -41,6 +41,7 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
   const [txType, setTxType] = useState<TxType>('expense');
   const [digits, setDigits] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [categoryQuery, setCategoryQuery] = useState('');
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryIcon, setNewCategoryIcon] = useState('');
@@ -105,6 +106,12 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
         .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
     [categories, txType],
   );
+
+  const filteredCategories = useMemo(() => {
+    const q = categoryQuery.trim().toLowerCase();
+    if (!q) return typedCategories;
+    return typedCategories.filter((c) => c.name.toLowerCase().includes(q));
+  }, [typedCategories, categoryQuery]);
 
   const category =
     typedCategories.find((c) => c.id === categoryId) ?? typedCategories[0];
@@ -290,6 +297,7 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
                     setPocketId(pocketOptions[0].id);
                   }
                   setCategoryId(typedCategories[0]?.id ?? '');
+                  setCategoryQuery('');
                   setStep(2);
                   return;
                 }
@@ -320,7 +328,10 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
           <div className="flex rounded-[10px] border border-money-border bg-money-surface p-1">
             <button
               type="button"
-              onClick={() => setTxType('expense')}
+              onClick={() => {
+            setTxType('expense');
+            setCategoryQuery('');
+          }}
               className={[
                 'flex-1 rounded-lg py-2 text-[12px] font-bold',
                 txType === 'expense'
@@ -332,7 +343,10 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
             </button>
             <button
               type="button"
-              onClick={() => setTxType('income')}
+              onClick={() => {
+            setTxType('income');
+            setCategoryQuery('');
+          }}
               className={[
                 'flex-1 rounded-lg py-2 text-[12px] font-bold',
                 txType === 'income'
@@ -403,54 +417,76 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="flex h-[280px] flex-col">
             {typedCategories.length === 0 ? (
-              <p className="text-center text-[13px] text-money-faint">
-                Belum ada kategori{' '}
-                {txType === 'expense' ? 'pengeluaran' : 'pemasukan'}. Tambah
-                kategori baru di bawah.
-              </p>
-            ) : null}
-            <div className="grid grid-cols-4 gap-2.5">
-              {typedCategories.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setCategoryId(cat.id)}
-                  className="flex flex-col items-center gap-1.5"
-                >
-                  <span
-                    className={[
-                      'flex h-12 w-12 items-center justify-center rounded-[14px]',
-                      categoryId === cat.id
-                        ? 'outline outline-2 outline-offset-2 outline-money-brown'
-                        : '',
-                      'bg-money-soft text-money-ink',
-                    ].join(' ')}
-                  >
-                    <CategoryIcon icon={cat.icon} size={20} />
-                  </span>
-                  <span className="text-[10px] font-semibold text-money-muted">
-                    {cat.name}
-                  </span>
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  setCategoryError(null);
-                  setShowAddCategory(true);
-                }}
-                className="flex flex-col items-center gap-1.5"
-              >
-                <span className="flex h-12 w-12 items-center justify-center rounded-[14px] border-2 border-dashed border-money-border bg-money-soft text-money-muted">
-                  <Plus size={20} />
-                </span>
-                <span className="text-[10px] font-semibold text-money-brown-deep">
-                  Tambah
-                </span>
-              </button>
-            </div>
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-center text-[13px] text-money-faint">
+                  Belum ada kategori{' '}
+                  {txType === 'expense' ? 'pengeluaran' : 'pemasukan'}. Tambah
+                  kategori baru di bawah.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="mb-2">
+                  <FieldInput
+                    value={categoryQuery}
+                    onChange={setCategoryQuery}
+                    placeholder="Cari nama kategori…"
+                  />
+                </div>
+                {typedCategories.length > 0 && filteredCategories.length === 0 ? (
+                  <div className="flex flex-1 items-center justify-center">
+                    <p className="text-center text-[13px] text-money-faint">
+                      Tidak ada kategori yang cocok dengan pencarian.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex-1 overflow-y-auto pb-2">
+                    <div className="grid grid-cols-4 gap-2.5 pt-1">
+                      {filteredCategories.map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setCategoryId(cat.id)}
+                          className="flex flex-col items-center gap-1.5"
+                        >
+                          <span
+                            className={[
+                              'flex h-12 w-12 items-center justify-center rounded-[14px]',
+                              categoryId === cat.id
+                                ? 'outline outline-2 outline-offset-2 outline-money-brown'
+                                : '',
+                              'bg-money-soft text-money-ink',
+                            ].join(' ')}
+                          >
+                            <CategoryIcon icon={cat.icon} size={20} />
+                          </span>
+                          <span className="text-[10px] font-semibold text-money-muted">
+                            {cat.name}
+                          </span>
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCategoryError(null);
+                          setShowAddCategory(true);
+                        }}
+                        className="flex flex-col items-center gap-1.5"
+                      >
+                        <span className="flex h-12 w-12 items-center justify-center rounded-[14px] border-2 border-dashed border-money-border bg-money-soft text-money-muted">
+                          <Plus size={20} />
+                        </span>
+                        <span className="text-[10px] font-semibold text-money-brown-deep">
+                          Tambah
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )
       )}

@@ -56,6 +56,7 @@ export function EditTransactionModal({
       : '',
   );
   const [categoryId, setCategoryId] = useState(payload?.txCategoryId ?? '');
+  const [categoryQuery, setCategoryQuery] = useState('');
   const [pocketId, setPocketId] = useState(payload?.pocketId ?? '');
   const [pocketQuery, setPocketQuery] = useState('');
   const [note, setNote] = useState(payload?.txNote ?? '');
@@ -114,6 +115,12 @@ export function EditTransactionModal({
         ),
     [categories, txType],
   );
+
+  const filteredCategories = useMemo(() => {
+    const q = categoryQuery.trim().toLowerCase();
+    if (!q) return typedCategories;
+    return typedCategories.filter((c) => c.name.toLowerCase().includes(q));
+  }, [typedCategories, categoryQuery]);
 
   useEffect(() => {
     if (!typedCategories.some((c) => c.id === categoryId)) {
@@ -241,7 +248,10 @@ export function EditTransactionModal({
         <div className="flex rounded-[10px] border border-money-border bg-money-surface p-1">
           <button
             type="button"
-            onClick={() => setTxType('expense')}
+            onClick={() => {
+              setTxType('expense');
+              setCategoryQuery('');
+            }}
             className={[
               'flex-1 rounded-lg py-2 text-[12px] font-bold',
               txType === 'expense'
@@ -253,7 +263,10 @@ export function EditTransactionModal({
           </button>
           <button
             type="button"
-            onClick={() => setTxType('income')}
+            onClick={() => {
+              setTxType('income');
+              setCategoryQuery('');
+            }}
             className={[
               'flex-1 rounded-lg py-2 text-[12px] font-bold',
               txType === 'income'
@@ -275,30 +288,43 @@ export function EditTransactionModal({
           {typedCategories.length === 0 ? (
             <p className="text-[12.5px] text-money-faint">Belum ada kategori.</p>
           ) : (
-            <div className="grid max-h-36 grid-cols-4 gap-2 overflow-y-auto">
-              {typedCategories.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setCategoryId(cat.id)}
-                  className="flex flex-col items-center gap-1"
-                >
-                  <span
-                    className={[
-                      'flex h-10 w-10 items-center justify-center rounded-[12px] bg-money-soft text-money-ink',
-                      categoryId === cat.id
-                        ? 'outline outline-2 outline-offset-2 outline-money-brown'
-                        : '',
-                    ].join(' ')}
-                  >
-                    <CategoryIcon icon={cat.icon} size={16} />
-                  </span>
-                  <span className="text-[10px] font-semibold text-money-muted">
-                    {cat.name}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <>
+              <FieldInput
+                value={categoryQuery}
+                onChange={setCategoryQuery}
+                placeholder="Cari nama kategori…"
+              />
+              {filteredCategories.length === 0 ? (
+                <p className="mt-2 text-[12.5px] text-money-faint">
+                  Tidak ada kategori yang cocok dengan pencarian.
+                </p>
+              ) : (
+                <div className="mt-2 grid max-h-36 grid-cols-4 gap-2 overflow-y-auto">
+                  {filteredCategories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setCategoryId(cat.id)}
+                      className="flex flex-col items-center gap-1"
+                    >
+                      <span
+                        className={[
+                          'flex h-10 w-10 items-center justify-center rounded-[12px] bg-money-soft text-money-ink',
+                          categoryId === cat.id
+                            ? 'outline outline-2 outline-offset-2 outline-money-brown'
+                            : '',
+                        ].join(' ')}
+                      >
+                        <CategoryIcon icon={cat.icon} size={16} />
+                      </span>
+                      <span className="text-[10px] font-semibold text-money-muted">
+                        {cat.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
 
