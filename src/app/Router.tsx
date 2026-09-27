@@ -8,6 +8,7 @@ import { familyCoreRoutes } from '@/modules/family-core/routes';
 import { familyRootsRoutes } from '@/modules/family-roots/routes';
 import { householdRoutes } from '@/modules/household/routes';
 import { moneyTrackRoutes } from '@/modules/money-track/routes';
+import { taskBoardRoutes } from '@/modules/task-board/routes';
 import { AuthProvider } from '@/shared/context/AuthContext';
 import { DataSourceProvider } from '@/shared/context/DataSourceContext';
 import { SecondaryPasswordGateProvider } from '@/shared/context/SecondaryPasswordGateContext';
@@ -31,6 +32,7 @@ const router = createBrowserRouter(
         ...familyCoreRoutes,
         ...moneyTrackRoutes,
         ...householdRoutes,
+        ...taskBoardRoutes,
         ...adminRoutes,
         ...legacyRedirectRoutes,
         { path: '*', element: <Navigate to={appPaths.launcher} replace /> },

@@ -59,6 +59,13 @@ export const householdPaths = {
   home: '/home',
 } as const;
 
+export const taskBoardPaths = {
+  home: '/task-board',
+  new: '/task-board/new',
+  detail: (id: string | number) => `/task-board/${id}`,
+  edit: (id: string | number) => `/task-board/${id}/edit`,
+} as const;
+
 export const adminPaths = {
   home: '/admin',
   analytics: '/admin/analytics',
@@ -77,5 +84,6 @@ export const modulePaths = {
   core: corePaths.home,
   money: moneyPaths.home,
   household: householdPaths.home,
+  'task-board': taskBoardPaths.home,
   admin: adminPaths.home,
 } as const;

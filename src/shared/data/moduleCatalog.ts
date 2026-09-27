@@ -4,6 +4,7 @@ import {
   BookOpen,
   Box,
   Calendar,
+  CheckSquare,
   Coffee,
   CreditCard,
   FileText,
@@ -19,9 +20,10 @@ import {
   householdPaths,
   moneyPaths,
   rootsPaths,
+  taskBoardPaths,
 } from '@/shared/routes';
 
-export type AppModuleId = 'roots' | 'core' | 'money' | 'household';
+export type AppModuleId = 'roots' | 'core' | 'money' | 'household' | 'task-board';
 
 export type ModuleDevStatus = 'in-dev' | 'planned' | 'ready';
 
@@ -119,6 +121,24 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
       { label: 'Inventory rumah', icon: Box },
       { label: 'Resep & meal planner', icon: Coffee },
       { label: 'Daftar belanja', icon: ShoppingCart },
+    ],
+  },
+  {
+    id: 'task-board',
+    title: 'Task Board',
+    subtitle: 'Personal',
+    description: 'Tracker task development: bugfixing, feature, refactor.',
+    to: taskBoardPaths.home,
+    status: 'ready',
+    accent: 'border-t-amber-500',
+    iconWrap: 'bg-amber-500/12',
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    titleHover: 'group-hover:text-amber-600 dark:group-hover:text-amber-300',
+    Icon: CheckSquare,
+    features: [
+      { label: 'Task list & filter', icon: CheckSquare },
+      { label: 'Rich text editor', icon: FileText },
+      { label: 'Status tracking', icon: Activity },
     ],
   },
 ];
