@@ -1,6 +1,6 @@
 import { apiFetch, apiFormFetch } from '@/shared/lib/apiClient';
 import { buildQuery } from '@/shared/lib/apiQuery';
-import type { Task, TaskFormData, TaskListQuery } from '../types';
+import type { Task, TaskFormData, TaskHistoryEntry, TaskListQuery } from '../types';
 
 /**
  * Path relatif — di-prefix `BASE` (`VITE_API_BASE_URL`) di shared/lib/apiClient,
@@ -12,6 +12,28 @@ const TASKS_PATH = '/tasks';
 /** BE boleh balas array langsung atau terbungkus `{ items }`. */
 function toTaskList(data: Task[] | { items: Task[] }): Task[] {
   return Array.isArray(data) ? data : data?.items ?? [];
+}
+
+/**
+ * Batas API memakai snake_case untuk `migration_files` dan `parent_task_id`
+ * (BE mengabaikan nama camelCase tanpa error). Form internal FE tetap camelCase,
+ * jadi semua penulisan lewat `create()`/`update()` harus melewati mapping ini.
+ */
+function toApiPayload(data: Partial<TaskFormData>): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+
+  if (data.type !== undefined) payload.type = data.type;
+  if (data.title !== undefined) payload.title = data.title;
+  if (data.branchName !== undefined) payload.branchName = data.branchName;
+  if (data.status !== undefined) payload.status = data.status;
+  if (data.links !== undefined) payload.links = data.links;
+  if (data.descriptions !== undefined) payload.descriptions = data.descriptions;
+  if (data.deployNotes !== undefined) payload.deployNotes = data.deployNotes;
+  if (data.migrationFiles !== undefined) payload.migration_files = data.migrationFiles;
+  if (data.parentTaskId !== undefined) payload.parent_task_id = data.parentTaskId;
+  if (data.notes !== undefined) payload.notes = data.notes;
+
+  return payload;
 }
 
 export const taskBoardApi = {
@@ -28,32 +50,24 @@ export const taskBoardApi = {
     return toTaskList(data);
   },
 
-  async get(id: string): Promise<Task | null> {
-    try {
-      return await apiFetch<Task>(`${TASKS_PATH}/${id}`);
-    } catch (error) {
-      console.error('Failed to get task:', error);
-      return null;
-    }
+  /** Throws ApiClientError (404 dari BE = "Task tidak ditemukan."). */
+  async get(id: string): Promise<Task> {
+    return apiFetch<Task>(`${TASKS_PATH}/${id}`);
   },
 
   async create(data: TaskFormData): Promise<Task> {
     return apiFetch<Task>(TASKS_PATH, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(toApiPayload(data)),
     });
   },
 
-  async update(id: string, data: Partial<TaskFormData>): Promise<Task | null> {
-    try {
-      return await apiFetch<Task>(`${TASKS_PATH}/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      });
-    } catch (error) {
-      console.error('Failed to update task:', error);
-      return null;
-    }
+  /** Throws ApiClientError (mis. 422 dari validasi BE) supaya pemanggil bisa menampilkannya. */
+  async update(id: string, data: Partial<TaskFormData>): Promise<Task> {
+    return apiFetch<Task>(`${TASKS_PATH}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(toApiPayload(data)),
+    });
   },
 
   async delete(id: string): Promise<boolean> {
@@ -66,6 +80,23 @@ export const taskBoardApi = {
       console.error('Failed to delete task:', error);
       return false;
     }
+  },
+
+  /** Riwayat aksi (status, deskripsi, revisi), terbaru lebih dulu (BE yang mengurutkan). */
+  async history(id: string): Promise<TaskHistoryEntry[]> {
+    const items = await apiFetch<TaskHistoryEntry[]>(`${TASKS_PATH}/${id}/history`);
+    return items.map((item) => ({
+      ...item,
+      // BE lama belum mengirim field ini — samakan ke null supaya render aman.
+      action: item.action ?? 'status_changed',
+      related_task_id: item.related_task_id ?? null,
+      related_task_title: item.related_task_title ?? null,
+    }));
+  },
+
+  /** Daftar revisi (task anak) dari sebuah task. */
+  async revisions(id: string): Promise<Task[]> {
+    return apiFetch<Task[]>(`${TASKS_PATH}/${id}/revisions`);
   },
 
   async uploadImage(taskId: string, file: File): Promise<string> {

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Save } from 'react-feather';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { ArrowLeft, Plus, Trash2, Save, RefreshCw } from 'react-feather';
 import { taskBoardApi } from '../api/taskBoardApi';
 import { RichTextEditor } from '../components/RichTextEditor';
-import type { TaskFormData, TaskLink, TaskType, TaskStatus } from '../types';
+import type { TaskFormData, TaskLink, TaskType, TaskStatus, TaskDescription } from '../types';
 import { taskBoardPaths } from '@/shared/routes';
 
 const TYPE_OPTIONS: { value: TaskType; label: string }[] = [
@@ -16,7 +16,6 @@ const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 'To-Do', label: 'To-Do' },
   { value: 'In Progress', label: 'In Progress' },
   { value: 'Merged', label: 'Merged' },
-  { value: 'Done', label: 'Done' },
 ];
 
 const LINK_TYPE_OPTIONS: { value: TaskLink['type']; label: string }[] = [
@@ -28,7 +27,10 @@ const LINK_TYPE_OPTIONS: { value: TaskLink['type']; label: string }[] = [
 export function TaskFormPage() {
   const navigate = useNavigate();
   const { taskId } = useParams<{ taskId: string }>();
+  const location = useLocation();
   const isEdit = !!taskId;
+  const parentTaskId = location.state?.parentTaskId;
+  const isRevision = !!parentTaskId;
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -38,28 +40,44 @@ export function TaskFormPage() {
     branchName: '',
     status: 'To-Do',
     links: [],
-    description: '',
+    descriptions: [{ title: 'Deskripsi', content: '' }],
     deployNotes: '',
+    // File migration diisi manual oleh user (jangan ada nilai dummy).
+    migrationFiles: [],
+    parentTaskId: parentTaskId || null,
   });
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  /** ID induk: dari state navigasi (task baru) atau dari data task (edit). */
+  const revisionParentId: number | null =
+    (typeof parentTaskId === 'number' ? parentTaskId : null) ??
+    formData.parentTaskId ??
+    null;
 
   const loadTask = async () => {
     if (!taskId) return;
     setLoading(true);
+    setErrorMessage(null);
     try {
       const task = await taskBoardApi.get(taskId);
-      if (task) {
-        setFormData({
-          type: task.type,
-          title: task.title,
-          branchName: task.branch_name,
-          status: task.status,
-          links: task.links,
-          description: task.description || '',
-          deployNotes: task.deploy_notes || '',
-        });
-      }
+      setFormData({
+        type: task.type,
+        title: task.title,
+        branchName: task.branch_name,
+        status: task.status,
+        links: task.links,
+        descriptions: task.descriptions && task.descriptions.length > 0
+          ? task.descriptions
+          : [{ title: 'Deskripsi', content: task.description || '' }],
+        deployNotes: task.deploy_notes || '',
+        migrationFiles: task.migration_files || [],
+        parentTaskId: task.parent_task_id || null,
+      });
     } catch (error) {
-      console.error('Failed to load task:', error);
+      setErrorMessage(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Gagal memuat task.',
+      );
     } finally {
       setLoading(false);
     }
@@ -98,8 +116,62 @@ export function TaskFormPage() {
     setFormData({ ...formData, links: newLinks });
   };
 
+  const addDescription = () => {
+    setFormData({
+      ...formData,
+      descriptions: [...(formData.descriptions || []), { title: '', content: '' }],
+    });
+  };
+
+  const removeDescription = (index: number) => {
+    const newDescriptions = (formData.descriptions || []).filter((_, i) => i !== index);
+    setFormData({ ...formData, descriptions: newDescriptions });
+  };
+
+  const updateDescription = (index: number, field: keyof TaskDescription, value: string) => {
+    const newDescriptions = [...(formData.descriptions || [])];
+    newDescriptions[index] = { ...newDescriptions[index], [field]: value };
+    setFormData({ ...formData, descriptions: newDescriptions });
+  };
+
+  const addMigrationFile = () => {
+    setFormData({
+      ...formData,
+      migrationFiles: [...(formData.migrationFiles || []), ''],
+    });
+  };
+
+  const removeMigrationFile = (index: number) => {
+    const newFiles = (formData.migrationFiles || []).filter((_, i) => i !== index);
+    setFormData({ ...formData, migrationFiles: newFiles });
+  };
+
+  const updateMigrationFile = (index: number, value: string) => {
+    const newFiles = [...(formData.migrationFiles || [])];
+    newFiles[index] = value;
+    setFormData({ ...formData, migrationFiles: newFiles });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+
+    // Buang baris yang masih kosong supaya tidak dikirim ke BE (422).
+    const descriptions = (formData.descriptions ?? [])
+      .map((d) => ({ ...d, title: d.title.trim(), content: d.content.trim() }))
+      .filter((d) => d.title !== '' || d.content !== '');
+    const links = (formData.links ?? []).filter((l) => l.url.trim() !== '');
+    const migrationFiles = (formData.migrationFiles ?? []).map((f) => f.trim()).filter((f) => f !== '');
+
+    if (descriptions.length === 0) {
+      setErrorMessage('Minimal satu deskripsi wajib diisi.');
+      return;
+    }
+    if (descriptions.some((d) => !d.title || !d.content)) {
+      setErrorMessage('Setiap deskripsi butuh judul dan isi yang tidak kosong.');
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -108,9 +180,11 @@ export function TaskFormPage() {
         title: formData.title,
         branchName: formData.branchName,
         status: formData.status,
-        links: formData.links,
-        description: formData.description,
+        links,
+        descriptions,
         deployNotes: formData.deployNotes,
+        migrationFiles,
+        parentTaskId: formData.parentTaskId,
       };
 
       if (isEdit && taskId) {
@@ -120,7 +194,11 @@ export function TaskFormPage() {
       }
       navigate(taskBoardPaths.home);
     } catch (error) {
-      console.error('Failed to save task:', error);
+      setErrorMessage(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Gagal menyimpan task.',
+      );
     } finally {
       setSaving(false);
     }
@@ -144,15 +222,41 @@ export function TaskFormPage() {
         >
           <ArrowLeft size={20} />
         </button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-suite-ink">
-            {isEdit ? 'Edit Task' : 'Task Baru'}
-          </h1>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-suite-ink">
+              {isRevision ? 'Revisi Task' : isEdit ? 'Edit Task' : 'Task Baru'}
+            </h1>
+            {revisionParentId != null && (
+              <span className="inline-flex items-center gap-1 rounded-lg bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                <RefreshCw size={12} />
+                Revisi
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-sm text-suite-muted">
-            {isEdit ? 'Update task details' : 'Create a new development task'}
+            {revisionParentId != null
+              ? `Revisi dari task #${revisionParentId}`
+              : isEdit
+                ? 'Update task details'
+                : 'Create a new development task'}
           </p>
         </div>
       </div>
+
+      {errorMessage && (
+        <div className="mb-6 flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
+          <span>{errorMessage}</span>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="text-rose-400 hover:text-rose-600"
+            aria-label="Tutup pesan error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Info */}
@@ -234,6 +338,48 @@ export function TaskFormPage() {
                 ))}
               </select>
             </div>
+
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-xs font-semibold text-suite-faint">
+                File Migrasi <span className="font-normal text-suite-muted">(opsional)</span>
+              </label>
+              <div className="space-y-2">
+                {(formData.migrationFiles || []).length === 0 ? (
+                  <p className="text-sm text-suite-muted">
+                    Belum ada file migrasi. Tambah file migrasi jika diperlukan.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {(formData.migrationFiles || []).map((file, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={file}
+                          onChange={(e) => updateMigrationFile(index, e.target.value)}
+                          className="min-w-0 flex-1 rounded-lg border border-suite-border bg-suite-bg py-2.5 px-3 text-sm text-suite-ink placeholder:text-suite-faint focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
+                          placeholder="e.g., 20240925_create_users_table.ts"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeMigrationFile(index)}
+                          className="shrink-0 rounded-lg p-2.5 text-suite-muted hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={addMigrationFile}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-950/80"
+                >
+                  <Plus size={14} />
+                  Tambah File Migrasi
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -294,20 +440,55 @@ export function TaskFormPage() {
           )}
         </div>
 
-        {/* Description */}
+        {/* Descriptions */}
         <div className="rounded-xl border border-suite-border bg-suite-surface p-5">
-          <h2 className="mb-4 text-sm font-semibold text-suite-ink">
-            Deskripsi
-          </h2>
-          <RichTextEditor
-            content={formData.description || ''}
-            onChange={(content) =>
-              setFormData({ ...formData, description: content })
-            }
-            placeholder="Deskripsikan task ini... (paste gambar untuk upload)"
-            onImagePaste={handleImagePaste}
-            taskId={taskId}
-          />
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-suite-ink">Deskripsi</h2>
+            <button
+              type="button"
+              onClick={addDescription}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-950/80"
+            >
+              <Plus size={14} />
+              Tambah Deskripsi
+            </button>
+          </div>
+
+          {(formData.descriptions || []).length === 0 ? (
+            <p className="text-sm text-suite-muted">
+              Belum ada deskripsi. Tambah deskripsi untuk task ini.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {(formData.descriptions || []).map((desc, index) => (
+                <div key={index} className="rounded-lg border border-suite-border bg-suite-soft p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={desc.title}
+                      onChange={(e) => updateDescription(index, 'title', e.target.value)}
+                      className="min-w-0 flex-1 rounded-lg border border-suite-border bg-suite-bg py-2 px-3 text-sm font-semibold text-suite-ink placeholder:text-suite-faint focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      placeholder="Judul deskripsi"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeDescription(index)}
+                      className="shrink-0 rounded-lg p-2 text-suite-muted hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  <RichTextEditor
+                    content={desc.content}
+                    onChange={(content) => updateDescription(index, 'content', content)}
+                    placeholder="Isi deskripsi..."
+                    onImagePaste={handleImagePaste}
+                    taskId={taskId}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Deploy Notes */}

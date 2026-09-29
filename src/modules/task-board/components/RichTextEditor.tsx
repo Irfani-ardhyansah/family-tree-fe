@@ -28,6 +28,8 @@ export function RichTextEditor({
     ],
     content,
     onUpdate: ({ editor }) => {
+      // Guard isDestroyed: callback bisa terpanggil saat teardown (StrictMode).
+      if (editor.isDestroyed) return;
       onChange(editor.getHTML());
     },
     editorProps: {
@@ -85,14 +87,17 @@ export function RichTextEditor({
     },
   });
 
-  // Update editor content when prop changes
+  // Sinkronkan konten dari prop. Guard isDestroyed: di StrictMode/dev, cleanup
+  // unmount bisa melepas editor tepat saat effect ini jalan (schema jadi null
+  // dan editor.getHTML()/setContent() melempar "schema.cached" null).
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
+    if (!editor || editor.isDestroyed) return;
+    if (content !== editor.getHTML()) {
       editor.commands.setContent(content);
     }
   }, [content, editor]);
 
-  if (!editor) {
+  if (!editor || editor.isDestroyed) {
     return null;
   }
 

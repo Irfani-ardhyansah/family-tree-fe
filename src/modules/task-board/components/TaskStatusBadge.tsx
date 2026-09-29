@@ -17,11 +17,6 @@ const STATUS_CONFIG: Record<
   Merged: {
     label: 'Merged',
     className:
-      'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300',
-  },
-  Done: {
-    label: 'Done',
-    className:
       'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300',
   },
 };

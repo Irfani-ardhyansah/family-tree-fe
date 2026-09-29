@@ -1,4 +1,4 @@
-export type SuiteAccent = 'roots' | 'core' | 'money' | 'admin';
+export type SuiteAccent = 'roots' | 'core' | 'money' | 'admin' | 'task';
 
 export const ACCENT = {
   roots: {
@@ -32,5 +32,13 @@ export const ACCENT = {
     toggleOn: 'bg-admin-600',
     stepActive: 'bg-admin-600',
     stepDone: 'bg-admin-600/50',
+  },
+  task: {
+    primary:
+      'bg-amber-500 shadow-[0_8px_16px_-6px_rgba(245,158,11,0.45)] hover:bg-amber-600',
+    focus: 'focus:border-amber-500',
+    toggleOn: 'bg-amber-500',
+    stepActive: 'bg-amber-500',
+    stepDone: 'bg-amber-500/50',
   },
 } as const;

@@ -78,6 +78,9 @@ docs/
 | [`requests/from-be/done/WEB-PUSH-FE-PROMPT.md`](./requests/from-be/done/WEB-PUSH-FE-PROMPT.md) | Web Push (VAPID) — FE wired |
 | [`requests/from-be/done/SECONDARY-PASSWORD-FE-PROMPT.md`](./requests/from-be/done/SECONDARY-PASSWORD-FE-PROMPT.md) | Password kedua (Admin / Money / Household) |
 | [`requests/from-be/done/PORTFOLIO-ANALYTICS-ADMIN-FE-PROMPT.md`](./requests/from-be/done/PORTFOLIO-ANALYTICS-ADMIN-FE-PROMPT.md) | Admin Portfolio analytics |
+| [`requests/from-be/done/BIOMETRIC-LOGIN-FE-PROMPT.md`](./requests/from-be/done/BIOMETRIC-LOGIN-FE-PROMPT.md) | Login biometrik (WebAuthn) |
+| [`requests/from-be/done/TASK-BOARD-ENHANCEMENTS-FE-PROMPT.md`](./requests/from-be/done/TASK-BOARD-ENHANCEMENTS-FE-PROMPT.md) | Task Board: status `Merged`, deskripsi, revisi, riwayat — FE wired |
+| [`requests/from-be/done/TASK-BOARD-ACTIVITY-HISTORY-FE-PROMPT.md`](./requests/from-be/done/TASK-BOARD-ACTIVITY-HISTORY-FE-PROMPT.md) | Task Board: riwayat aktivitas (deskripsi, revisi) + link child — FE wired |
 
 ## Requests from BE — pending
 

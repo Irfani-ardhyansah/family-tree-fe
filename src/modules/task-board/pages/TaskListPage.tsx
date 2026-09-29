@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Plus } from 'react-feather';
+import { Search, Plus, RefreshCw, Database } from 'react-feather';
 import { taskBoardApi } from '../api/taskBoardApi';
 import { TaskTypeBadge } from '../components/TaskTypeBadge';
 import { TaskStatusBadge } from '../components/TaskStatusBadge';
@@ -19,7 +19,6 @@ const STATUS_OPTIONS: { value: TaskStatus | undefined; label: string }[] = [
   { value: 'To-Do', label: 'To-Do' },
   { value: 'In Progress', label: 'In Progress' },
   { value: 'Merged', label: 'Merged' },
-  { value: 'Done', label: 'Done' },
 ];
 
 export function TaskListPage() {
@@ -43,7 +42,7 @@ export function TaskListPage() {
       result = result.filter(
         (t) =>
           t.title.toLowerCase().includes(searchLower) ||
-          (t.description && t.description.toLowerCase().includes(searchLower)) ||
+          (t.descriptions && t.descriptions.some(d => d.content.toLowerCase().includes(searchLower))) ||
           (t.deploy_notes && t.deploy_notes.toLowerCase().includes(searchLower)),
       );
     }
@@ -196,9 +195,21 @@ export function TaskListPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <TaskTypeBadge type={task.type} />
                     <TaskStatusBadge status={task.status} />
+                    {task.parent_task_id ? (
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-blue-100 px-2 py-1 text-[11px] font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                        <RefreshCw size={10} />
+                        Revisi dari #{task.parent_task_id}
+                      </span>
+                    ) : null}
+                    {task.migration_files && task.migration_files.length > 0 ? (
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-violet-100 px-2 py-1 text-[11px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                        <Database size={10} />
+                        {task.migration_files.length} file migrasi
+                      </span>
+                    ) : null}
                   </div>
                   <h3 className="text-base font-semibold text-suite-ink">
                     {task.title}
