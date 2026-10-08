@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   createMoneyAccount,
   createMoneyDebt,
@@ -10,6 +11,7 @@ import {
   updateMoneyAccount,
   updateMoneyDebt,
   updateMoneyPocket,
+  type MoneyDebtBalanceWarningApi,
 } from '@/modules/money-track/api/moneyApi';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
 import { formatIdr } from '@/modules/money-track/types';
@@ -37,6 +39,25 @@ import {
   todayDateOnlyIso,
 } from '@/modules/money-track/lib/dateOnly';
 import { ApiClientError } from '@/shared/lib/apiClient';
+import { moneyPaths } from '@/shared/routes';
+
+/**
+ * Apakah kantong ini boleh dipilih saat `personId` dipilih di form.
+ *
+ * - kantong `joint` → milik bersama, tampil untuk semua person;
+ * - account tanpa pemilik (`personId` null / '') → juga dianggap bersama;
+ * - selain itu → hanya kantong milik person yang sedang dipilih.
+ */
+function pocketVisibleForPerson(
+  account: { personId: string | null },
+  pocket: { joint?: boolean },
+  personId: string,
+): boolean {
+  if (pocket.joint) return true;
+  if (account.personId == null || account.personId === '') return true;
+  if (!personId) return true;
+  return account.personId === personId;
+}
 
 export function AccountModal({
   onClose,
@@ -533,19 +554,37 @@ export function WishlistModal({ onClose }: { onClose: () => void }) {
   const [pocketQuery, setPocketQuery] = useState('');
   const [done, setDone] = useState(false);
 
-  const pocketOptions = useMemo(
-    () =>
-      accounts.flatMap((a) =>
-        a.pockets.map((p) => ({
+  const pocketOptions = useMemo(() => {
+    const list: {
+      id: string;
+      label: string;
+      balance: number;
+      search: string;
+    }[] = [];
+    for (const a of accounts) {
+      for (const p of a.pockets) {
+        // Hanya kantong milik person terpilih (+ kantong bersama/joint).
+        if (!pocketVisibleForPerson(a, p, personId)) continue;
+        list.push({
           id: p.id,
           label: `${p.name} · ${a.personName}`,
           balance: p.balance,
-          search:
-            `${p.name} ${a.personName} ${a.name} ${p.category}`.toLowerCase(),
-        })),
-      ),
-    [accounts],
-  );
+          search: `${p.name} ${a.personName} ${a.name} ${p.category}`.toLowerCase(),
+        });
+      }
+    }
+    return list;
+  }, [accounts, personId]);
+
+  // Ganti person → link kantong lama yang bukan miliknya otomatis dilepas.
+  const prevPocketPersonId = useRef(personId);
+  useEffect(() => {
+    if (prevPocketPersonId.current === personId) return;
+    prevPocketPersonId.current = personId;
+    if (pocketId && !pocketOptions.some((p) => p.id === pocketId)) {
+      setPocketId('');
+    }
+  }, [personId, pocketId, pocketOptions]);
 
   const filteredPockets = useMemo(() => {
     const q = pocketQuery.trim().toLowerCase();
@@ -681,6 +720,7 @@ export function DebtModal({
 }) {
   const {
     data,
+    accounts,
     debts,
     appendDebt,
     patchDebt,
@@ -714,9 +754,89 @@ export function DebtModal({
   );
   const [dueIso, setDueIso] = useState(payload?.debtDueDateIso ?? '');
   const [note, setNote] = useState(payload?.debtNote ?? '');
+  /** '' = tanpa kantong (catatan saja, saldo tidak berubah). */
+  const [pocketId, setPocketId] = useState(
+    payload?.debtPocketId ?? existing?.pocketId ?? '',
+  );
+  const [pocketQuery, setPocketQuery] = useState('');
+  const [balanceWarning, setBalanceWarning] =
+    useState<MoneyDebtBalanceWarningApi | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+
+  const pocketOptions = useMemo(() => {
+    const list: {
+      id: string;
+      label: string;
+      balance: number;
+      search: string;
+    }[] = [];
+    for (const acc of accounts) {
+      for (const p of acc.pockets) {
+        // Hanya kantong milik person terpilih (+ kantong bersama/joint).
+        if (!pocketVisibleForPerson(acc, p, personId)) continue;
+        list.push({
+          id: p.id,
+          label: `${p.name} · ${acc.personName} · ${acc.name}`,
+          balance: p.balance,
+          search:
+            `${p.name} ${acc.personName} ${acc.name} ${p.category}`.toLowerCase(),
+        });
+      }
+    }
+    // Link lama yang owner-nya bukan person terpilih tetap ditampilkan,
+    // supaya pilihan teratas tidak hilang diam-diam & user bisa lepas sadar.
+    if (pocketId && !list.some((o) => o.id === pocketId)) {
+      const linked = accounts
+        .flatMap((acc) =>
+          acc.pockets
+            .filter((p) => p.id === pocketId)
+            .map((p) => ({
+              id: p.id,
+              label: `${p.name} · ${acc.personName} · ${acc.name} (person lain)`,
+              balance: p.balance,
+              search: `${p.name} ${acc.personName} ${acc.name}`.toLowerCase(),
+            })),
+        )
+        .at(0);
+      list.push(
+        linked ?? {
+          id: pocketId,
+          label: `Kantong ${pocketId}`,
+          balance: 0,
+          search: '',
+        },
+      );
+    }
+    return list;
+  }, [accounts, personId, pocketId]);
+
+  const filteredPockets = useMemo(() => {
+    const q = pocketQuery.trim().toLowerCase();
+    if (!q) return pocketOptions;
+    return pocketOptions.filter((p) => p.search.includes(q));
+  }, [pocketOptions, pocketQuery]);
+
+  // Ganti person → kantong lama yang bukan miliknya otomatis dilepas
+  // (kembali ke "catatan saja", bukan diam-diam nyangkut).
+  // Sengaja pakai prev-person: saat modal dibuka (edit) link lama tidak
+  // boleh dilepas hanya karena filternya berbeda.
+  const prevPersonId = useRef(personId);
+  useEffect(() => {
+    if (prevPersonId.current === personId) return;
+    prevPersonId.current = personId;
+    if (!pocketId) return;
+    const stillVisible = accounts.some((acc) =>
+      acc.pockets.some(
+        (p) => p.id === pocketId && pocketVisibleForPerson(acc, p, personId),
+      ),
+    );
+    if (!stillVisible) setPocketId('');
+  }, [personId, pocketId, accounts]);
+
+  const selectedPocketLabel =
+    pocketOptions.find((opt) => opt.id === pocketId)?.label ?? '';
 
   const handleSave = async () => {
     const amt = parseIdrDigits(amount);
@@ -730,7 +850,7 @@ export function DebtModal({
     try {
       if (editing && editingId) {
         if (dataSource === 'api') {
-          await updateMoneyDebt(editingId, {
+          const saved = await updateMoneyDebt(editingId, {
             personId,
             counterpartyName: counterparty.trim(),
             direction: directionValue,
@@ -738,7 +858,9 @@ export function DebtModal({
             date: formDateIso,
             dueDate: formDueIso,
             note: note.trim() || null,
+            pocketId: pocketId || null,
           });
+          setBalanceWarning(saved.balanceWarning ?? null);
           await refreshApi();
           bumpActivity();
         } else {
@@ -762,10 +884,15 @@ export function DebtModal({
             dueLabel: formDueIso ? formatDateOnlyLabel(formDueIso) : '—',
             dueDateIso: formDueIso,
             note: note.trim() || null,
+            pocketId: pocketId || null,
+            pocketLabel: pocketId ? selectedPocketLabel : null,
+            netEffect:
+              (directionValue === 'utang' ? 1 : -1) * (amt - paidTotal),
+            interestAmount: Math.max(0, paidTotal - amt),
           });
         }
       } else if (dataSource === 'api') {
-        await createMoneyDebt({
+        const saved = await createMoneyDebt({
           personId,
           counterpartyName: counterparty.trim(),
           direction: directionValue,
@@ -773,7 +900,9 @@ export function DebtModal({
           date: formDateIso,
           dueDate: formDueIso,
           note: note.trim() || null,
+          pocketId: pocketId || null,
         });
+        setBalanceWarning(saved.balanceWarning ?? null);
         await refreshApi();
         bumpActivity();
       } else {
@@ -796,6 +925,10 @@ export function DebtModal({
           dueDateIso: formDueIso,
           dueSoon: false,
           note: note.trim() || null,
+          pocketId: pocketId || null,
+          pocketLabel: pocketId ? selectedPocketLabel : null,
+          netEffect: (directionValue === 'utang' ? 1 : -1) * amt,
+          interestAmount: 0,
         });
       }
       setDone(true);
@@ -856,6 +989,23 @@ export function DebtModal({
           body={`${direction} ke ${counterparty}${dataSource === 'dummy' ? ' (dummy)' : ''}.`}
           onDone={onClose}
         />
+        {balanceWarning ? (
+          <div className="mt-3 rounded-[10px] border border-money-amber/40 bg-money-amber-soft px-3 py-3">
+            <div className="text-[13px] font-bold text-money-amber">
+              Kantong perlu disesuaikan
+            </div>
+            <p className="mt-1 text-[12.5px] text-money-muted">
+              {balanceWarning.message}
+            </p>
+            <Link
+              to={moneyPaths.pockets}
+              onClick={onClose}
+              className="mt-2 inline-block rounded-full border border-money-border px-3 py-1.5 text-[12px] font-bold text-money-ink hover:bg-money-soft"
+            >
+              Atur kantong →
+            </Link>
+          </div>
+        ) : null}
       </MoneyModalShell>
     );
   }
@@ -934,6 +1084,46 @@ export function DebtModal({
           />
         </div>
         <div>
+          <FieldLabel>Kantong (opsional)</FieldLabel>
+          <FieldInput
+            value={pocketQuery}
+            onChange={setPocketQuery}
+            placeholder="Cari kantong, person, atau account…"
+          />
+          <div className="mt-2 max-h-40 space-y-1.5 overflow-y-auto">
+            <OptionCard
+              active={pocketId === ''}
+              title="Tanpa kantong (catatan saja)"
+              subtitle="Saldo tidak berubah"
+              onClick={() => setPocketId('')}
+            />
+            {pocketOptions.length === 0 ? (
+              <p className="text-[12.5px] text-money-faint">
+                Belum ada kantong untuk person ini.
+              </p>
+            ) : filteredPockets.length === 0 ? (
+              <p className="text-[12.5px] text-money-faint">
+                Tidak ada kantong yang cocok dengan pencarian.
+              </p>
+            ) : (
+              filteredPockets.map((p) => (
+                <OptionCard
+                  key={p.id}
+                  active={pocketId === p.id}
+                  title={p.label}
+                  subtitle={formatIdr(p.balance)}
+                  onClick={() => setPocketId(p.id)}
+                />
+              ))
+            )}
+          </div>
+          <p className="mt-1 text-[11.5px] text-money-faint">
+            Efek ke saldo: utang <strong>menambah</strong>, piutang
+            <strong> mengurangi</strong>. Tanpa kantong = catatan saja, saldo
+            tidak berubah.
+          </p>
+        </div>
+        <div>
           <FieldLabel>Tanggal</FieldLabel>
           <FieldInput type="date" value={dateIso} onChange={setDateIso} />
         </div>
@@ -971,20 +1161,24 @@ export function DebtPaymentModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [balanceWarning, setBalanceWarning] =
+    useState<MoneyDebtBalanceWarningApi | null>(null);
 
   const handleSave = async () => {
     if (!debt) return;
     const amt = parseIdrDigits(amount);
-    if (amt <= 0 || amt > debt.remaining) return;
+    // Overpay diizinkan: kelebihan jadi bunga (lihat preview di bawah).
+    if (amt <= 0) return;
     setSaving(true);
     setError(null);
     try {
       if (dataSource === 'api') {
-        await createMoneyDebtPayment(debt.id, {
+        const saved = await createMoneyDebtPayment(debt.id, {
           amount: amt,
           date: dateFromFormInput(dateIso),
           note: note.trim() || null,
         });
+        setBalanceWarning(saved.balanceWarning ?? null);
         await refreshApi();
         bumpActivity();
       } else {
@@ -1023,6 +1217,23 @@ export function DebtPaymentModal({
           body={`Pembayaran ${formatIdr(parseIdrDigits(amount))} untuk ${debt.counterparty}${dataSource === 'dummy' ? ' (dummy)' : ''}.`}
           onDone={onClose}
         />
+        {balanceWarning ? (
+          <div className="mt-3 rounded-[10px] border border-money-amber/40 bg-money-amber-soft px-3 py-3">
+            <div className="text-[13px] font-bold text-money-amber">
+              Kantong perlu disesuaikan
+            </div>
+            <p className="mt-1 text-[12.5px] text-money-muted">
+              {balanceWarning.message}
+            </p>
+            <Link
+              to={moneyPaths.pockets}
+              onClick={onClose}
+              className="mt-2 inline-block rounded-full border border-money-border px-3 py-1.5 text-[12px] font-bold text-money-ink hover:bg-money-soft"
+            >
+              Atur kantong →
+            </Link>
+          </div>
+        ) : null}
       </MoneyModalShell>
     );
   }
@@ -1034,11 +1245,7 @@ export function DebtPaymentModal({
       onClose={onClose}
       footer={
         <MoneyPrimaryButton
-          disabled={
-            saving ||
-            parseIdrDigits(amount) <= 0 ||
-            parseIdrDigits(amount) > debt.remaining
-          }
+          disabled={saving || parseIdrDigits(amount) <= 0}
           onClick={() => void handleSave()}
         >
           {saving ? 'Menyimpan…' : 'Simpan Pembayaran'}
@@ -1058,6 +1265,15 @@ export function DebtPaymentModal({
             onChange={setAmount}
             placeholder="mis. 200.000"
           />
+          <p className="mt-1 text-[11.5px] text-money-faint">
+            Maksimal tanpa bunga {formatIdr(debt.remaining)}. Lebih dari itu
+            dihitung sebagai bunga.
+          </p>
+          {parseIdrDigits(amount) > debt.remaining ? (
+            <div className="mt-1.5 rounded-[8px] border border-money-amber/40 bg-money-amber-soft px-2.5 py-1.5 text-[12px] font-bold text-money-amber">
+              Bunga {formatIdr(parseIdrDigits(amount) - debt.remaining)}
+            </div>
+          ) : null}
         </div>
         <div>
           <FieldLabel>Tanggal</FieldLabel>

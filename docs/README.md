@@ -60,6 +60,7 @@ docs/
 | [`requests/from-fe/done/MONEY-SAMPLE-DATA-FLAG-BE-PROMPT.md`](./requests/from-fe/done/MONEY-SAMPLE-DATA-FLAG-BE-PROMPT.md) | Flag `hasSampleData` (Hapus Data Contoh) |
 | [`requests/from-fe/done/MONEY-DATE-AND-ACTIVITY-PATCH-BE-PROMPT.md`](./requests/from-fe/done/MONEY-DATE-AND-ACTIVITY-PATCH-BE-PROMPT.md) | Date-only + PATCH transfer/cash |
 | [`requests/from-fe/done/MONEY-MONTHLY-REPORT-BE-PROMPT.md`](./requests/from-fe/done/MONEY-MONTHLY-REPORT-BE-PROMPT.md) | `GET /money/reports/monthly` — FE wired |
+| [`requests/from-fe/done/MONEY-DEBT-POCKET-LINKING-BE-PROMPT.md`](./requests/from-fe/done/MONEY-DEBT-POCKET-LINKING-BE-PROMPT.md) | Utang/piutang ngiket ke kantong + efek saldo & list transaksi |
 
 ## Requests from FE — pending
 

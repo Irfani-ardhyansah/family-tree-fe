@@ -29,9 +29,17 @@ export type PocketHistoryTarget = {
   balance: number;
 };
 
-type KindFilter = 'all' | 'income' | 'expense';
+type KindFilter = 'all' | 'income' | 'expense' | 'debt';
 
 const PAGE_SIZE = 20;
+
+/** kind='debt' → efek net (Rp 0 saat lunas, minus kalau ada bunga). */
+function debtNetLabel(row: MoneyUiTx): string {
+  const net = row.netAmount ?? row.amount;
+  if (net === 0) return 'Rp 0';
+  if (net < 0) return `−${formatIdr(Math.abs(net))}`;
+  return `+${formatIdr(net)}`;
+}
 
 function pocketTone(category: MoneyPocketCategory) {
   if (category === 'transaksi') return 'bg-money-blue-soft text-money-blue';
@@ -44,6 +52,7 @@ function kindTone(kind: string) {
   if (kind === 'income') return 'bg-money-brown-soft text-money-brown-deep';
   if (kind === 'transfer') return 'bg-money-violet-soft text-money-violet';
   if (kind === 'cash_withdrawal') return 'bg-money-amber-soft text-money-amber';
+  if (kind === 'debt') return 'bg-money-blue-soft text-money-blue';
   return 'bg-money-rose-soft text-money-rose';
 }
 
@@ -51,6 +60,7 @@ function kindLabel(kind: string) {
   if (kind === 'income') return 'Masuk';
   if (kind === 'expense') return 'Keluar';
   if (kind === 'transfer') return 'Transfer';
+  if (kind === 'debt') return 'Utang/Piutang';
   return 'Tarik tunai';
 }
 
@@ -84,6 +94,7 @@ function filterRows(
       if (!matchesPocket(row, pocketId)) return false;
       if (kind === 'income' && row.kind !== 'income') return false;
       if (kind === 'expense' && row.kind !== 'expense') return false;
+      if (kind === 'debt' && row.kind !== 'debt') return false;
       return true;
     })
     .sort((a, b) => b.dateIso.localeCompare(a.dateIso))
@@ -217,6 +228,8 @@ export function PocketHistorySheet({ target, onClose }: PocketHistorySheetProps)
 
   const handleEdit = (row: MoneyUiTx) => {
     onClose();
+    // Debt bukan ledger row → aksinya link ke halaman detail (lihat render di bawah).
+    if (row.kind === 'debt') return;
     if (row.kind === 'income' || row.kind === 'expense') {
       openModal('transaction', {
         transactionId: row.id,
@@ -313,6 +326,11 @@ export function PocketHistorySheet({ target, onClose }: PocketHistorySheetProps)
             active={kind === 'expense'}
             onClick={() => setKind('expense')}
           />
+          <FilterChip
+            label="Utang/Piutang"
+            active={kind === 'debt'}
+            onClick={() => setKind('debt')}
+          />
         </div>
 
         {error ? (
@@ -389,6 +407,12 @@ export function PocketHistorySheet({ target, onClose }: PocketHistorySheetProps)
                         'font-money-mono text-right text-[13px] font-extrabold',
                         row.kind === 'income' && 'text-money-brown-deep',
                         row.kind === 'expense' && 'text-money-rose',
+                        row.kind === 'debt' &&
+                          (row.netAmount ?? 0) < 0 &&
+                          'text-money-rose',
+                        row.kind === 'debt' &&
+                          (row.netAmount ?? 0) > 0 &&
+                          'text-money-brown-deep',
                       ]
                         .filter(Boolean)
                         .join(' ')}
@@ -397,16 +421,29 @@ export function PocketHistorySheet({ target, onClose }: PocketHistorySheetProps)
                         ? `+${formatIdr(row.amount)}`
                         : row.kind === 'expense'
                           ? `−${formatIdr(row.amount)}`
-                          : formatIdr(row.amount)}
+                          : row.kind === 'debt'
+                            ? debtNetLabel(row)
+                            : formatIdr(row.amount)}
                     </div>
-                    <button
-                      type="button"
-                      title="Edit"
-                      onClick={() => handleEdit(row)}
-                      className="rounded-lg p-1.5 text-money-muted hover:bg-money-soft hover:text-money-ink"
-                    >
-                      <Edit2 size={14} />
-                    </button>
+                    {row.kind === 'debt' ? (
+                      <Link
+                        to={row.link ?? moneyPaths.debts}
+                        onClick={onClose}
+                        title="Lihat detail utang/piutang"
+                        className="rounded-full border border-money-border px-2 py-1 text-[11px] font-bold text-money-muted hover:bg-money-soft hover:text-money-ink"
+                      >
+                        Detail
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        title="Edit"
+                        onClick={() => handleEdit(row)}
+                        className="rounded-lg p-1.5 text-money-muted hover:bg-money-soft hover:text-money-ink"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </li>
               ))}

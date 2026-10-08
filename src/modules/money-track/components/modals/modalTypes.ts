@@ -22,6 +22,8 @@ export type MoneyModalPayload = {
   debtDateIso?: string;
   debtDueDateIso?: string | null;
   debtNote?: string | null;
+  /** '' / null = catatan saja (tidak mengubah saldo kantong). */
+  debtPocketId?: string | null;
   pocketId?: string;
   pocketName?: string;
   pocketCategory?: string;

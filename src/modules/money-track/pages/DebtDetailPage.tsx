@@ -51,11 +51,18 @@ type DetailView = {
   dateLabel: string;
   dueLabel: string;
   note: string | null;
+  /** null = catatan saja (tidak nempel ke kantong). */
+  pocketLabel: string | null;
+  /** sign × (amount − paidTotal) — 0 saat lunas tanpa bunga, bisa negatif. */
+  netEffect: number;
+  /** max(0, paidTotal − amount) — kelebihan bayar. */
+  interestAmount: number;
   payments: Array<{
     id: string;
     amount: number;
     dateLabel: string;
     note: string | null;
+    interestAmount: number;
   }>;
 };
 
@@ -66,11 +73,14 @@ function mapApiDetail(
   const isPiutang = row.direction === 'piutang';
   const paidTotal = row.paidTotal ?? 0;
   const remaining = row.remaining ?? Math.max(0, row.amount - paidTotal);
+  const sign = isPiutang ? -1 : 1;
+  const netEffect = row.netEffect ?? sign * (row.amount - paidTotal);
   const payments = (row.payments ?? []).map((p: MoneyDebtPaymentApi) => ({
     id: String(p.id),
     amount: p.amount,
     dateLabel: formatDateLabel(p.date),
     note: p.note,
+    interestAmount: p.interestAmount ?? 0,
   }));
 
   return {
@@ -87,6 +97,9 @@ function mapApiDetail(
     dateLabel: formatDateLabel(row.date),
     dueLabel: row.dueDate ? formatDateLabel(row.dueDate) : '—',
     note: row.note,
+    pocketLabel: row.pocketLabel ?? null,
+    netEffect,
+    interestAmount: row.interestAmount ?? Math.max(0, paidTotal - row.amount),
     payments,
   };
 }
@@ -145,6 +158,9 @@ export function DebtDetailPage() {
             dateLabel: row.dateLabel,
             dueLabel: row.dueLabel,
             note: row.note,
+            pocketLabel: row.pocketLabel,
+            netEffect: row.netEffect,
+            interestAmount: row.interestAmount,
             payments:
               row.paidTotal > 0
                 ? [
@@ -153,6 +169,7 @@ export function DebtDetailPage() {
                       amount: row.paidTotal,
                       dateLabel: row.dateLabel,
                       note: 'Ringkasan pembayaran (dummy)',
+                      interestAmount: 0,
                     },
                   ]
                 : [],
@@ -271,6 +288,16 @@ export function DebtDetailPage() {
                 {detail.note ? (
                   <p className="mt-1 text-[13px] text-money-muted">{detail.note}</p>
                 ) : null}
+                <p className="mt-1.5 text-[12.5px] text-money-muted">
+                  Kantong:{' '}
+                  {detail.pocketLabel ? (
+                    <span className="font-semibold text-money-ink">
+                      {detail.pocketLabel}
+                    </span>
+                  ) : (
+                    <span className="text-money-faint">— (catatan saja)</span>
+                  )}
+                </p>
               </div>
               <div className="text-right">
                 <div className="text-[11px] font-bold uppercase text-money-faint">
@@ -282,6 +309,31 @@ export function DebtDetailPage() {
                 <div className="mt-0.5 text-[11px] text-money-faint">
                   dari {formatIdr(detail.amount)}
                 </div>
+                {detail.pocketLabel ? (
+                  <div className="mt-1.5 text-[11px]">
+                    <span className="text-money-faint">Efek kantong </span>
+                    <span
+                      className={`font-money-mono font-bold ${
+                        detail.netEffect > 0
+                          ? 'text-money-brown-deep'
+                          : detail.netEffect < 0
+                            ? 'text-money-rose'
+                            : 'text-money-faint'
+                      }`}
+                    >
+                      {detail.netEffect > 0
+                        ? `+${formatIdr(detail.netEffect)}`
+                        : detail.netEffect < 0
+                          ? `−${formatIdr(Math.abs(detail.netEffect))}`
+                          : 'Rp 0'}
+                    </span>
+                  </div>
+                ) : null}
+                {detail.interestAmount > 0 ? (
+                  <div className="mt-1 text-[11px] font-bold text-money-amber">
+                    Bunga {formatIdr(detail.interestAmount)}
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -324,8 +376,13 @@ export function DebtDetailPage() {
                         </div>
                       ) : null}
                     </div>
-                    <div className="font-money-mono text-[13px] font-extrabold text-money-brown-deep">
+                    <div className="text-right font-money-mono text-[13px] font-extrabold text-money-brown-deep">
                       {formatIdr(pay.amount)}
+                      {pay.interestAmount > 0 ? (
+                        <div className="mt-0.5 text-[11px] font-bold text-money-amber">
+                          Bunga {formatIdr(pay.interestAmount)}
+                        </div>
+                      ) : null}
                     </div>
                   </li>
                 ))}

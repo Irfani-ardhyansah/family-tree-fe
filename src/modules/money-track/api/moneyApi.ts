@@ -128,7 +128,7 @@ export type MoneyTransactionApi = {
 
 export type MoneyActivityApi = {
   id: string;
-  kind: 'income' | 'expense' | 'transfer' | 'cash_withdrawal';
+  kind: 'income' | 'expense' | 'transfer' | 'cash_withdrawal' | 'debt';
   title: string;
   categoryName: string | null;
   categoryId: number | null;
@@ -141,10 +141,22 @@ export type MoneyActivityApi = {
   toPocketId?: number | null;
   toPocketLabel?: string | null;
   fromPocketLabel?: string | null;
+  /** kind='debt': efek net (bisa 0 kalau lunas, bisa negatif kalau ada bunga). */
   amount: number;
   date: string;
   signed: 'pos' | 'neg' | 'neutral';
   link: string;
+  /** Hanya kind='debt' — arah catatan. */
+  direction?: 'utang' | 'piutang' | null;
+  /** Hanya kind='debt'. */
+  status?: 'open' | 'partial' | 'paid' | null;
+  /** Hanya kind='debt' — pokok catatan. */
+  principalAmount?: number | null;
+  paidTotal?: number | null;
+  remaining?: number | null;
+  netAmount?: number | null;
+  /** max(0, paidTotal − principalAmount) → tampilkan sebagai "Bunga". */
+  interestAmount?: number | null;
 };
 
 export type MoneyAuditAction = 'create' | 'update' | 'delete';
@@ -212,6 +224,17 @@ export type MoneyDebtPaymentApi = {
   date: string;
   note: string | null;
   createdByPersonId: number;
+  /** Porsi pembayaran ini yang dihitung bunga (melebihi sisa pokok). */
+  interestAmount?: number;
+};
+
+export type MoneyDebtBalanceWarningApi = {
+  isNegative: boolean;
+  pocketId: number;
+  pocketLabel: string;
+  pocketBalanceAfter: number;
+  shortfall: number;
+  message: string;
 };
 
 export type MoneyDebtApi = {
@@ -229,6 +252,15 @@ export type MoneyDebtApi = {
   remaining?: number;
   remainingLabel?: string;
   payments?: MoneyDebtPaymentApi[];
+  /** Kantong yang menanggung efek saldo (null = catatan saja). */
+  pocketId?: number | null;
+  pocketLabel?: string | null;
+  /** sign × (amount − paidTotal) — 0 = lunas tanpa bunga, bisa negatif. */
+  netEffect?: number;
+  /** max(0, paidTotal − amount) → kelebihan bayar (bunga). */
+  interestAmount?: number;
+  /** Hanya di response create/update/payment; FE tampilkan pop-up notifikasi. */
+  balanceWarning?: MoneyDebtBalanceWarningApi | null;
 };
 
 export type MoneyBalancingApi = {
@@ -359,10 +391,20 @@ export type MoneyUiTx = {
   pocketId: string;
   toPocketId?: string | null;
   toPocketLabel?: string | null;
-  kind: 'income' | 'expense' | 'transfer' | 'cash_withdrawal';
+  kind: 'income' | 'expense' | 'transfer' | 'cash_withdrawal' | 'debt';
   amount: number;
   /** Raw ledger type when relevant (opening_balance / adjustment). */
   entryType?: 'opening_balance' | 'adjustment' | null;
+  /** Link target utk aksi (kind='debt' → /money/debts/:id). */
+  link?: string;
+  /** kind='debt' */
+  direction?: 'utang' | 'piutang' | null;
+  debtStatus?: 'open' | 'partial' | 'paid' | null;
+  principalAmount?: number | null;
+  remaining?: number | null;
+  /** Efek net bertanda (0 = lunas tanpa bunga, bisa negatif). */
+  netAmount?: number | null;
+  interestAmount?: number | null;
 };
 
 export type MoneyUiWish = {
@@ -397,6 +439,13 @@ export type MoneyUiDebt = {
   dueDateIso: string | null;
   dueSoon: boolean;
   note: string | null;
+  /** Kantong yang menanggung efek saldo (null = catatan saja). */
+  pocketId: string | null;
+  pocketLabel: string | null;
+  /** sign × (amount − paidTotal) — 0 = lunas tanpa bunga, bisa negatif. */
+  netEffect: number;
+  /** max(0, paidTotal − amount) — kelebihan bayar yang ditampilkan sebagai "Bunga". */
+  interestAmount: number;
 };
 
 export type MoneyUiBalancing = {
@@ -1040,13 +1089,15 @@ export async function fetchMoneyActivity(params?: {
   personId?: string;
   pocketId?: string;
   categoryId?: string;
-  kind?: 'all' | 'income' | 'expense' | 'transfer' | 'cash_withdrawal';
+  kind?: 'all' | 'income' | 'expense' | 'transfer' | 'cash_withdrawal' | 'debt';
   from?: string;
   to?: string;
   q?: string;
   uncategorized?: boolean;
   pageSize?: number;
   page?: number;
+  /** false → BE sembunyikan entri utang/piutang dari list. */
+  includeDebts?: boolean;
 }): Promise<{ items: MoneyActivityApi[]; total: number; page: number; pageSize: number }> {
   const query = buildQuery({
     personId: params?.personId,
@@ -1057,6 +1108,7 @@ export async function fetchMoneyActivity(params?: {
     to: params?.to,
     q: params?.q,
     uncategorized: params?.uncategorized === true ? 'true' : undefined,
+    includeDebts: params?.includeDebts === false ? 'false' : undefined,
     page: params?.page != null ? String(params.page) : '1',
     pageSize: params?.pageSize != null ? String(params.pageSize) : '50',
   });
@@ -1094,12 +1146,13 @@ function activityPocketDisplay(row: MoneyActivityApi): string {
 
 export function mapActivityToUiTx(row: MoneyActivityApi): MoneyUiTx {
   const dateIso = toDateOnlyIso(row.date);
+  const isDebt = row.kind === 'debt';
   return {
     id: row.id,
     dateLabel: formatDateLabel(dateIso),
     dateIso,
     title: row.title,
-    category: row.categoryName ?? (row.kind === 'transfer' ? 'Transfer' : row.kind === 'cash_withdrawal' ? 'Cash' : '—'),
+    category: row.categoryName ?? (row.kind === 'transfer' ? 'Transfer' : row.kind === 'cash_withdrawal' ? 'Cash' : isDebt ? 'Utang/Piutang' : '—'),
     categoryId: row.categoryId != null ? sid(row.categoryId) : null,
     person: row.personName ?? '—',
     personId: row.personId != null ? sid(row.personId) : '',
@@ -1108,7 +1161,16 @@ export function mapActivityToUiTx(row: MoneyActivityApi): MoneyUiTx {
     toPocketId: row.toPocketId != null ? sid(row.toPocketId) : null,
     toPocketLabel: row.toPocketLabel ?? null,
     kind: row.kind,
+    // kind lain: BE selalu kirim positif. kind='debt': amount sudah |net|,
+    // tandanya di `netAmount` supaya 0 vs minus tetap terlihat.
     amount: row.amount,
+    link: row.link,
+    direction: row.direction ?? null,
+    debtStatus: row.status ?? null,
+    principalAmount: row.principalAmount ?? null,
+    remaining: row.remaining ?? null,
+    netAmount: row.netAmount ?? null,
+    interestAmount: row.interestAmount ?? null,
   };
 }
 
@@ -1217,6 +1279,8 @@ export async function createMoneyDebt(input: {
   date: string;
   dueDate?: string | null;
   note?: string | null;
+  /** null = catatan saja (tidak mengubah saldo kantong). */
+  pocketId?: string | null;
 }): Promise<MoneyDebtApi> {
   return apiFetch<MoneyDebtApi>('/money/debts', {
     method: 'POST',
@@ -1228,6 +1292,7 @@ export async function createMoneyDebt(input: {
       date: toDateOnlyIso(input.date),
       dueDate: input.dueDate ? toDateOnlyIso(input.dueDate) : null,
       note: input.note ?? null,
+      pocketId: input.pocketId ? Number(input.pocketId) : null,
     }),
   });
 }
@@ -1239,9 +1304,10 @@ export async function createMoneyDebtPayment(
     date: string;
     note?: string | null;
   },
-): Promise<MoneyDebtPaymentApi> {
+  /** BE membalikkan debt lengkap (bukan payment) — berisi `balanceWarning`. */
+): Promise<MoneyDebtApi> {
   const apiId = moneyEntityApiId(debtId);
-  return apiFetch<MoneyDebtPaymentApi>(`/money/debts/${apiId}/payments`, {
+  return apiFetch<MoneyDebtApi>(`/money/debts/${apiId}/payments`, {
     method: 'POST',
     body: JSON.stringify({
       amount: input.amount,
@@ -1261,6 +1327,8 @@ export async function updateMoneyDebt(
     date?: string;
     dueDate?: string | null;
     note?: string | null;
+    /** null = lepas link kantong (jadi catatan saja). */
+    pocketId?: string | null;
   },
 ): Promise<MoneyDebtApi> {
   const apiId = moneyEntityApiId(id);
@@ -1282,6 +1350,9 @@ export async function updateMoneyDebt(
           }
         : {}),
       ...(input.note !== undefined ? { note: input.note } : {}),
+      ...(input.pocketId !== undefined
+        ? { pocketId: input.pocketId ? Number(input.pocketId) : null }
+        : {}),
     }),
   });
 }
@@ -1480,6 +1551,16 @@ export function buildWishlistUi(
   });
 }
 
+/** Utang menambah net, piutang mengurangi — sama dengan rumus BE. */
+function debtNetEffectLocal(
+  direction: 'utang' | 'piutang',
+  amount: number,
+  paidTotal: number,
+): number {
+  const net = (direction === 'utang' ? 1 : -1) * (amount - paidTotal);
+  return net === 0 ? 0 : net;
+}
+
 export function buildDebtsUi(
   rows: MoneyDebtApi[],
   persons: Array<{ id: string; name: string }>,
@@ -1513,6 +1594,10 @@ export function buildDebtsUi(
       dueDateIso,
       dueSoon: row.status !== 'paid' && isDueSoon(row.dueDate),
       note: row.note,
+      pocketId: row.pocketId != null ? sid(row.pocketId) : null,
+      pocketLabel: row.pocketLabel ?? null,
+      netEffect: row.netEffect ?? debtNetEffectLocal(row.direction, row.amount, paidTotal),
+      interestAmount: row.interestAmount ?? Math.max(0, paidTotal - row.amount),
     };
   });
 }

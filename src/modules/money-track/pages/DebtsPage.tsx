@@ -167,6 +167,11 @@ export function DebtsPage() {
                     >
                       {statusLabel(row.status)}
                     </span>
+                    {row.interestAmount > 0 ? (
+                      <span className="rounded-full bg-money-amber-soft px-2 py-0.5 text-[11px] font-bold text-money-amber">
+                        Bunga {formatIdr(row.interestAmount)}
+                      </span>
+                    ) : null}
                     {row.dueSoon && row.status !== 'paid' ? (
                       <span className="rounded-full bg-money-amber-soft px-2 py-0.5 text-[11px] font-bold text-money-amber">
                         Jatuh tempo dekat
@@ -175,6 +180,16 @@ export function DebtsPage() {
                   </div>
                   <p className="mt-1 text-[12.5px] text-money-faint">
                     {row.person} · {row.dateLabel} → jatuh tempo {row.dueLabel}
+                  </p>
+                  <p className="mt-0.5 text-[12.5px] text-money-muted">
+                    Kantong:{' '}
+                    {row.pocketLabel ? (
+                      <span className="font-semibold text-money-ink">
+                        {row.pocketLabel}
+                      </span>
+                    ) : (
+                      <span className="text-money-faint">— (catatan saja)</span>
+                    )}
                   </p>
                   {row.note ? (
                     <p className="mt-1 text-[12.5px] text-money-muted">{row.note}</p>
@@ -187,6 +202,26 @@ export function DebtsPage() {
                   <div className="text-[11px] text-money-faint">
                     {row.remainingLabel} dari {formatIdr(row.amount)}
                   </div>
+                  {row.pocketId ? (
+                    <div className="mt-1 text-[11px]">
+                      <span className="text-money-faint">Efek kantong </span>
+                      <span
+                        className={`font-money-mono font-bold ${
+                          row.netEffect > 0
+                            ? 'text-money-brown-deep'
+                            : row.netEffect < 0
+                              ? 'text-money-rose'
+                              : 'text-money-faint'
+                        }`}
+                      >
+                        {row.netEffect > 0
+                          ? `+${formatIdr(row.netEffect)}`
+                          : row.netEffect < 0
+                            ? `−${formatIdr(Math.abs(row.netEffect))}`
+                            : 'Rp 0'}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -238,6 +273,7 @@ export function DebtsPage() {
                       debtDateIso: row.dateIso,
                       debtDueDateIso: row.dueDateIso,
                       debtNote: row.note,
+                      debtPocketId: row.pocketId,
                     })
                   }
                   className="rounded-lg p-1.5 text-money-muted hover:bg-money-soft hover:text-money-ink disabled:opacity-40"

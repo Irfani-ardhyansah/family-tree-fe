@@ -32,11 +32,18 @@ import { formatIdr } from '@/modules/money-track/types';
 import { ApiClientError } from '@/shared/lib/apiClient';
 import { moneyPaths } from '@/shared/routes';
 
-type KindFilter = 'all' | 'income' | 'expense' | 'transfer' | 'cash_withdrawal';
+type KindFilter =
+  | 'all'
+  | 'income'
+  | 'expense'
+  | 'transfer'
+  | 'cash_withdrawal'
+  | 'debt';
 
 function auditEntityTypeForKind(kind: string): MoneyAuditEntityType {
   if (kind === 'transfer') return 'transfer';
   if (kind === 'cash_withdrawal') return 'cash_withdrawal';
+  if (kind === 'debt') return 'debt';
   return 'transaction';
 }
 
@@ -44,6 +51,7 @@ function kindTone(kind: string) {
   if (kind === 'income') return 'bg-money-brown-soft text-money-brown-deep';
   if (kind === 'transfer') return 'bg-money-violet-soft text-money-violet';
   if (kind === 'cash_withdrawal') return 'bg-money-amber-soft text-money-amber';
+  if (kind === 'debt') return 'bg-money-blue-soft text-money-blue';
   return 'bg-money-rose-soft text-money-rose';
 }
 
@@ -51,7 +59,22 @@ function kindLabel(kind: string) {
   if (kind === 'income') return 'Income';
   if (kind === 'expense') return 'Expense';
   if (kind === 'transfer') return 'Transfer';
+  if (kind === 'debt') return 'Utang/Piutang';
   return 'Tarik tunai';
+}
+
+/** kind='debt' → efek net: 0 saat lunas tanpa bunga, minus kalau kena bunga. */
+function debtNetLabel(row: MoneyUiTx): string {
+  const net = row.netAmount ?? row.amount;
+  if (net === 0) return 'Rp 0';
+  if (net < 0) return `−${formatIdr(Math.abs(net))}`;
+  return `+${formatIdr(net)}`;
+}
+
+function debtStatusLabel(status: string | null | undefined) {
+  if (status === 'paid') return 'Lunas';
+  if (status === 'partial') return 'Cicilan';
+  return 'Belum lunas';
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
@@ -372,6 +395,7 @@ export function TransactionsPage() {
               ['expense', 'Pengeluaran'],
               ['transfer', 'Transfer'],
               ['cash_withdrawal', 'Tarik tunai'],
+              ['debt', 'Utang/Piutang'],
             ] as const
           ).map(([value, label]) => (
             <FilterChip
@@ -459,6 +483,28 @@ export function TransactionsPage() {
                   <div className="truncate text-[13.5px] font-bold">
                     {row.title}
                   </div>
+                  {row.kind === 'debt' ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <span
+                        className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                          row.direction === 'piutang'
+                            ? 'bg-money-violet-soft text-money-violet'
+                            : 'bg-money-blue-soft text-money-blue'
+                        }`}
+                      >
+                        {row.direction === 'piutang' ? 'Piutang' : 'Utang'}
+                      </span>
+                      <span
+                        className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                          row.debtStatus === 'paid'
+                            ? 'bg-money-brown-soft text-money-brown-deep'
+                            : 'bg-money-amber-soft text-money-amber'
+                        }`}
+                      >
+                        {debtStatusLabel(row.debtStatus)}
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="mt-1 md:hidden">
                     <span
                       className={`inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-bold ${kindTone(row.kind)}`}
@@ -485,6 +531,15 @@ export function TransactionsPage() {
                     'font-money-mono text-right text-[13.5px] font-extrabold',
                     row.kind === 'income' && 'text-money-brown-deep',
                     row.kind === 'expense' && 'text-money-rose',
+                    row.kind === 'debt' &&
+                      (row.netAmount ?? 0) > 0 &&
+                      'text-money-brown-deep',
+                    row.kind === 'debt' &&
+                      (row.netAmount ?? 0) < 0 &&
+                      'text-money-rose',
+                    row.kind === 'debt' &&
+                      (row.netAmount ?? 0) === 0 &&
+                      'text-money-faint',
                   ]
                     .filter(Boolean)
                     .join(' ')}
@@ -493,61 +548,84 @@ export function TransactionsPage() {
                     ? `+${formatIdr(row.amount)}`
                     : row.kind === 'expense'
                       ? `-${formatIdr(row.amount)}`
-                      : formatIdr(row.amount)}
+                      : row.kind === 'debt'
+                        ? debtNetLabel(row)
+                        : formatIdr(row.amount)}
+                  {row.kind === 'debt' && (row.interestAmount ?? 0) > 0 ? (
+                    <span className="mt-0.5 block text-[11px] font-bold text-money-amber">
+                      Bunga {formatIdr(row.interestAmount ?? 0)}
+                    </span>
+                  ) : null}
                 </div>
                 <div className="flex items-center justify-end gap-0.5">
-                  <Link
-                    to={`${moneyPaths.audit}?entityType=${auditEntityTypeForKind(row.kind)}&entityId=${encodeURIComponent(moneyEntityApiId(row.id))}`}
-                    title="Lihat audit"
-                    className="rounded-lg p-1.5 text-money-muted hover:bg-money-soft hover:text-money-ink"
-                  >
-                    <Clipboard size={14} />
-                  </Link>
-                  <button
-                    type="button"
-                    title="Edit"
-                    disabled={busyId === row.id}
-                    onClick={() => {
-                      if (isTxn) {
-                        openModal('transaction', {
-                          transactionId: row.id,
-                          txType: row.kind as 'income' | 'expense',
+                  {row.kind === 'debt' ? (
+                    <Link
+                      to={row.link ?? moneyPaths.debts}
+                      title="Lihat detail utang/piutang"
+                      className="rounded-full border border-money-border px-2 py-1 text-[11px] font-bold text-money-muted hover:bg-money-soft hover:text-money-ink"
+                    >
+                      Detail
+                    </Link>
+                  ) : null}
+
+                  {row.kind === 'debt' ? null : (
+                    <Link
+                      to={`${moneyPaths.audit}?entityType=${auditEntityTypeForKind(row.kind)}&entityId=${encodeURIComponent(moneyEntityApiId(row.id))}`}
+                      title="Lihat audit"
+                      className="rounded-lg p-1.5 text-money-muted hover:bg-money-soft hover:text-money-ink"
+                    >
+                      <Clipboard size={14} />
+                    </Link>
+                  )}
+
+                  {row.kind === 'debt' ? null : (
+                    <button
+                      type="button"
+                      title="Edit"
+                      disabled={busyId === row.id}
+                      onClick={() => {
+                        if (isTxn) {
+                          openModal('transaction', {
+                            transactionId: row.id,
+                            txType: row.kind as 'income' | 'expense',
+                            txAmount: row.amount,
+                            txCategoryId: row.categoryId,
+                            pocketId: row.pocketId,
+                            pocketName: row.pocket,
+                            txNote: row.title,
+                            txDateIso: row.dateIso,
+                          });
+                          return;
+                        }
+                        openModal('activityEdit', {
+                          activityId: row.id,
+                          activityKind: row.kind as
+                            | 'transfer'
+                            | 'cash_withdrawal',
+                          activityTitle: row.title,
                           txAmount: row.amount,
-                          txCategoryId: row.categoryId,
-                          pocketId: row.pocketId,
-                          pocketName: row.pocket,
                           txNote: row.title,
                           txDateIso: row.dateIso,
+                          pocketId: row.pocketId,
+                          pocketName: row.pocket,
+                          fromPocketId: row.pocketId || undefined,
+                          toPocketId: row.toPocketId || undefined,
                         });
-                        return;
-                      }
-                      openModal('activityEdit', {
-                        activityId: row.id,
-                        activityKind: row.kind as
-                          | 'transfer'
-                          | 'cash_withdrawal',
-                        activityTitle: row.title,
-                        txAmount: row.amount,
-                        txNote: row.title,
-                        txDateIso: row.dateIso,
-                        pocketId: row.pocketId,
-                        pocketName: row.pocket,
-                        fromPocketId: row.pocketId || undefined,
-                        toPocketId: row.toPocketId || undefined,
-                      });
-                    }}
-                    className="rounded-lg p-1.5 text-money-muted hover:bg-money-soft hover:text-money-ink disabled:opacity-40"
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    title="Hapus"
-                    disabled={busyId === row.id}
-                    onClick={() => {
-                      void (async () => {
-                        if (
-                          !window.confirm(
+                      }}
+                      className="rounded-lg p-1.5 text-money-muted hover:bg-money-soft hover:text-money-ink disabled:opacity-40"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                  )}
+                  {row.kind === 'debt' ? null : (
+                    <button
+                      type="button"
+                      title="Hapus"
+                      disabled={busyId === row.id}
+                      onClick={() => {
+                        void (async () => {
+                          if (
+                            !window.confirm(
                             `Hapus "${row.title}"? Tidak bisa dibatalkan.`,
                           )
                         ) {
@@ -586,6 +664,7 @@ export function TransactionsPage() {
                   >
                     <Trash2 size={14} />
                   </button>
+                  )}
                 </div>
               </div>
             );
