@@ -23,6 +23,10 @@ import {
   formatDateOnlyLabel,
   todayDateOnlyIso,
 } from '@/modules/money-track/lib/dateOnly';
+import {
+  pocketIdForType,
+  resolveScopedDefaults,
+} from '@/modules/money-track/lib/preferences';
 import { ApiClientError } from '@/shared/lib/apiClient';
 
 export function TransferModal({ onClose }: { onClose: () => void }) {
@@ -33,6 +37,7 @@ export function TransferModal({ onClose }: { onClose: () => void }) {
     dataSource,
     refreshApi,
     bumpActivity,
+    preferences,
   } = useMoneyTrackUi();
   const [step, setStep] = useState(1);
   const [fromPersonId, setFromPersonId] = useState(
@@ -96,8 +101,13 @@ export function TransferModal({ onClose }: { onClose: () => void }) {
     if (!q) return toPockets;
     return toPockets.filter((p) => p.search.includes(q));
   }, [toPockets, toQuery]);
+  const preferredFromPocketId = pocketIdForType(
+    resolveScopedDefaults(preferences, fromPersonId || 'all'),
+    'expense',
+  );
   const fromPocket =
     fromPockets.find((p) => p.id === fromPocketId) ??
+    fromPockets.find((p) => p.id === preferredFromPocketId) ??
     filteredFromPockets[0] ??
     fromPockets[0];
   const toPocket =
@@ -286,9 +296,7 @@ export function TransferModal({ onClose }: { onClose: () => void }) {
                 filteredFromPockets.map((p) => (
                   <OptionCard
                     key={p.id}
-                    active={
-                      (fromPocketId || filteredFromPockets[0]?.id) === p.id
-                    }
+                    active={fromPocket?.id === p.id}
                     title={p.label}
                     subtitle={formatIdr(p.balance)}
                     onClick={() => setFromPocketId(p.id)}
@@ -398,6 +406,8 @@ export function MovePocketModal({ onClose }: { onClose: () => void }) {
     dataSource,
     refreshApi,
     bumpActivity,
+    preferences,
+    scope,
   } = useMoneyTrackUi();
   const [step, setStep] = useState(1);
   const [fromId, setFromId] = useState('');
@@ -451,7 +461,14 @@ export function MovePocketModal({ onClose }: { onClose: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- allPockets via filterPockets
     [allPockets, fromQuery],
   );
-  const from = allPockets.find((p) => p.id === fromId) ?? fromOptions[0];
+  const preferredFromId = pocketIdForType(
+    resolveScopedDefaults(preferences, scope),
+    'expense',
+  );
+  const from =
+    allPockets.find((p) => p.id === fromId) ??
+    allPockets.find((p) => p.id === preferredFromId) ??
+    fromOptions[0];
   const toOptions = useMemo(
     () => filterPockets(toQuery, from?.id),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -607,7 +624,7 @@ export function MovePocketModal({ onClose }: { onClose: () => void }) {
               fromOptions.map((p) => (
                 <OptionCard
                   key={p.id}
-                  active={(fromId || fromOptions[0]?.id) === p.id}
+                  active={from?.id === p.id}
                   title={p.label}
                   subtitle={formatIdr(p.balance)}
                   onClick={() => setFromId(p.id)}
@@ -634,7 +651,7 @@ export function MovePocketModal({ onClose }: { onClose: () => void }) {
               toOptions.map((p) => (
                 <OptionCard
                   key={p.id}
-                  active={(toId || toOptions[0]?.id) === p.id}
+                  active={to?.id === p.id}
                   title={p.label}
                   subtitle={formatIdr(p.balance)}
                   onClick={() => setToId(p.id)}
@@ -706,6 +723,8 @@ export function CashWithdrawalModal({ onClose }: { onClose: () => void }) {
     dataSource,
     refreshApi,
     bumpActivity,
+    preferences,
+    scope,
   } = useMoneyTrackUi();
   const [step, setStep] = useState(1);
   const [sourceId, setSourceId] = useState('');
@@ -739,8 +758,13 @@ export function CashWithdrawalModal({ onClose }: { onClose: () => void }) {
     return sources.filter((s) => s.search.includes(q));
   }, [sources, sourceQuery]);
 
+  const preferredSourceId = pocketIdForType(
+    resolveScopedDefaults(preferences, scope),
+    'expense',
+  );
   const source =
     sources.find((s) => s.id === sourceId) ??
+    sources.find((s) => s.id === preferredSourceId) ??
     filteredSources[0] ??
     sources[0];
   const amount = Number(digits.replace(/\D/g, '')) || 0;
@@ -884,7 +908,7 @@ export function CashWithdrawalModal({ onClose }: { onClose: () => void }) {
                 filteredSources.map((s) => (
                   <OptionCard
                     key={s.id}
-                    active={(sourceId || filteredSources[0]?.id) === s.id}
+                    active={source?.id === s.id}
                     title={s.label}
                     subtitle={`${s.person} · ${formatIdr(s.balance)}`}
                     onClick={() => setSourceId(s.id)}

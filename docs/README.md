@@ -67,6 +67,7 @@ docs/
 | File | Modul |
 |------|--------|
 | [`requests/from-fe/pending/MONEY-ACTIVITY-TRANSFER-POCKETS-BE-PROMPT.md`](./requests/from-fe/pending/MONEY-ACTIVITY-TRANSFER-POCKETS-BE-PROMPT.md) | Activity transfer: kantong asal + tujuan |
+| [`requests/from-fe/pending/MONEY-PREFERENCES-BE-PROMPT.md`](./requests/from-fe/pending/MONEY-PREFERENCES-BE-PROMPT.md) | Preferensi user `/money/preferences` (default kantong/kategori) |
 | [`requests/from-fe/pending/MONEY-TRACK-API.md`](./requests/from-fe/pending/MONEY-TRACK-API.md) | Draft / mirror Money Track API |
 | [`requests/from-fe/pending/PRD-Money-Track.md`](./requests/from-fe/pending/PRD-Money-Track.md) | PRD Money Track |
 | [`requests/from-fe/pending/money-track-mockup.html`](./requests/from-fe/pending/money-track-mockup.html) | Mockup UI |

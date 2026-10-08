@@ -18,6 +18,11 @@ import {
 } from '@/modules/money-track/components/modals/MoneyModalShell';
 import { CategoryIcon, CategoryIconPicker } from '@/modules/money-track/lib/categoryIcons';
 import {
+  categoryIdForType,
+  pocketIdForType,
+  resolveScopedDefaults,
+} from '@/modules/money-track/lib/preferences';
+import {
   dateFromFormInput,
   formatDateOnlyLabel,
   todayDateOnlyIso,
@@ -36,9 +41,14 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
     refreshApi,
     bumpActivity,
     createCategory,
+    preferences,
+    scope,
   } = useMoneyTrackUi();
+  const scopedDefaults = resolveScopedDefaults(preferences, scope);
   const [step, setStep] = useState(1);
-  const [txType, setTxType] = useState<TxType>('expense');
+  const [txType, setTxType] = useState<TxType>(
+    () => preferences.defaultTxType,
+  );
   const [digits, setDigits] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [categoryQuery, setCategoryQuery] = useState('');
@@ -88,15 +98,34 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
   const selectedPocket =
     pocketOptions.find((p) => p.id === pocketId) ?? filteredPockets[0];
 
+  // Default kantong mengikuti preferensi; fallback ke opsi pertama.
   useEffect(() => {
-    if (!pocketId && filteredPockets[0]) {
-      setPocketId(filteredPockets[0].id);
+    if (pocketId && pocketOptions.some((p) => p.id === pocketId)) return;
+    const preferred = pocketIdForType(scopedDefaults, txType);
+    if (preferred && pocketOptions.some((p) => p.id === preferred)) {
+      setPocketId(preferred);
       return;
     }
-    if (pocketId && !pocketOptions.some((p) => p.id === pocketId)) {
-      setPocketId(filteredPockets[0]?.id ?? '');
-    }
-  }, [pocketId, pocketOptions, filteredPockets]);
+    setPocketId(pocketOptions[0]?.id ?? '');
+  }, [pocketId, pocketOptions, scopedDefaults, txType]);
+
+  // Ganti tipe → pakai default kantong & kategori tipe tsb.
+  useEffect(() => {
+    const preferredPocket = pocketIdForType(scopedDefaults, txType);
+    setPocketId(
+      preferredPocket && pocketOptions.some((p) => p.id === preferredPocket)
+        ? preferredPocket
+        : '',
+    );
+    const preferredCategory = categoryIdForType(scopedDefaults, txType);
+    setCategoryId(
+      preferredCategory &&
+        categories.some((c) => c.id === preferredCategory && c.type === txType)
+        ? preferredCategory
+        : '',
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txType]);
 
   const typedCategories = useMemo(
     () =>
@@ -119,10 +148,14 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
   const dateLabel = formatDateOnlyLabel(dateIso);
 
   useEffect(() => {
-    if (!typedCategories.some((c) => c.id === categoryId)) {
-      setCategoryId(typedCategories[0]?.id ?? '');
+    if (typedCategories.some((c) => c.id === categoryId)) return;
+    const preferred = categoryIdForType(scopedDefaults, txType);
+    if (preferred && typedCategories.some((c) => c.id === preferred)) {
+      setCategoryId(preferred);
+      return;
     }
-  }, [typedCategories, categoryId]);
+    setCategoryId(typedCategories[0]?.id ?? '');
+  }, [typedCategories, categoryId, scopedDefaults, txType]);
 
   const pushDigit = (d: string) => {
     setDigits((prev) => {
@@ -237,6 +270,9 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
             setError(null);
             setPocketQuery('');
             setPocketId('');
+            setCategoryId('');
+            setCategoryQuery('');
+            setTxType(preferences.defaultTxType);
             setDateIso(todayDateOnlyIso());
             setStep(1);
           }}
@@ -362,6 +398,28 @@ export function TransactionModal({ onClose }: { onClose: () => void }) {
             onChange={setDigits}
             tone={txType === 'expense' ? 'expense' : 'income'}
           />
+          {preferences.quickAmounts.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {preferences.quickAmounts.map((preset) => {
+                const active = amount === preset;
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setDigits(String(preset))}
+                    className={[
+                      'rounded-full border px-2.5 py-1 text-[12px] font-bold transition-colors',
+                      active
+                        ? 'border-money-brown bg-money-brown-soft text-money-brown-deep'
+                        : 'border-money-border bg-money-surface text-money-muted hover:bg-money-soft',
+                    ].join(' ')}
+                  >
+                    {formatIdr(preset)}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
           <Numpad
             onDigit={pushDigit}
             on000={() => pushDigit('000')}

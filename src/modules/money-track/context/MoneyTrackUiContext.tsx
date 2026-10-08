@@ -43,6 +43,7 @@ import {
   loadMoneyApiBundle,
   mapCategoryToUi,
   resetMoneyWorkspace,
+  saveMoneyPreferences,
   submitOpeningBalances as submitOpeningBalancesApi,
   unarchiveMoneyPocket,
   updateMoneyCategory,
@@ -57,6 +58,11 @@ import {
   type MoneyWorkspaceResetMode,
 } from '@/modules/money-track/api/moneyApi';
 import type { MoneyDashboardMock, MoneyScope } from '@/modules/money-track/types';
+import {
+  readCachedMoneyPreferences,
+  writeCachedMoneyPreferences,
+  type MoneyPreferences,
+} from '@/modules/money-track/lib/preferences';
 import { ApiClientError } from '@/shared/lib/apiClient';
 
 type TxRow = MoneyUiTx;
@@ -177,6 +183,10 @@ type MoneyTrackUiContextValue = {
     mode?: MoneyWorkspaceResetMode;
     keepSetup?: boolean;
   }) => Promise<void>;
+  /** Preferensi user: default kantong/kategori, nominal cepat, dll. */
+  preferences: MoneyPreferences;
+  /** Simpan preferensi (DB via API; fallback lokal saat dummy/BE belum ada). */
+  savePreferences: (next: MoneyPreferences) => Promise<void>;
 };
 
 const MoneyTrackUiContext = createContext<MoneyTrackUiContextValue | null>(
@@ -229,6 +239,12 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
   const [apiDebts, setApiDebts] = useState<DebtRow[]>([]);
   const [apiBalancing, setApiBalancing] = useState<BalRow[]>([]);
   const [apiCategories, setApiCategories] = useState<CatRow[]>([]);
+  const [apiPreferences, setApiPreferences] = useState<MoneyPreferences>(() =>
+    readCachedMoneyPreferences(),
+  );
+  const [dummyPreferences, setDummyPreferences] = useState<MoneyPreferences>(
+    () => readCachedMoneyPreferences(),
+  );
   const [apiOpeningPocketIds, setApiOpeningPocketIds] = useState<string[]>([]);
   const [localOpeningPocketIds, setLocalOpeningPocketIds] = useState<string[]>(
     () => readMoneyOpeningPocketIds(),
@@ -279,6 +295,8 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
       setApiBalancing(bundle.balancing);
       setApiCategories(bundle.categories);
       setApiOpeningPocketIds(bundle.openingPocketIds);
+      setApiPreferences(bundle.preferences);
+      writeCachedMoneyPreferences(bundle.preferences);
       setApiReady(bundle.setup.isConfigured);
       // Tombol wipe: BE false → sembunyi permanen.
       // Jangan reset local cleared saat BE masih true (bisa lag setelah wipe).
@@ -341,6 +359,7 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
   const debts = usingDummy ? dummyDebts : apiDebts;
   const balancing = usingDummy ? dummyBalancing : apiBalancing;
   const categories = usingDummy ? dummyCategories : apiCategories;
+  const preferences = usingDummy ? dummyPreferences : apiPreferences;
 
   const openModal = useCallback(
     (type: MoneyModalType, payload?: MoneyModalPayload) => {
@@ -389,6 +408,31 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
       }
     },
     [dataSource, refreshApi],
+  );
+
+  const savePreferences = useCallback(
+    async (next: MoneyPreferences) => {
+      // Optimistic: cache + state dulu supaya UI langsung terasa.
+      writeCachedMoneyPreferences(next);
+      if (dataSource === 'dummy') {
+        setDummyPreferences(next);
+        return;
+      }
+      setApiPreferences(next);
+      try {
+        const saved = await saveMoneyPreferences(next);
+        writeCachedMoneyPreferences(saved);
+        setApiPreferences(saved);
+      } catch (error) {
+        setApiError(
+          error instanceof ApiClientError
+            ? error.message
+            : 'Gagal menyimpan preferensi.',
+        );
+        throw error;
+      }
+    },
+    [dataSource],
   );
 
   const appendTransaction = useCallback(
@@ -810,6 +854,7 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
       debts,
       balancing,
       categories,
+      preferences,
       scope,
       setScope,
       scopeLabel,
@@ -850,6 +895,7 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
       needsOpeningBalancesUi,
       submitOpeningBalances,
       resetApiWorkspace,
+      savePreferences,
     }),
     [
       dataSource,
@@ -900,6 +946,8 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
       needsOpeningBalancesUi,
       submitOpeningBalances,
       resetApiWorkspace,
+      preferences,
+      savePreferences,
     ],
   );
 

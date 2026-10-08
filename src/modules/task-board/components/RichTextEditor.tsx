@@ -3,6 +3,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Bold, Italic, List, Code } from 'react-feather';
 import { useEffect } from 'react';
+import { RICH_TEXT_CLASS } from '../lib/taskMeta';
 
 interface RichTextEditorProps {
   content: string;
@@ -34,8 +35,7 @@ export function RichTextEditor({
     },
     editorProps: {
       attributes: {
-        class:
-          'prose prose-sm sm:prose-base dark:prose-invert max-w-none focus:outline-none min-h-[150px] px-3 py-2',
+        class: `${RICH_TEXT_CLASS} min-h-[160px] px-4 py-3 focus:outline-none`,
       },
       handlePaste: (view, event) => {
         if (!onImagePaste || !taskId) return false;
@@ -101,61 +101,51 @@ export function RichTextEditor({
     return null;
   }
 
+  const toolbarButtonClass = (active: boolean) =>
+    [
+      'inline-flex h-8 w-8 items-center justify-center rounded-control transition-colors',
+      active
+        ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
+        : 'text-suite-muted hover:bg-suite-soft hover:text-suite-ink',
+    ].join(' ');
+
   return (
-    <div className="rounded-xl border border-suite-border bg-suite-surface">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 border-b border-suite-border p-2">
+    <div className="overflow-hidden rounded-card border border-suite-border bg-suite-surface">
+      <div className="flex flex-wrap items-center gap-1 border-b border-suite-border bg-suite-soft/50 px-2 py-1.5">
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}
-          className={`rounded-lg p-1.5 transition-colors ${
-            editor.isActive('bold')
-              ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
-              : 'text-suite-muted hover:bg-suite-soft'
-          }`}
+          className={toolbarButtonClass(editor.isActive('bold'))}
           title="Bold"
         >
-          <Bold size={16} />
+          <Bold size={15} />
         </button>
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={`rounded-lg p-1.5 transition-colors ${
-            editor.isActive('italic')
-              ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
-              : 'text-suite-muted hover:bg-suite-soft'
-          }`}
+          className={toolbarButtonClass(editor.isActive('italic'))}
           title="Italic"
         >
-          <Italic size={16} />
+          <Italic size={15} />
         </button>
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={`rounded-lg p-1.5 transition-colors ${
-            editor.isActive('bulletList')
-              ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
-              : 'text-suite-muted hover:bg-suite-soft'
-          }`}
+          className={toolbarButtonClass(editor.isActive('bulletList'))}
           title="Bullet List"
         >
-          <List size={16} />
+          <List size={15} />
         </button>
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-          className={`rounded-lg p-1.5 transition-colors ${
-            editor.isActive('codeBlock')
-              ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
-              : 'text-suite-muted hover:bg-suite-soft'
-          }`}
+          className={toolbarButtonClass(editor.isActive('codeBlock'))}
           title="Code Block"
         >
-          <Code size={16} />
+          <Code size={15} />
         </button>
       </div>
 
-      {/* Editor */}
       <EditorContent editor={editor} />
     </div>
   );

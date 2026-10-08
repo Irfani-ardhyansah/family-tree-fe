@@ -19,6 +19,8 @@ export interface TaskDescription {
   id?: number;
   title: string;
   content: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export type TaskHistoryAction =
@@ -65,8 +67,33 @@ export interface Task {
   revisions?: Task[];
   /** Hanya ada di GET /tasks/:id dan GET /tasks/:id/history. */
   history?: TaskHistoryEntry[];
+  /** Checklist todo; ada di GET /tasks/:id. */
+  todos?: TaskTodo[];
   created_at: string;
   updated_at: string;
+}
+
+/** Checklist (todo) di dalam task. 1 task → banyak todo. */
+export interface TaskTodo {
+  id: number;
+  task_id: number;
+  title: string;
+  /** HTML dari editor (boleh kosong). */
+  description: string;
+  is_done: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskTodoInput {
+  title: string;
+  description?: string;
+}
+
+export interface TaskTodoPatch {
+  title?: string;
+  description?: string;
+  is_done?: boolean;
 }
 
 export interface TaskFormData {

@@ -1,6 +1,6 @@
 import { apiFetch, apiFormFetch } from '@/shared/lib/apiClient';
 import { buildQuery } from '@/shared/lib/apiQuery';
-import type { Task, TaskFormData, TaskHistoryEntry, TaskListQuery } from '../types';
+import type { Task, TaskFormData, TaskHistoryEntry, TaskListQuery, TaskTodo, TaskTodoInput, TaskTodoPatch } from '../types';
 
 /**
  * Path relatif — di-prefix `BASE` (`VITE_API_BASE_URL`) di shared/lib/apiClient,
@@ -97,6 +97,48 @@ export const taskBoardApi = {
   /** Daftar revisi (task anak) dari sebuah task. */
   async revisions(id: string): Promise<Task[]> {
     return apiFetch<Task[]>(`${TASKS_PATH}/${id}/revisions`);
+  },
+
+  /* ------------------------------ Todos ------------------------------ */
+
+  async listTodos(id: string): Promise<TaskTodo[]> {
+    return apiFetch<TaskTodo[]>(`${TASKS_PATH}/${id}/todos`);
+  },
+
+  async createTodo(id: string, data: TaskTodoInput): Promise<TaskTodo> {
+    return apiFetch<TaskTodo>(`${TASKS_PATH}/${id}/todos`, {
+      method: 'POST',
+      body: JSON.stringify({
+        title: data.title,
+        ...(data.description !== undefined
+          ? { description: data.description }
+          : {}),
+      }),
+    });
+  },
+
+  async updateTodo(
+    id: string,
+    todoId: number,
+    data: TaskTodoPatch,
+  ): Promise<TaskTodo> {
+    return apiFetch<TaskTodo>(`${TASKS_PATH}/${id}/todos/${todoId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteTodo(id: string, todoId: number): Promise<boolean> {
+    try {
+      await apiFetch<{ deleted?: boolean }>(
+        `${TASKS_PATH}/${id}/todos/${todoId}`,
+        { method: 'DELETE' },
+      );
+      return true;
+    } catch (error) {
+      console.error('Failed to delete todo:', error);
+      return false;
+    }
   },
 
   async uploadImage(taskId: string, file: File): Promise<string> {

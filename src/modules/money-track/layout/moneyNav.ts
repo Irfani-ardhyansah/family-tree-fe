@@ -6,6 +6,7 @@ import {
   DollarSign,
   Home,
   Repeat,
+  Settings,
   Sliders,
   Tag,
 } from 'react-feather';
@@ -45,6 +46,7 @@ export const MONEY_NAV_ITEMS: MoneyNavItem[] = [
     group: 'setup',
     requiresOpeningBalances: true,
   },
+  { to: moneyPaths.settings, label: 'Pengaturan', icon: Settings, group: 'setup' },
 ];
 
 export type MoneyQuickAction = {

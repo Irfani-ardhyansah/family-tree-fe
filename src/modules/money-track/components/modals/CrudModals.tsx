@@ -23,6 +23,7 @@ import {
   MoneyAmountInput,
 } from '@/modules/money-track/components/modals/MoneyFormFields';
 import {
+  AmountDisplay,
   MoneyModalShell,
   MoneyPrimaryButton,
   MoneySecondaryButton,
@@ -759,6 +760,7 @@ export function DebtModal({
     payload?.debtPocketId ?? existing?.pocketId ?? '',
   );
   const [pocketQuery, setPocketQuery] = useState('');
+  const [pocketOpen, setPocketOpen] = useState(false);
   const [balanceWarning, setBalanceWarning] =
     useState<MoneyDebtBalanceWarningApi | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1010,10 +1012,14 @@ export function DebtModal({
     );
   }
 
+  const amt = parseIdrDigits(amount);
+  const directionIsIncome = direction === 'piutang';
+
   return (
     <MoneyModalShell
       title={editing ? 'Edit Utang / Piutang' : 'Tambah Utang / Piutang'}
       onClose={onClose}
+      wide
       footer={
         <div className="flex gap-2">
           {editing ? (
@@ -1028,9 +1034,7 @@ export function DebtModal({
           ) : null}
           <div className="flex-1">
             <MoneyPrimaryButton
-              disabled={
-                saving || !counterparty.trim() || parseIdrDigits(amount) <= 0
-              }
+              disabled={saving || !counterparty.trim() || amt <= 0}
               onClick={() => void handleSave()}
             >
               {saving ? 'Menyimpan…' : 'Simpan'}
@@ -1039,100 +1043,192 @@ export function DebtModal({
         </div>
       }
     >
-      <div className="space-y-3">
+      <div className="space-y-4">
         {error ? (
           <div className="rounded-[10px] border border-money-rose/30 bg-money-rose-soft px-3 py-2 text-[12.5px] font-semibold text-money-rose">
             {error}
           </div>
         ) : null}
-        <div>
-          <FieldLabel>Lawanan (nama)</FieldLabel>
-          <FieldInput
-            value={counterparty}
-            onChange={setCounterparty}
-            placeholder="mis. Budi"
-          />
-        </div>
+
         <div>
           <FieldLabel>Arah</FieldLabel>
-          <FieldSelect
-            value={direction}
-            onChange={setDirection}
-            options={[
-              { value: 'piutang', label: 'Piutang (mereka hutang ke saya)' },
-              { value: 'utang', label: 'Utang (saya hutang)' },
-            ]}
-          />
-        </div>
-        <div>
-          <FieldLabel>Jumlah</FieldLabel>
-          <MoneyAmountInput
-            value={amount}
-            onChange={setAmount}
-            placeholder="mis. 1.000.000"
-          />
-        </div>
-        <div>
-          <FieldLabel>Person</FieldLabel>
-          <FieldSelect
-            value={personId}
-            onChange={setPersonId}
-            options={data.persons.map((p) => ({
-              value: p.id,
-              label: p.name,
-            }))}
-          />
-        </div>
-        <div>
-          <FieldLabel>Kantong (opsional)</FieldLabel>
-          <FieldInput
-            value={pocketQuery}
-            onChange={setPocketQuery}
-            placeholder="Cari kantong, person, atau account…"
-          />
-          <div className="mt-2 max-h-40 space-y-1.5 overflow-y-auto">
-            <OptionCard
-              active={pocketId === ''}
-              title="Tanpa kantong (catatan saja)"
-              subtitle="Saldo tidak berubah"
-              onClick={() => setPocketId('')}
-            />
-            {pocketOptions.length === 0 ? (
-              <p className="text-[12.5px] text-money-faint">
-                Belum ada kantong untuk person ini.
-              </p>
-            ) : filteredPockets.length === 0 ? (
-              <p className="text-[12.5px] text-money-faint">
-                Tidak ada kantong yang cocok dengan pencarian.
-              </p>
-            ) : (
-              filteredPockets.map((p) => (
-                <OptionCard
-                  key={p.id}
-                  active={pocketId === p.id}
-                  title={p.label}
-                  subtitle={formatIdr(p.balance)}
-                  onClick={() => setPocketId(p.id)}
-                />
-              ))
-            )}
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            {(
+              [
+                ['piutang', 'Piutang', 'Orang lain utang ke saya'],
+                ['utang', 'Utang', 'Saya utang ke orang lain'],
+              ] as const
+            ).map(([value, label, hint]) => {
+              const active = direction === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setDirection(value)}
+                  className={[
+                    'rounded-[12px] border px-3.5 py-2.5 text-left transition-colors',
+                    active
+                      ? value === 'piutang'
+                        ? 'border-money-brown bg-money-brown text-white'
+                        : 'border-money-rose bg-money-rose text-white'
+                      : 'border-money-border bg-money-surface text-money-muted hover:bg-money-soft',
+                  ].join(' ')}
+                >
+                  <span className="block text-[13.5px] font-extrabold">
+                    {label}
+                  </span>
+                  <span
+                    className={[
+                      'mt-0.5 block text-[11px]',
+                      active ? 'text-white/80' : 'text-money-faint',
+                    ].join(' ')}
+                  >
+                    {hint}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <p className="mt-1 text-[11.5px] text-money-faint">
-            Efek ke saldo: utang <strong>menambah</strong>, piutang
-            <strong> mengurangi</strong>. Tanpa kantong = catatan saja, saldo
-            tidak berubah.
+        </div>
+
+        <div className="rounded-[12px] border border-money-border bg-money-surface px-4 py-2">
+          <div className="text-[11px] font-bold uppercase tracking-wide text-money-faint">
+            Jumlah
+          </div>
+          <AmountDisplay
+            digits={amount}
+            onChange={setAmount}
+            tone={directionIsIncome ? 'income' : 'expense'}
+            autoFocus={false}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <FieldLabel>Lawanan (nama)</FieldLabel>
+            <FieldInput
+              value={counterparty}
+              onChange={setCounterparty}
+              placeholder="mis. Budi"
+            />
+          </div>
+          <div>
+            <FieldLabel>Person</FieldLabel>
+            <FieldSelect
+              value={personId}
+              onChange={setPersonId}
+              options={data.persons.map((p) => ({
+                value: p.id,
+                label: p.name,
+              }))}
+            />
+          </div>
+          <div>
+            <FieldLabel>Tanggal</FieldLabel>
+            <FieldInput type="date" value={dateIso} onChange={setDateIso} />
+          </div>
+          <div>
+            <FieldLabel>Jatuh tempo (opsional)</FieldLabel>
+            <FieldInput type="date" value={dueIso} onChange={setDueIso} />
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-[12px] border border-money-border bg-money-surface">
+          <button
+            type="button"
+            onClick={() => setPocketOpen((open) => !open)}
+            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-money-soft"
+          >
+            <span className="min-w-0">
+              <span className="block text-[11px] font-bold uppercase tracking-wide text-money-faint">
+                Kantong (opsional)
+              </span>
+              <span className="mt-0.5 block truncate text-[13px] font-bold text-money-ink">
+                {pocketId
+                  ? selectedPocketLabel || 'Kantong terpilih'
+                  : 'Tanpa kantong — catatan saja'}
+              </span>
+            </span>
+            <span
+              className={[
+                'shrink-0 rounded-full border border-money-border px-2.5 py-1 text-[11px] font-bold text-money-muted',
+                pocketOpen ? 'bg-money-soft' : '',
+              ].join(' ')}
+            >
+              {pocketOpen ? 'Tutup' : pocketId ? 'Ganti' : 'Pilih'}
+            </span>
+          </button>
+
+          {pocketOpen ? (
+            <div className="border-t border-money-border px-4 py-3">
+              <FieldInput
+                value={pocketQuery}
+                onChange={setPocketQuery}
+                placeholder="Cari kantong, person, atau account…"
+              />
+              <div className="mt-2 max-h-44 space-y-1.5 overflow-y-auto">
+                <OptionCard
+                  active={pocketId === ''}
+                  title="Tanpa kantong (catatan saja)"
+                  subtitle="Saldo tidak berubah"
+                  onClick={() => {
+                    setPocketId('');
+                    setPocketOpen(false);
+                  }}
+                />
+                {pocketOptions.length === 0 ? (
+                  <p className="text-[12.5px] text-money-faint">
+                    Belum ada kantong untuk person ini.
+                  </p>
+                ) : filteredPockets.length === 0 ? (
+                  <p className="text-[12.5px] text-money-faint">
+                    Tidak ada kantong yang cocok dengan pencarian.
+                  </p>
+                ) : (
+                  filteredPockets.map((p) => (
+                    <OptionCard
+                      key={p.id}
+                      active={pocketId === p.id}
+                      title={p.label}
+                      subtitle={formatIdr(p.balance)}
+                      onClick={() => {
+                        setPocketId(p.id);
+                        setPocketOpen(false);
+                      }}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          <p className="border-t border-money-border px-4 py-2.5 text-[11.5px] text-money-faint">
+            {pocketId && amt > 0 ? (
+              <>
+                Saldo kantong akan{' '}
+                <strong
+                  className={
+                    directionIsIncome ? 'text-money-rose' : 'text-money-brown-deep'
+                  }
+                >
+                  {directionIsIncome ? 'berkurang' : 'bertambah'}{' '}
+                  {formatIdr(amt)}
+                </strong>{' '}
+                saat disimpan.
+              </>
+            ) : (
+              <>
+                Efek saldo: utang{' '}
+                <strong className="text-money-brown-deep">menambah</strong>,
+                piutang <strong className="text-money-rose">mengurangi</strong>.
+                Tanpa kantong = catatan saja.
+              </>
+            )}
           </p>
         </div>
+
         <div>
-          <FieldLabel>Tanggal</FieldLabel>
-          <FieldInput type="date" value={dateIso} onChange={setDateIso} />
-        </div>
-        <div>
-          <FieldLabel>Jatuh tempo</FieldLabel>
-          <FieldInput type="date" value={dueIso} onChange={setDueIso} />
-        </div>
-        <div>
-          <FieldLabel>Catatan</FieldLabel>
+          <FieldLabel>Catatan (opsional)</FieldLabel>
           <FieldTextarea value={note} onChange={setNote} />
         </div>
       </div>

@@ -5,6 +5,11 @@ import {
   toDateOnlyIso,
 } from '@/modules/money-track/lib/dateOnly';
 import type { MoneyDataSource } from '@/modules/money-track/lib/dataSource';
+import {
+  normalizeMoneyPreferences,
+  readCachedMoneyPreferences,
+  type MoneyPreferences,
+} from '@/modules/money-track/lib/preferences';
 import type {
   MoneyActivityItem,
   MoneyDashboardMock,
@@ -341,6 +346,70 @@ export function mapCategoryToUi(row: MoneyCategoryApi): MoneyUiCategory {
     sortOrder: row.sortOrder,
     isSystem: row.isSystem,
   };
+}
+
+export type MoneyPreferencesApi = {
+  defaultTxType: 'expense' | 'income';
+  quickAmounts: number[];
+  shared: {
+    expensePocketId: number | null;
+    incomePocketId: number | null;
+    expenseCategoryId: number | null;
+    incomeCategoryId: number | null;
+  };
+  persons: Record<
+    string,
+    {
+      expensePocketId: number | null;
+      incomePocketId: number | null;
+      expenseCategoryId: number | null;
+      incomeCategoryId: number | null;
+    }
+  >;
+};
+
+function toApiId(value: string | null): number | null {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function scopedToApi(row: MoneyPreferences['shared']) {
+  return {
+    expensePocketId: toApiId(row.expensePocketId),
+    incomePocketId: toApiId(row.incomePocketId),
+    expenseCategoryId: toApiId(row.expenseCategoryId),
+    incomeCategoryId: toApiId(row.incomeCategoryId),
+  };
+}
+
+function preferencesToApi(prefs: MoneyPreferences): MoneyPreferencesApi {
+  const persons: MoneyPreferencesApi['persons'] = {};
+  for (const [key, value] of Object.entries(prefs.persons)) {
+    persons[key] = scopedToApi(value);
+  }
+  return {
+    defaultTxType: prefs.defaultTxType,
+    quickAmounts: prefs.quickAmounts,
+    shared: scopedToApi(prefs.shared),
+    persons,
+  };
+}
+
+export async function fetchMoneyPreferences(): Promise<MoneyPreferences> {
+  const data = await apiFetch<unknown>('/money/preferences');
+  return normalizeMoneyPreferences(data);
+}
+
+export async function saveMoneyPreferences(
+  prefs: MoneyPreferences,
+): Promise<MoneyPreferences> {
+  const data = await apiFetch<unknown>('/money/preferences', {
+    method: 'PUT',
+    body: JSON.stringify(preferencesToApi(prefs)),
+  });
+  // BE boleh balikin body kosong / partial — pakai input sebagai basis.
+  return data == null ? prefs : normalizeMoneyPreferences(data);
 }
 
 export type MoneyUiAccount = {
@@ -1665,6 +1734,8 @@ export type MoneyBundle = {
   categories: MoneyUiCategory[];
   /** Pocket IDs yang sudah punya transaksi opening_balance di BE. */
   openingPocketIds: string[];
+  /** Preferensi user (default kantong/kategori, nominal cepat, dll). */
+  preferences: MoneyPreferences;
 };
 
 export async function loadMoneyApiBundle(): Promise<MoneyBundle> {
@@ -1705,6 +1776,7 @@ export async function loadMoneyApiBundle(): Promise<MoneyBundle> {
       balancing: [],
       categories: [],
       openingPocketIds: [],
+      preferences: readCachedMoneyPreferences(),
     };
   }
 
@@ -1720,6 +1792,7 @@ export async function loadMoneyApiBundle(): Promise<MoneyBundle> {
     balancing,
     categories,
     openingTx,
+    preferences,
   ] = await Promise.all([
       fetchMoneyDashboard({ scope: 'all' }),
       fetchMoneyAccounts(),
@@ -1732,6 +1805,8 @@ export async function loadMoneyApiBundle(): Promise<MoneyBundle> {
       fetchMoneyTransactions({ type: 'opening_balance', pageSize: 200 }).catch(
         () => [] as MoneyTransactionApi[],
       ),
+      // Endpoint preferensi opsional — jangan gagalkan bundle bila belum ada.
+      fetchMoneyPreferences().catch(() => readCachedMoneyPreferences()),
     ]);
 
   const dashboard = mapDashboardToUi(dashboardApi);
@@ -1753,5 +1828,6 @@ export async function loadMoneyApiBundle(): Promise<MoneyBundle> {
     balancing: buildBalancingUi(balancing, persons),
     categories: categoryUi,
     openingPocketIds,
+    preferences,
   };
 }

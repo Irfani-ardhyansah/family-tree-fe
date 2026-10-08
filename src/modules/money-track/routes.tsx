@@ -16,6 +16,7 @@ import {
 } from '@/modules/money-track/pages/NewFlowPages';
 import { OpeningBalancesPage } from '@/modules/money-track/pages/OpeningBalancesPage';
 import { PocketsPage } from '@/modules/money-track/pages/PocketsPage';
+import { PreferencesPage } from '@/modules/money-track/pages/PreferencesPage';
 import { ReportingPage } from '@/modules/money-track/pages/ReportingPage';
 import { SetupPage } from '@/modules/money-track/pages/SetupPage';
 import { TransactionsPage } from '@/modules/money-track/pages/TransactionsPage';
@@ -44,6 +45,7 @@ export const moneyTrackRoutes: RouteObject[] = [
           { path: 'opening', element: <OpeningBalancesPage /> },
           { path: 'audit', element: <AuditLogPage /> },
           { path: 'setup', element: <SetupPage /> },
+          { path: 'settings', element: <PreferencesPage /> },
           { path: 'new/transaction', element: <NewTransactionPage /> },
           { path: 'new/transfer', element: <NewTransferPage /> },
           { path: 'new/move', element: <NewMovePage /> },
