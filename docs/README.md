@@ -66,6 +66,9 @@ docs/
 
 | File | Modul |
 |------|--------|
+| [`requests/from-fe/pending/TASK-BOARD-ITEM-ORDERING-API.md`](./requests/from-fe/pending/TASK-BOARD-ITEM-ORDERING-API.md) | Task Board: urutan penjelasan & todo di detail |
+| [`requests/from-fe/pending/TASK-BOARD-WORKPLACES-API.md`](./requests/from-fe/pending/TASK-BOARD-WORKPLACES-API.md) | Task Board: tempat kerja + migrasi task lama (backfill) |
+| [`requests/from-fe/pending/TASK-BOARD-ORDERING-API.md`](./requests/from-fe/pending/TASK-BOARD-ORDERING-API.md) | Task Board: urutan manual (drag & drop) + `sort_order` |
 | [`requests/from-fe/pending/MONEY-ACTIVITY-TRANSFER-POCKETS-BE-PROMPT.md`](./requests/from-fe/pending/MONEY-ACTIVITY-TRANSFER-POCKETS-BE-PROMPT.md) | Activity transfer: kantong asal + tujuan |
 | [`requests/from-fe/pending/MONEY-PREFERENCES-BE-PROMPT.md`](./requests/from-fe/pending/MONEY-PREFERENCES-BE-PROMPT.md) | Preferensi user `/money/preferences` (default kantong/kategori) |
 | [`requests/from-fe/pending/MONEY-TRACK-API.md`](./requests/from-fe/pending/MONEY-TRACK-API.md) | Draft / mirror Money Track API |

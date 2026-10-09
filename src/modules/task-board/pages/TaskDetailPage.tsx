@@ -1,7 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  Briefcase,
   Check,
   ChevronDown,
   Clock,
@@ -11,6 +12,7 @@ import {
   GitMerge,
   Info,
   Link as LinkIcon,
+  Menu,
   Plus,
   RefreshCw,
   Trash2,
@@ -43,6 +45,19 @@ import {
   htmlToPlainText,
   sanitizeTaskHtml,
 } from '../lib/taskMeta';
+import { resolveTaskWorkplaceId } from '../lib/workplaceMeta';
+import { useWorkplaces } from '../lib/workplaceStore';
+import {
+  descriptionOrderKey,
+  readKeyOrder,
+  sortByOrder,
+  todoOrderKey,
+  writeKeyOrder,
+} from '../lib/taskOrder';
+import {
+  dropIndicatorClass,
+  useReorderableList,
+} from '../lib/useReorderableList';
 import { taskBoardPaths } from '@/shared/routes';
 import {
   Card,
@@ -68,17 +83,37 @@ const ICON_BUTTON_DANGER_CLASS =
 const PAGINATION_BUTTON_CLASS =
   'rounded-control border border-suite-border bg-suite-surface px-3 py-1.5 text-[12px] font-bold text-suite-muted transition-colors hover:bg-suite-soft hover:text-suite-ink disabled:cursor-not-allowed disabled:opacity-40';
 
+function descriptionKeyOf(desc: TaskDescription, index: number): string {
+  return desc.id != null ? `id-${desc.id}` : `idx-${index}`;
+}
+
+function todoKeyOf(todo: TaskTodo): string {
+  return `id-${todo.id}`;
+}
+
 /** Field array/relasi dari BE bisa null — samakan jadi array kosong/null. */
 function withDefaults(data: Task): Task {
+  const descriptions = data.descriptions ?? [];
+  const todos = data.todos ?? [];
   return {
     ...data,
-    descriptions: data.descriptions ?? [],
+    // Terapkan urutan lokal (hasil drag) supaya tampil konsisten walau BE
+    // belum menyimpan `sort_order`.
+    descriptions: sortByOrder(
+      descriptions,
+      descriptionKeyOf,
+      readKeyOrder(descriptionOrderKey(data.id)),
+    ),
     migration_files: data.migration_files ?? [],
     parent_task_id: data.parent_task_id ?? null,
     parent_task: data.parent_task ?? null,
     revisions: data.revisions ?? [],
     history: data.history ?? [],
-    todos: data.todos ?? [],
+    todos: sortByOrder(
+      todos,
+      (todo) => todoKeyOf(todo),
+      readKeyOrder(todoOrderKey(data.id)),
+    ),
   };
 }
 
@@ -118,6 +153,7 @@ type ViewContentState = {
 export function TaskDetailPage() {
   const navigate = useNavigate();
   const { taskId } = useParams<{ taskId: string }>();
+  const workplaces = useWorkplaces();
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -139,6 +175,57 @@ export function TaskDetailPage() {
   const [togglingTodoId, setTogglingTodoId] = useState<number | null>(null);
   const [savingSection, setSavingSection] = useState(false);
   const [descPage, setDescPage] = useState(1);
+
+  const handleDescriptionReorder = useCallback(
+    (next: TaskDescription[]) => {
+      setTask((prev) => (prev ? { ...prev, descriptions: next } : prev));
+      if (!taskId) return;
+      writeKeyOrder(
+        descriptionOrderKey(taskId),
+        next.map((desc, index) => descriptionKeyOf(desc, index)),
+      );
+      const ids = next
+        .map((desc) => desc.id)
+        .filter((id): id is number => id != null);
+      // Kirim ke BE hanya kalau semua entri punya id (endpoint reorder butuh id).
+      if (ids.length === next.length && ids.length > 0) {
+        void taskBoardApi
+          .reorderDescriptions(taskId, ids)
+          .catch(() => undefined);
+      }
+    },
+    [taskId],
+  );
+
+  const handleTodoReorder = useCallback(
+    (next: TaskTodo[]) => {
+      setTask((prev) => (prev ? { ...prev, todos: next } : prev));
+      if (!taskId) return;
+      writeKeyOrder(
+        todoOrderKey(taskId),
+        next.map((todo) => todoKeyOf(todo)),
+      );
+      void taskBoardApi
+        .reorderTodos(
+          taskId,
+          next.map((todo) => todo.id),
+        )
+        .catch(() => undefined);
+    },
+    [taskId],
+  );
+
+  const descriptionsReorder = useReorderableList<TaskDescription>({
+    items: task?.descriptions ?? [],
+    keyOf: descriptionKeyOf,
+    onReorder: handleDescriptionReorder,
+  });
+
+  const todosReorder = useReorderableList<TaskTodo>({
+    items: task?.todos ?? [],
+    keyOf: (todo) => todoKeyOf(todo),
+    onReorder: handleTodoReorder,
+  });
 
   const loadTask = async () => {
     if (!taskId) return;
@@ -449,6 +536,12 @@ export function TaskDetailPage() {
   );
   const doneTodoCount = todos.filter((t) => t.is_done).length;
 
+  const workplaceId = resolveTaskWorkplaceId(task);
+  const workplace = workplaces.find((item) => item.id === workplaceId);
+  const workplaceBack = workplace
+    ? taskBoardPaths.workplace(workplace.id)
+    : taskBoardPaths.home;
+
   return (
     <div className="space-y-5">
       {errorMessage ? (
@@ -470,9 +563,9 @@ export function TaskDetailPage() {
         <div className="flex min-w-0 items-start gap-3">
           <button
             type="button"
-            onClick={() => navigate(taskBoardPaths.home)}
+            onClick={() => navigate(workplaceBack)}
             className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-suite-muted transition-colors hover:bg-suite-soft hover:text-suite-ink"
-            aria-label="Kembali"
+            aria-label="Kembali ke daftar task"
           >
             <ArrowLeft size={18} />
           </button>
@@ -483,6 +576,15 @@ export function TaskDetailPage() {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <TaskTypeBadge type={task.type} withIcon />
               <TaskStatusBadge status={task.status} withIcon />
+              {workplace ? (
+                <Link
+                  to={workplaceBack}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-suite-soft px-2.5 py-1 text-[11px] font-bold text-suite-muted transition-colors hover:bg-suite-border hover:text-suite-ink"
+                >
+                  <Briefcase size={11} />
+                  {workplace.name}
+                </Link>
+              ) : null}
               <span className="font-money-mono text-[11px] text-suite-faint">
                 #{task.id}
               </span>
@@ -517,7 +619,7 @@ export function TaskDetailPage() {
           {task.status === 'Merged' ? (
             <Link
               to={taskBoardPaths.new}
-              state={{ parentTaskId: task.id }}
+              state={{ parentTaskId: task.id, workplaceId }}
               className="inline-flex items-center gap-1.5 rounded-control border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-[13px] font-bold text-sky-700 transition-colors hover:bg-sky-500/20 dark:text-sky-300"
             >
               <GitBranch size={15} />
@@ -589,9 +691,16 @@ export function TaskDetailPage() {
           {/* Penjelasan (deskripsi task) */}
           <Card className="overflow-hidden">
             <div className="flex items-center justify-between gap-2 border-b border-suite-border bg-suite-soft/60 px-5 py-3">
-              <h2 className="text-[13.5px] font-bold text-suite-ink">
-                Penjelasan Task
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-[13.5px] font-bold text-suite-ink">
+                  Penjelasan Task
+                </h2>
+                {task.descriptions.length > 1 ? (
+                  <span className="hidden text-[11px] text-suite-faint sm:inline">
+                    Tarik ikon untuk ubah urutan
+                  </span>
+                ) : null}
+              </div>
               <button
                 type="button"
                 onClick={() => setDescModal({ mode: 'add', index: null })}
@@ -607,7 +716,10 @@ export function TaskDetailPage() {
               </div>
             ) : (
               <>
-                <div className="divide-y divide-suite-border">
+                <div
+                  {...descriptionsReorder.containerProps}
+                  className="divide-y divide-suite-border"
+                >
                   {pagedDescriptions.map((desc, localIndex) => {
                     const index =
                       (currentDescPage - 1) * DESCRIPTIONS_PER_PAGE + localIndex;
@@ -615,8 +727,33 @@ export function TaskDetailPage() {
                       desc,
                       task.updated_at,
                     );
+                    const descKey = descriptionKeyOf(desc, index);
                     return (
-                      <div key={desc.id ?? index} className="px-5 py-4">
+                      <div
+                        key={desc.id ?? index}
+                        data-sort-key={descKey}
+                        className={cx(
+                          'flex items-start gap-2 px-4 py-4 sm:px-5',
+                          descriptionsReorder.draggingKey === descKey &&
+                            'opacity-50',
+                          dropIndicatorClass(
+                            descriptionsReorder.dragOver,
+                            descKey,
+                            descriptionsReorder.draggingKey,
+                          ),
+                        )}
+                      >
+                        <span
+                          {...descriptionsReorder.getHandleProps(descKey)}
+                          role="button"
+                          tabIndex={0}
+                          aria-label="Geser untuk mengubah urutan penjelasan"
+                          title="Tarik untuk mengubah urutan"
+                          className="mt-0.5 inline-flex h-8 w-6 shrink-0 cursor-grab items-center justify-center rounded-control text-suite-faint outline-none transition-colors hover:bg-suite-soft hover:text-suite-ink focus-visible:ring-2 focus-visible:ring-amber-500 active:cursor-grabbing"
+                        >
+                          <Menu size={14} />
+                        </span>
+                        <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="min-w-0">
                             <h3 className="text-[13.5px] font-bold text-suite-ink">
@@ -680,6 +817,7 @@ export function TaskDetailPage() {
                             emptyLabel="Tidak ada isi."
                           />
                         </div>
+                        </div>
                       </div>
                     );
                   })}
@@ -724,6 +862,11 @@ export function TaskDetailPage() {
                     {doneTodoCount}/{todos.length} selesai
                   </span>
                 ) : null}
+                {todos.length > 1 ? (
+                  <span className="hidden text-[11px] text-suite-faint sm:inline">
+                    Tarik ikon untuk ubah urutan
+                  </span>
+                ) : null}
               </div>
               <button
                 type="button"
@@ -739,12 +882,33 @@ export function TaskDetailPage() {
                 Belum ada todo. Tambah checklist pertama.
               </div>
             ) : (
+              <div {...todosReorder.containerProps}>
               <ul className="divide-y divide-suite-border">
                 {todos.map((todo) => (
                   <li
                     key={todo.id}
-                    className="flex items-start gap-3 px-5 py-3.5"
+                    data-sort-key={todoKeyOf(todo)}
+                    className={cx(
+                      'flex items-start gap-2 px-4 py-3.5 sm:px-5',
+                      todosReorder.draggingKey === todoKeyOf(todo) &&
+                        'opacity-50',
+                      dropIndicatorClass(
+                        todosReorder.dragOver,
+                        todoKeyOf(todo),
+                        todosReorder.draggingKey,
+                      ),
+                    )}
                   >
+                    <span
+                      {...todosReorder.getHandleProps(todoKeyOf(todo))}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Geser untuk mengubah urutan todo"
+                      title="Tarik untuk mengubah urutan"
+                      className="mt-0.5 inline-flex h-6 w-5 shrink-0 cursor-grab items-center justify-center rounded-control text-suite-faint outline-none transition-colors hover:bg-suite-soft hover:text-suite-ink focus-visible:ring-2 focus-visible:ring-amber-500 active:cursor-grabbing"
+                    >
+                      <Menu size={13} />
+                    </span>
                     <button
                       type="button"
                       onClick={() => void toggleTodo(todo)}
@@ -827,6 +991,7 @@ export function TaskDetailPage() {
                   </li>
                 ))}
               </ul>
+              </div>
             )}
           </Card>
         </div>
@@ -843,6 +1008,16 @@ export function TaskDetailPage() {
                   {task.branch_name}
                 </span>
               </DetailRow>
+              {workplace ? (
+                <DetailRow icon={<Briefcase size={14} />} label="Tempat Kerja">
+                  <Link
+                    to={workplaceBack}
+                    className="text-[12.5px] font-semibold text-suite-muted transition-colors hover:text-amber-600 dark:hover:text-amber-400"
+                  >
+                    {workplace.name}
+                  </Link>
+                </DetailRow>
+              ) : null}
               <DetailRow label="Dibuat">
                 <span className="text-[12.5px] text-suite-muted">
                   {formatTaskDateTime(task.created_at)}

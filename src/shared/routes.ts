@@ -61,7 +61,12 @@ export const householdPaths = {
 } as const;
 
 export const taskBoardPaths = {
+  /** Hub tempat kerja (halaman awal). */
   home: '/task-board',
+  /** Semua task lintas tempat kerja. */
+  all: '/task-board/all',
+  /** Daftar task dalam satu tempat kerja. */
+  workplace: (id: string | number) => `/task-board/w/${id}`,
   new: '/task-board/new',
   detail: (id: string | number) => `/task-board/${id}`,
   edit: (id: string | number) => `/task-board/${id}/edit`,

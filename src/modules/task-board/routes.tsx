@@ -4,6 +4,7 @@ import { taskBoardPaths } from '@/shared/routes';
 
 // Lazy load components
 const TaskBoardLayout = lazy(() => import('./layout/TaskBoardLayout').then(m => ({ default: m.TaskBoardLayout })));
+const WorkplaceListPage = lazy(() => import('./pages/WorkplaceListPage').then(m => ({ default: m.WorkplaceListPage })));
 const TaskListPage = lazy(() => import('./pages/TaskListPage').then(m => ({ default: m.TaskListPage })));
 const TaskFormPage = lazy(() => import('./pages/TaskFormPage').then(m => ({ default: m.TaskFormPage })));
 const TaskDetailPage = lazy(() => import('./pages/TaskDetailPage').then(m => ({ default: m.TaskDetailPage })));
@@ -28,6 +29,22 @@ export const taskBoardRoutes: RouteObject[] = [
     children: [
       {
         index: true,
+        element: (
+          <Suspense fallback={<TaskBoardLoading />}>
+            <WorkplaceListPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'all',
+        element: (
+          <Suspense fallback={<TaskBoardLoading />}>
+            <TaskListPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'w/:workplaceId',
         element: (
           <Suspense fallback={<TaskBoardLoading />}>
             <TaskListPage />

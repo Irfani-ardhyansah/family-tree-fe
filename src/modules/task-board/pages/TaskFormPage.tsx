@@ -3,6 +3,10 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Plus, RefreshCw, Save, Trash2 } from 'react-feather';
 import { taskBoardApi } from '../api/taskBoardApi';
 import { RichTextEditor } from '../components/RichTextEditor';
+import {
+  getActiveWorkplaces,
+  useWorkplaces,
+} from '../lib/workplaceStore';
 import type {
   TaskFormData,
   TaskLink,
@@ -52,6 +56,19 @@ export function TaskFormPage() {
   const isEdit = !!taskId;
   const parentTaskId = location.state?.parentTaskId;
   const isRevision = !!parentTaskId;
+  const workplaceIdFromState: number | undefined =
+    typeof location.state?.workplaceId === 'number'
+      ? location.state.workplaceId
+      : undefined;
+  const workplaces = useWorkplaces();
+  const workplaceOptions = workplaces
+    .filter((workplace) => !workplace.archived_at)
+    .map((workplace) => ({
+      value: String(workplace.id),
+      label: workplace.name,
+    }));
+  const defaultWorkplaceId =
+    workplaceIdFromState ?? getActiveWorkplaces()[0]?.id ?? null;
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -65,6 +82,7 @@ export function TaskFormPage() {
     deployNotes: '',
     migrationFiles: [],
     parentTaskId: parentTaskId || null,
+    workplaceId: defaultWorkplaceId,
   });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -84,7 +102,9 @@ export function TaskFormPage() {
       ? taskBoardPaths.detail(taskId)
       : revisionParentId != null
         ? taskBoardPaths.detail(revisionParentId)
-        : taskBoardPaths.home;
+        : workplaceIdFromState != null
+          ? taskBoardPaths.workplace(workplaceIdFromState)
+          : taskBoardPaths.home;
 
   const loadTask = async () => {
     if (!taskId) return;
@@ -105,6 +125,7 @@ export function TaskFormPage() {
         deployNotes: task.deploy_notes || '',
         migrationFiles: task.migration_files || [],
         parentTaskId: task.parent_task_id || null,
+        workplaceId: task.workplace_id ?? defaultWorkplaceId,
       });
     } catch (error) {
       setErrorMessage(
@@ -215,6 +236,7 @@ export function TaskFormPage() {
           title: formData.title,
           branchName: formData.branchName,
           status: formData.status,
+          workplaceId: formData.workplaceId ?? null,
         });
         navigate(taskBoardPaths.detail(taskId));
       } catch (error) {
@@ -259,10 +281,15 @@ export function TaskFormPage() {
         deployNotes: formData.deployNotes,
         migrationFiles,
         parentTaskId: formData.parentTaskId,
+        workplaceId: formData.workplaceId ?? null,
       };
 
       await taskBoardApi.create(apiData);
-      navigate(taskBoardPaths.home);
+      navigate(
+        formData.workplaceId != null
+          ? taskBoardPaths.workplace(formData.workplaceId)
+          : taskBoardPaths.home,
+      );
     } catch (error) {
       setErrorMessage(
         error instanceof Error && error.message
@@ -368,6 +395,20 @@ export function TaskFormPage() {
                 value={formData.status}
                 onChange={(v) => setFormData((p) => ({ ...p, status: v }))}
                 options={STATUS_OPTIONS}
+              />
+            </div>
+
+            <div>
+              <FieldLabel>Tempat Kerja</FieldLabel>
+              <FieldSelect
+                accent="task"
+                value={String(
+                  formData.workplaceId ?? getActiveWorkplaces()[0]?.id ?? '',
+                )}
+                onChange={(v) =>
+                  setFormData((p) => ({ ...p, workplaceId: Number(v) }))
+                }
+                options={workplaceOptions}
               />
             </div>
 

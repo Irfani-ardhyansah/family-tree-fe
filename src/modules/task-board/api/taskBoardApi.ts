@@ -31,6 +31,7 @@ function toApiPayload(data: Partial<TaskFormData>): Record<string, unknown> {
   if (data.deployNotes !== undefined) payload.deployNotes = data.deployNotes;
   if (data.migrationFiles !== undefined) payload.migration_files = data.migrationFiles;
   if (data.parentTaskId !== undefined) payload.parent_task_id = data.parentTaskId;
+  if (data.workplaceId !== undefined) payload.workplace_id = data.workplaceId;
   if (data.notes !== undefined) payload.notes = data.notes;
 
   return payload;
@@ -46,6 +47,23 @@ export const taskBoardApi = {
 
     const data = await apiFetch<Task[] | { items: Task[] }>(
       `${TASKS_PATH}${search}`,
+    );
+    return toTaskList(data);
+  },
+
+  /**
+   * Simpan urutan manual task sekaligus (bulk).
+   * Endpoint `PUT /tasks/reorder` direncanakan di
+   * `docs/requests/from-fe/pending/TASK-BOARD-ORDERING-API.md`; sebelum BE
+   * rilis panggilan ini gagal dan pemanggil memakai cadangan lokal.
+   */
+  async reorder(ids: number[]): Promise<Task[]> {
+    const data = await apiFetch<Task[] | { items: Task[] }>(
+      `${TASKS_PATH}/reorder`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ order: ids }),
+      },
     );
     return toTaskList(data);
   },
@@ -139,6 +157,29 @@ export const taskBoardApi = {
       console.error('Failed to delete todo:', error);
       return false;
     }
+  },
+
+  /**
+   * Simpan urutan penjelasan task. Endpoint `PUT /tasks/:id/descriptions/reorder`
+   * direncanakan di `docs/requests/from-fe/pending/TASK-BOARD-ITEM-ORDERING-API.md`;
+   * sebelum live, pemanggil memakai cadangan lokal.
+   */
+  async reorderDescriptions(id: string, ids: number[]): Promise<Task> {
+    return apiFetch<Task>(`${TASKS_PATH}/${id}/descriptions/reorder`, {
+      method: 'PUT',
+      body: JSON.stringify({ order: ids }),
+    });
+  },
+
+  /**
+   * Simpan urutan todo task. Endpoint `PUT /tasks/:id/todos/reorder`
+   * direncanakan di catatan API yang sama; sebelum live pakai cadangan lokal.
+   */
+  async reorderTodos(id: string, ids: number[]): Promise<TaskTodo[]> {
+    return apiFetch<TaskTodo[]>(`${TASKS_PATH}/${id}/todos/reorder`, {
+      method: 'PUT',
+      body: JSON.stringify({ order: ids }),
+    });
   },
 
   async uploadImage(taskId: string, file: File): Promise<string> {

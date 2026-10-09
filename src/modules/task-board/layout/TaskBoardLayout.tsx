@@ -42,7 +42,7 @@ function TaskBoardChrome() {
                 Task Board
               </div>
               <div className="hidden truncate text-[11.5px] text-suite-faint sm:block">
-                Kelola bugfix, fitur & refactor
+                Kelola task per tempat kerja
               </div>
             </div>
           </Link>
