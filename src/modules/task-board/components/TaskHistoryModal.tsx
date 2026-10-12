@@ -21,7 +21,12 @@ interface TaskHistoryModalProps {
 }
 
 function isTaskStatus(value: string): value is TaskStatus {
-  return value === 'To-Do' || value === 'In Progress' || value === 'Merged';
+  return (
+    value === 'To-Do' ||
+    value === 'In Progress' ||
+    value === 'Merge Request' ||
+    value === 'Merged'
+  );
 }
 
 /** Ikon + label per jenis aksi riwayat. */

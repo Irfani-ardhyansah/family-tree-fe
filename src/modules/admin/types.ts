@@ -120,3 +120,34 @@ export type SendBroadcastInput = {
   targetUserIds: string[];
   scheduledAt: string | null;
 };
+
+/** Target pembersihan otomatis (auto cleanup). */
+export type CleanupTarget =
+  | 'appLogs'
+  | 'backupHistory'
+  | 'backupFiles'
+  | 'logFiles';
+
+/** Ringkasan jumlah yang dihapus pada satu kali jalan. */
+export type CleanupDeleted = {
+  appLogs: number;
+  backupHistory: number;
+  backupFiles: number;
+  logFiles: number;
+  freedBytes: number;
+};
+
+/** Pengaturan pembersihan otomatis (logs, file backup/export, data lama di DB). */
+export type CleanupSettings = {
+  enabled: boolean;
+  /** Batas usia: data lebih lama dari N hari akan dihapus. */
+  retentionDays: number;
+  targets: Record<CleanupTarget, boolean>;
+  /** Batas aman minimum dari server. */
+  minRetentionDays: number;
+  /** Info jadwal dari server (read-only di UI, diatur lewat env STB). */
+  scheduleLabel: string;
+  lastRunAt: string | null;
+  lastDeleted: CleanupDeleted | null;
+};
+

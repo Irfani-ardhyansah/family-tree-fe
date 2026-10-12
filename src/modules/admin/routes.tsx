@@ -4,6 +4,7 @@ import { SensitiveModuleRoute } from '@/app/routes/SensitiveModuleRoute';
 import { AdminLayout } from '@/modules/admin/layout/AdminLayout';
 import { AnalyticsPage } from '@/modules/admin/pages/AnalyticsPage';
 import { AuditLogPage } from '@/modules/admin/pages/AuditLogPage';
+import { AutoCleanupPage } from '@/modules/admin/pages/AutoCleanupPage';
 import { BackupExportPage } from '@/modules/admin/pages/BackupExportPage';
 import { BiometricAdminPage } from '@/modules/admin/pages/BiometricAdminPage';
 import { BroadcastPage } from '@/modules/admin/pages/BroadcastPage';
@@ -34,6 +35,7 @@ export const adminRoutes: RouteObject[] = [
               { path: 'broadcast', element: <BroadcastPage /> },
               { path: 'settings', element: <SettingsPage /> },
               { path: 'backup', element: <BackupExportPage /> },
+              { path: 'cleanup', element: <AutoCleanupPage /> },
             ],
           },
         ],

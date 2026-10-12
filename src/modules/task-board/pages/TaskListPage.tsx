@@ -20,6 +20,7 @@ import {
 import { taskBoardApi } from '../api/taskBoardApi';
 import { TaskTypeBadge } from '../components/TaskTypeBadge';
 import { TaskStatusBadge } from '../components/TaskStatusBadge';
+import { CopyBranchButton } from '../components/CopyBranchButton';
 import type { Task, TaskType, TaskStatus, TaskListQuery } from '../types';
 import {
   TASK_STATUS_META,
@@ -201,6 +202,7 @@ export function TaskListPage() {
     const counts: Record<TaskStatus, number> = {
       'To-Do': 0,
       'In Progress': 0,
+      'Merge Request': 0,
       Merged: 0,
     };
     for (const task of baseTasks) counts[task.status] += 1;
@@ -208,9 +210,12 @@ export function TaskListPage() {
   }, [baseTasks]);
 
   const filteredTasks = useMemo(() => {
+    // Tab "Semua" sengaja menyembunyikan task berstatus Merged supaya task yang
+    // masih berjalan lebih mudah dipantau. Merged tetap bisa dilihat lewat
+    // filter status "Merged".
     const list = query.status
       ? baseTasks.filter((task) => task.status === query.status)
-      : baseTasks;
+      : baseTasks.filter((task) => task.status !== 'Merged');
 
     if (sortMode === 'date') {
       const direction = sortDirection === 'asc' ? 1 : -1;
@@ -431,7 +436,7 @@ export function TaskListPage() {
         <div className="flex flex-wrap items-center gap-1.5">
           <StatusPill
             label="Semua"
-            count={baseTasks.length}
+            count={baseTasks.length - statusCounts.Merged}
             active={!query.status}
             onClick={() => setQuery((q) => ({ ...q, status: undefined }))}
           />
@@ -740,6 +745,12 @@ export function TaskListPage() {
                         <span className="inline-flex items-center gap-1 font-money-mono text-[11.5px]">
                           <GitBranch size={12} className="shrink-0" />
                           {task.branch_name}
+                          {task.branch_name ? (
+                            <CopyBranchButton
+                              value={task.branch_name}
+                              size={12}
+                            />
+                          ) : null}
                         </span>
                         {task.parent_task_id ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[11px] font-semibold text-sky-700 dark:text-sky-300">

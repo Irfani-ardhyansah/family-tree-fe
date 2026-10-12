@@ -1,5 +1,4 @@
 import type { EmploymentType, Task, TaskStatus, Workplace } from '../types';
-import { DEFAULT_WORKPLACE_ID } from '../mocks/workplaces';
 
 /** Satu sumber warna/ikon biar badge tempat kerja konsisten. */
 export const EMPLOYMENT_META: Record<
@@ -128,25 +127,32 @@ export function workplaceInitials(name: string): string {
 }
 
 /**
- * Task tanpa `workplace_id` (data lama) dipetakan ke tempat kerja default
- * supaya tetap tampil dan tidak dianggap yatim.
+ * Task tanpa `workplace_id` tidak dipetakan ke mana-mana (BE backfill sudah
+ * mengisi task lama; task baru selalu punya tempat kerja). Kembalikan `null`
+ * supaya tidak menebak id default yang belum tentu benar.
  */
-export function resolveTaskWorkplaceId(task: Task): number {
-  return typeof task.workplace_id === 'number'
-    ? task.workplace_id
-    : DEFAULT_WORKPLACE_ID;
+export function resolveTaskWorkplaceId(task: Task): number | null {
+  return typeof task.workplace_id === 'number' ? task.workplace_id : null;
 }
 
 export type WorkplaceTaskStats = {
   total: number;
   todo: number;
   inProgress: number;
+  mergeRequest: number;
   merged: number;
   updatedAt: string | null;
 };
 
 function emptyStats(): WorkplaceTaskStats {
-  return { total: 0, todo: 0, inProgress: 0, merged: 0, updatedAt: null };
+  return {
+    total: 0,
+    todo: 0,
+    inProgress: 0,
+    mergeRequest: 0,
+    merged: 0,
+    updatedAt: null,
+  };
 }
 
 function timestamp(value: string | null): number {
@@ -158,6 +164,7 @@ function timestamp(value: string | null): number {
 const STATUS_BUCKET: Record<TaskStatus, keyof WorkplaceTaskStats | null> = {
   'To-Do': 'todo',
   'In Progress': 'inProgress',
+  'Merge Request': 'mergeRequest',
   Merged: 'merged',
 };
 
@@ -167,6 +174,7 @@ export function buildWorkplaceStats(
   const map = new Map<number, WorkplaceTaskStats>();
   for (const task of tasks) {
     const id = resolveTaskWorkplaceId(task);
+    if (id === null) continue;
     const stat = map.get(id) ?? emptyStats();
     stat.total += 1;
     const bucket = STATUS_BUCKET[task.status];

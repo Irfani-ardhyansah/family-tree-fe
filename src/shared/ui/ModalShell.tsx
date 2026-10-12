@@ -14,6 +14,12 @@ type ModalShellProps = {
   step?: number;
   stepTotal?: number;
   titleId?: string;
+  /**
+   * Tutup modal saat area luar (backdrop) diklik. Default `true`.
+   * Set `false` untuk modal yang rawan salah pencet (mis. form transaksi)
+   * supaya klik di luar tidak menutup form.
+   */
+  dismissOnBackdrop?: boolean;
 };
 
 export function ModalShell({
@@ -27,15 +33,23 @@ export function ModalShell({
   step,
   stepTotal,
   titleId = 'suite-modal-title',
+  dismissOnBackdrop = true,
 }: ModalShellProps) {
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4">
-      <button
-        type="button"
-        className="absolute inset-0 bg-[rgba(20,24,15,0.45)]"
-        aria-label="Tutup"
-        onClick={onClose}
-      />
+      {dismissOnBackdrop ? (
+        <button
+          type="button"
+          className="absolute inset-0 bg-[rgba(20,24,15,0.45)]"
+          aria-label="Tutup"
+          onClick={onClose}
+        />
+      ) : (
+        <div
+          className="absolute inset-0 bg-[rgba(20,24,15,0.45)]"
+          aria-hidden
+        />
+      )}
       <div
         className={cx(
           'relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-sheet bg-suite-surface shadow-xl sm:rounded-card',

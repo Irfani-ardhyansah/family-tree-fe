@@ -280,11 +280,10 @@ function MoneyTrackChrome() {
 
       {quickAddOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-          <button
-            type="button"
+          {/* Backdrop tidak menutup modal — cegah salah pencet. Tutup via X. */}
+          <div
             className="absolute inset-0 bg-[rgba(20,24,15,0.45)]"
-            aria-label="Tutup"
-            onClick={() => setQuickAddOpen(false)}
+            aria-hidden
           />
           <div className="relative z-10 w-full max-w-md rounded-t-sheet bg-suite-surface p-5 shadow-xl sm:rounded-card sm:p-6">
             <div className="mb-3 flex items-start justify-between gap-3">

@@ -43,7 +43,11 @@ export interface WorkplaceFormData {
   endedAt: string;
 }
 
-export type TaskStatus = 'To-Do' | 'In Progress' | 'Merged';
+export type TaskStatus =
+  | 'To-Do'
+  | 'In Progress'
+  | 'Merge Request'
+  | 'Merged';
 
 export type LinkType = 'discord' | 'notion' | 'mr';
 

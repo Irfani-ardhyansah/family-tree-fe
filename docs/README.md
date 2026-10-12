@@ -66,6 +66,8 @@ docs/
 
 | File | Modul |
 |------|--------|
+| [`requests/from-fe/pending/TASK-BOARD-LOGS-BE-PROMPT.md`](./requests/from-fe/pending/TASK-BOARD-LOGS-BE-PROMPT.md) | Task Board: logs aksi (app logs + admin audit) |
+| [`requests/from-fe/pending/ADMIN-AUTO-CLEANUP-BE-PROMPT.md`](./requests/from-fe/pending/ADMIN-AUTO-CLEANUP-BE-PROMPT.md) | Admin: pembersihan otomatis logs, backup/export, data lama DB |
 | [`requests/from-fe/pending/TASK-BOARD-ITEM-ORDERING-API.md`](./requests/from-fe/pending/TASK-BOARD-ITEM-ORDERING-API.md) | Task Board: urutan penjelasan & todo di detail |
 | [`requests/from-fe/pending/TASK-BOARD-WORKPLACES-API.md`](./requests/from-fe/pending/TASK-BOARD-WORKPLACES-API.md) | Task Board: tempat kerja + migrasi task lama (backfill) |
 | [`requests/from-fe/pending/TASK-BOARD-ORDERING-API.md`](./requests/from-fe/pending/TASK-BOARD-ORDERING-API.md) | Task Board: urutan manual (drag & drop) + `sort_order` |

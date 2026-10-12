@@ -34,6 +34,7 @@ const TYPE_OPTIONS: { value: TaskType; label: string }[] = [
 const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 'To-Do', label: 'To-Do' },
   { value: 'In Progress', label: 'In Progress' },
+  { value: 'Merge Request', label: 'Merge Request' },
   { value: 'Merged', label: 'Merged' },
 ];
 
@@ -143,6 +144,16 @@ export function TaskFormPage() {
       loadTask();
     }
   }, [taskId, isEdit]);
+
+  // Mode create: pastikan tempat kerja terisi begitu daftar dari BE tiba.
+  useEffect(() => {
+    if (isEdit) return;
+    if (formData.workplaceId != null) return;
+    const first = getActiveWorkplaces()[0]?.id;
+    if (first != null) {
+      setFormData((prev) => ({ ...prev, workplaceId: first }));
+    }
+  }, [isEdit, workplaces, formData.workplaceId]);
 
   const handleImagePaste = async (file: File): Promise<string> => {
     const tempId = taskId || 'temp';

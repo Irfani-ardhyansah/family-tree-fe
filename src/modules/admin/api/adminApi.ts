@@ -13,6 +13,8 @@ import type {
   BackupImportResult,
   BackupJob,
   BroadcastMessage,
+  CleanupDeleted,
+  CleanupSettings,
   CreateAgeRuleInput,
   ModuleRuntimeStatus,
   StatusModuleId,
@@ -25,6 +27,8 @@ import { buildQuery } from '@/shared/lib/apiQuery';
 
 const delay = (ms = 420) => new Promise((r) => setTimeout(r, ms));
 
+export type AuditSortOrder = 'asc' | 'desc';
+
 export type AuditQuery = {
   q?: string;
   userId?: string;
@@ -32,6 +36,8 @@ export type AuditQuery = {
   action?: AuditAction | '';
   from?: string;
   to?: string;
+  /** Urutan waktu (`occurred_at`). Default BE: `desc`. */
+  sort?: AuditSortOrder;
   page?: number;
   pageSize?: number;
 };
@@ -282,6 +288,7 @@ export async function fetchAuditLogs(
       action: query.action || undefined,
       from: query.from || undefined,
       to: query.to || undefined,
+      sort: query.sort || undefined,
       page: String(page),
       pageSize: String(pageSize),
     })}`,
@@ -366,6 +373,66 @@ export async function uploadSettingsLogo(file: File): Promise<string> {
     throw new Error('Upload logo gagal: URL tidak diterima.');
   }
   return data.logoUrl;
+}
+
+/* ----------------------- Pembersihan otomatis ----------------------- */
+
+const DEFAULT_CLEANUP_TARGETS: CleanupSettings['targets'] = {
+  appLogs: true,
+  backupHistory: true,
+  backupFiles: true,
+  logFiles: false,
+};
+
+function normalizeCleanupSettings(
+  raw: Partial<CleanupSettings> & { lastResult?: CleanupDeleted | null },
+): CleanupSettings {
+  return {
+    enabled: Boolean(raw.enabled),
+    retentionDays: Number(raw.retentionDays ?? 14),
+    targets: { ...DEFAULT_CLEANUP_TARGETS, ...(raw.targets ?? {}) },
+    minRetentionDays: Number(raw.minRetentionDays ?? 7),
+    scheduleLabel: raw.scheduleLabel ?? '—',
+    lastRunAt: raw.lastRunAt ?? null,
+    lastDeleted: raw.lastResult ?? raw.lastDeleted ?? null,
+  };
+}
+
+export async function fetchCleanupSettings(): Promise<CleanupSettings> {
+  const data = await apiFetch<CleanupSettings>('/admin/cleanup/settings');
+  return normalizeCleanupSettings(data);
+}
+
+export async function saveCleanupSettings(input: {
+  enabled: boolean;
+  retentionDays: number;
+  targets: CleanupSettings['targets'];
+}): Promise<CleanupSettings> {
+  const data = await apiFetch<CleanupSettings>('/admin/cleanup/settings', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  return normalizeCleanupSettings(data);
+}
+
+export async function previewCleanup(): Promise<CleanupDeleted> {
+  const data = await apiFetch<Partial<CleanupDeleted>>(
+    '/admin/cleanup/preview',
+  );
+  return {
+    appLogs: Number(data.appLogs ?? 0),
+    backupHistory: Number(data.backupHistory ?? 0),
+    backupFiles: Number(data.backupFiles ?? 0),
+    logFiles: Number(data.logFiles ?? 0),
+    freedBytes: Number(data.freedBytes ?? 0),
+  };
+}
+
+export async function runCleanupNow(): Promise<CleanupSettings> {
+  const data = await apiFetch<CleanupSettings>('/admin/cleanup/run', {
+    method: 'POST',
+  });
+  return normalizeCleanupSettings(data);
 }
 
 export async function fetchBackups(): Promise<BackupJob[]> {

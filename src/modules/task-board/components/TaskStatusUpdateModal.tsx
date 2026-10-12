@@ -58,7 +58,7 @@ export function TaskStatusUpdateModal({
           <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-suite-faint">
             Pilih Status
           </p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {TASK_STATUS_ORDER.map((status) => {
               const meta = TASK_STATUS_META[status];
               const Icon = meta.icon;

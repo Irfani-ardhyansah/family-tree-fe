@@ -44,27 +44,37 @@ export function WorkplaceFormModal({
   mode: 'create' | 'edit';
   initial?: Workplace | null;
   onClose: () => void;
-  onSave: (data: WorkplaceFormData) => void;
+  onSave: (data: WorkplaceFormData) => void | Promise<void>;
   saving?: boolean;
 }) {
   const [form, setForm] = useState<WorkplaceFormData>(() =>
     mode === 'edit' && initial ? toWorkplaceFormData(initial) : EMPTY_FORM,
   );
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const set = <K extends keyof WorkplaceFormData>(
     key: K,
     value: WorkplaceFormData[K],
   ) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name.trim()) {
       setError('Nama tempat kerja wajib diisi.');
       return;
     }
     setError(null);
-    onSave(form);
+    setSubmitting(true);
+    try {
+      await onSave(form);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal menyimpan.');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const isSaving = submitting || saving;
 
   return (
     <ModalShell
@@ -81,17 +91,17 @@ export function WorkplaceFormModal({
       footer={
         <div className="flex justify-end gap-2">
           <div className="w-24">
-            <SecondaryButton onClick={onClose} disabled={saving}>
+            <SecondaryButton onClick={onClose} disabled={isSaving}>
               Batal
             </SecondaryButton>
           </div>
           <div className="w-32">
             <PrimaryButton
               accent="task"
-              onClick={handleSubmit}
-              disabled={saving || !form.name.trim()}
+              onClick={() => void handleSubmit()}
+              disabled={isSaving || !form.name.trim()}
             >
-              {saving ? 'Menyimpan…' : 'Simpan'}
+              {isSaving ? 'Menyimpan…' : 'Simpan'}
             </PrimaryButton>
           </div>
         </div>

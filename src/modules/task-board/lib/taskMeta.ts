@@ -40,6 +40,13 @@ export const TASK_STATUS_META: Record<TaskStatus, TaskMeta> = {
     chipClass: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
     barClass: 'bg-sky-500',
   },
+  'Merge Request': {
+    label: 'Merge Request',
+    icon: GitPullRequest,
+    dotClass: 'bg-orange-500',
+    chipClass: 'bg-orange-500/10 text-orange-700 dark:text-orange-300',
+    barClass: 'bg-orange-500',
+  },
   Merged: {
     label: 'Merged',
     icon: GitMerge,
@@ -73,7 +80,12 @@ export const TASK_TYPE_META: Record<TaskType, TaskMeta> = {
   },
 };
 
-export const TASK_STATUS_ORDER: TaskStatus[] = ['To-Do', 'In Progress', 'Merged'];
+export const TASK_STATUS_ORDER: TaskStatus[] = [
+  'To-Do',
+  'In Progress',
+  'Merge Request',
+  'Merged',
+];
 export const TASK_TYPE_ORDER: TaskType[] = ['Bugfixing', 'Feature', 'Refactor'];
 
 export const LINK_META: Record<

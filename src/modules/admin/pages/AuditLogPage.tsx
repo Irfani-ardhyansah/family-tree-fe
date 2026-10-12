@@ -1,16 +1,30 @@
 import {
+  Combobox,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
   Dialog,
   DialogPanel,
   DialogTitle,
   Transition,
   TransitionChild,
 } from '@headlessui/react';
-import { Fragment, useEffect, useState } from 'react';
-import { Eye, Search } from 'react-feather';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Search,
+  X,
+} from 'react-feather';
 import {
   fetchAuditLogDetail,
   fetchAuditLogs,
   fetchSelectableUsers,
+  type AuditSortOrder,
 } from '@/modules/admin/api/adminApi';
 import {
   AdminEmpty,
@@ -20,6 +34,21 @@ import {
 } from '@/modules/admin/components/PageState';
 import type { AuditAction, AuditLogEntry } from '@/modules/admin/types';
 import { formatDateTime } from '@/modules/admin/utils/format';
+
+/** Deretan tombol nomor halaman dengan elipsis di tengah (mis. 1 … 4 5 6 … 12). */
+function buildPageItems(current: number, total: number): (number | '…')[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const items: (number | '…')[] = [1];
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  if (start > 2) items.push('…');
+  for (let p = start; p <= end; p += 1) items.push(p);
+  if (end < total - 1) items.push('…');
+  items.push(total);
+  return items;
+}
 
 const ACTION_STYLES: Record<AuditAction, string> = {
   create: 'bg-emerald-50 text-emerald-700',
@@ -55,10 +84,12 @@ export function AuditLogPage() {
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
   const [userId, setUserId] = useState('');
+  const [userQuery, setUserQuery] = useState('');
   const [moduleId, setModuleId] = useState('');
   const [action, setAction] = useState<AuditAction | ''>('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [sort, setSort] = useState<AuditSortOrder>('desc');
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
   const [detail, setDetail] = useState<AuditLogEntry | null>(null);
   const pageSize = 8;
@@ -66,6 +97,13 @@ export function AuditLogPage() {
   useEffect(() => {
     void fetchSelectableUsers().then(setUsers);
   }, []);
+
+  // Filter daftar user secara lokal oleh input pencarian.
+  const filteredUsers = useMemo(() => {
+    const term = userQuery.trim().toLowerCase();
+    if (!term) return users;
+    return users.filter((u) => u.name.toLowerCase().includes(term));
+  }, [users, userQuery]);
 
   const openDetail = async (log: AuditLogEntry) => {
     setDetail(log);
@@ -87,6 +125,7 @@ export function AuditLogPage() {
       action,
       from: from || undefined,
       to: to || undefined,
+      sort,
       page,
       pageSize,
     })
@@ -100,9 +139,16 @@ export function AuditLogPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [q, userId, moduleId, action, from, to, page]);
+  useEffect(load, [q, userId, moduleId, action, from, to, sort, page]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const pageItems = buildPageItems(page, totalPages);
+
+  const toggleSort = () =>
+    setSort((current) => {
+      setPage(1);
+      return current === 'desc' ? 'asc' : 'desc';
+    });
 
   return (
     <div>
@@ -127,21 +173,65 @@ export function AuditLogPage() {
             className="w-full rounded-xl border-ink-200 py-2 pl-9 text-sm focus:border-admin-500 focus:ring-admin-500"
           />
         </label>
-        <select
+        <Combobox
           value={userId}
-          onChange={(e) => {
+          onChange={(id: string | null) => {
             setPage(1);
-            setUserId(e.target.value);
+            setUserId(id ?? '');
           }}
-          className="rounded-xl border-ink-200 text-sm focus:border-admin-500 focus:ring-admin-500"
+          onClose={() => setUserQuery('')}
         >
-          <option value="">Semua user</option>
-          {users.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name}
-            </option>
-          ))}
-        </select>
+          <div className="relative">
+            <ComboboxInput
+              className="w-full rounded-xl border-ink-200 py-2 pl-3 pr-8 text-sm focus:border-admin-500 focus:ring-admin-500"
+              displayValue={(id: string) =>
+                id ? (users.find((u) => u.id === id)?.name ?? '') : 'Semua user'
+              }
+              onChange={(e) => setUserQuery(e.target.value)}
+              placeholder="Cari user…"
+              aria-label="Filter user"
+            />
+            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-ink-400">
+              <ChevronDown size={16} />
+            </span>
+            {userId ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setPage(1);
+                  setUserId('');
+                  setUserQuery('');
+                }}
+                className="absolute inset-y-0 right-7 flex items-center text-ink-400 hover:text-ink-700"
+                aria-label="Hapus filter user"
+              >
+                <X size={14} />
+              </button>
+            ) : null}
+            <ComboboxOptions className="absolute z-30 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-ink-100 bg-white py-1 text-sm shadow-lg">
+              <ComboboxOption
+                value=""
+                className="cursor-pointer px-3 py-2 font-medium text-ink-500 data-[focus]:bg-admin-50 data-[selected]:bg-admin-50"
+              >
+                Semua user
+              </ComboboxOption>
+              {filteredUsers.map((u) => (
+                <ComboboxOption
+                  key={u.id}
+                  value={u.id}
+                  className="cursor-pointer px-3 py-2 text-ink-700 data-[focus]:bg-admin-50 data-[selected]:bg-admin-50"
+                >
+                  {u.name}
+                </ComboboxOption>
+              ))}
+              {filteredUsers.length === 0 ? (
+                <div className="px-3 py-2 italic text-ink-400">
+                  User tidak ditemukan
+                </div>
+              ) : null}
+            </ComboboxOptions>
+          </div>
+        </Combobox>
         <select
           value={moduleId}
           onChange={(e) => {
@@ -157,6 +247,7 @@ export function AuditLogPage() {
           <option value="core">Family Core</option>
           <option value="money">Money Track</option>
           <option value="household">Household</option>
+          <option value="task-board">Task Board</option>
         </select>
         <select
           value={action}
@@ -173,6 +264,44 @@ export function AuditLogPage() {
             </option>
           ))}
         </select>
+        <div
+          className="flex rounded-xl border border-ink-200 p-0.5"
+          role="group"
+          aria-label="Urutan waktu"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setPage(1);
+              setSort('desc');
+            }}
+            aria-pressed={sort === 'desc'}
+            className={`flex flex-1 items-center justify-center gap-1 rounded-[10px] px-2 py-1.5 text-xs font-semibold transition-colors ${
+              sort === 'desc'
+                ? 'bg-admin-50 text-admin-700'
+                : 'text-ink-500 hover:bg-ink-50'
+            }`}
+          >
+            <ArrowDown size={13} />
+            Terbaru
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPage(1);
+              setSort('asc');
+            }}
+            aria-pressed={sort === 'asc'}
+            className={`flex flex-1 items-center justify-center gap-1 rounded-[10px] px-2 py-1.5 text-xs font-semibold transition-colors ${
+              sort === 'asc'
+                ? 'bg-admin-50 text-admin-700'
+                : 'text-ink-500 hover:bg-ink-50'
+            }`}
+          >
+            <ArrowUp size={13} />
+            Terlama
+          </button>
+        </div>
         <div className="grid grid-cols-2 gap-2 lg:col-span-6">
           <input
             type="date"
@@ -211,7 +340,21 @@ export function AuditLogPage() {
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-ink-50/80 text-xs uppercase tracking-wider text-ink-400">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">Waktu</th>
+                    <th className="px-4 py-3 font-semibold">
+                      <button
+                        type="button"
+                        onClick={toggleSort}
+                        className="inline-flex items-center gap-1 font-semibold uppercase tracking-wider text-ink-400 hover:text-ink-700"
+                        title="Ubah urutan waktu"
+                      >
+                        Waktu
+                        {sort === 'desc' ? (
+                          <ArrowDown size={12} />
+                        ) : (
+                          <ArrowUp size={12} />
+                        )}
+                      </button>
+                    </th>
                     <th className="px-4 py-3 font-semibold">User</th>
                     <th className="px-4 py-3 font-semibold">Modul</th>
                     <th className="px-4 py-3 font-semibold">Aksi</th>
@@ -258,28 +401,58 @@ export function AuditLogPage() {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-sm text-ink-500">
+          <div className="mt-4 flex flex-col gap-3 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
             <p>
               {total} entri · halaman {page}/{totalPages}
             </p>
-            <div className="flex gap-2">
+            <nav
+              className="flex flex-wrap items-center gap-1"
+              aria-label="Navigasi halaman audit log"
+            >
               <button
                 type="button"
                 disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-                className="rounded-xl border border-ink-200 px-3 py-1.5 font-semibold hover:bg-white disabled:opacity-40"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-ink-200 font-semibold hover:bg-white disabled:opacity-40"
+                aria-label="Halaman sebelumnya"
               >
-                Prev
+                <ChevronLeft size={16} />
               </button>
+              {pageItems.map((item, index) =>
+                item === '…' ? (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="px-1.5 text-ink-400"
+                    aria-hidden
+                  >
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setPage(item)}
+                    aria-current={item === page ? 'page' : undefined}
+                    className={`inline-flex h-8 min-w-8 items-center justify-center rounded-xl border px-2 font-semibold transition-colors ${
+                      item === page
+                        ? 'border-admin-500 bg-admin-50 text-admin-700'
+                        : 'border-ink-200 hover:bg-white'
+                    }`}
+                  >
+                    {item}
+                  </button>
+                ),
+              )}
               <button
                 type="button"
                 disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="rounded-xl border border-ink-200 px-3 py-1.5 font-semibold hover:bg-white disabled:opacity-40"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-ink-200 font-semibold hover:bg-white disabled:opacity-40"
+                aria-label="Halaman berikutnya"
               >
-                Next
+                <ChevronRight size={16} />
               </button>
-            </div>
+            </nav>
           </div>
         </>
       )}

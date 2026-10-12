@@ -1,55 +1,21 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import type { Workplace, WorkplaceFormData } from '../types';
-import { MOCK_WORKPLACES } from '../mocks/workplaces';
+import { workplaceApi } from '../api/workplaceApi';
 
 /**
- * Penyimpanan tempat kerja versi dummy.
+ * Cache tempat kerja dari BE (`GET /workplaces`) + subscribe ringan.
  *
- * Semua mutasi disimpan di `localStorage` supaya bisa dicoba sekarang tanpa BE.
- * Begitu API `/workplaces` rilis, ganti isi fungsi di sini dengan panggilan
- * `apiFetch` — komponen tidak perlu diubah karena tetap lewat hook
- * `useWorkplaces()` / `getWorkplace()`.
+ * Mutasi memanggil API lalu refresh cache. Komponen membaca lewat
+ * `useWorkplaces()` supaya otomatis re-render.
  */
 
-const STORAGE_KEY = 'task-board:workplaces';
-
-function seed(): Workplace[] {
-  return MOCK_WORKPLACES.map((workplace) => ({ ...workplace }));
-}
-
-function load(): Workplace[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed: unknown = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return (parsed as Workplace[]).map((workplace) => ({
-          ...workplace,
-          is_default: Boolean(workplace.is_default),
-          archived_at: workplace.archived_at ?? null,
-        }));
-      }
-    }
-  } catch {
-    // storage tidak tersedia / data korup → pakai seed
-  }
-  return seed();
-}
-
-let state: Workplace[] = load();
+let state: Workplace[] = [];
+let loaded = false;
+let inflight: Promise<void> | null = null;
 const listeners = new Set<() => void>();
-
-function persist() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // ignore storage errors
-  }
-}
 
 function commit(next: Workplace[]) {
   state = next;
-  persist();
   for (const listener of listeners) listener();
 }
 
@@ -64,9 +30,33 @@ function getSnapshot(): Workplace[] {
   return state;
 }
 
-/** Semua tempat kerja (termasuk yang diarsipkan). */
+/** Hook daftar tempat kerja (memuat sekali di mount). */
 export function useWorkplaces(): Workplace[] {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const list = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  useEffect(() => {
+    void ensureWorkplacesLoaded();
+  }, []);
+  return list;
+}
+
+export function ensureWorkplacesLoaded(force = false): Promise<void> {
+  if (loaded && !force) return Promise.resolve();
+  if (inflight) return inflight;
+
+  inflight = (async () => {
+    const items = await workplaceApi.list();
+    loaded = true;
+    commit(items);
+  })().finally(() => {
+    inflight = null;
+  });
+
+  return inflight;
+}
+
+/** Paksa ambil ulang dari server. */
+export function refreshWorkplaces(): Promise<void> {
+  return ensureWorkplacesLoaded(true);
 }
 
 export function getWorkplace(id: number): Workplace | undefined {
@@ -77,27 +67,36 @@ export function getActiveWorkplaces(): Workplace[] {
   return state.filter((workplace) => !workplace.archived_at);
 }
 
-function nextId(): number {
-  return state.reduce((max, workplace) => Math.max(max, workplace.id), 0) + 1;
+export async function createWorkplace(
+  data: WorkplaceFormData,
+): Promise<Workplace> {
+  const created = await workplaceApi.create(data);
+  await refreshWorkplaces();
+  return created;
 }
 
-function fromForm(data: WorkplaceFormData) {
-  return {
-    name: data.name.trim(),
-    employment_type: data.employmentType,
-    role: data.role.trim() || null,
-    location: data.location.trim() || null,
-    accent: data.accent,
-    started_at: dateFromInput(data.startedAt),
-    ended_at: dateFromInput(data.endedAt),
-  };
+export async function updateWorkplace(
+  id: number,
+  data: WorkplaceFormData,
+): Promise<Workplace> {
+  const updated = await workplaceApi.update(id, data);
+  await refreshWorkplaces();
+  return updated;
 }
 
-/** `YYYY-MM-DD` → ISO (tengah malam lokal), atau null. */
-function dateFromInput(value: string): string | null {
-  if (!value) return null;
-  const date = new Date(`${value}T00:00:00`);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+export async function archiveWorkplace(id: number): Promise<void> {
+  await workplaceApi.archive(id);
+  await refreshWorkplaces();
+}
+
+export async function unarchiveWorkplace(id: number): Promise<void> {
+  await workplaceApi.unarchive(id);
+  await refreshWorkplaces();
+}
+
+export async function deleteWorkplace(id: number): Promise<void> {
+  await workplaceApi.remove(id);
+  await refreshWorkplaces();
 }
 
 /** ISO → `YYYY-MM-DD` untuk input date (pakai tanggal lokal). */
@@ -117,74 +116,8 @@ export function toWorkplaceFormData(workplace: Workplace): WorkplaceFormData {
     employmentType: workplace.employment_type,
     role: workplace.role ?? '',
     location: workplace.location ?? '',
-    accent: workplace.accent,
+    accent: workplace.accent ?? 'amber',
     startedAt: toDateInput(workplace.started_at),
     endedAt: toDateInput(workplace.ended_at),
   };
-}
-
-export function createWorkplace(data: WorkplaceFormData): Workplace {
-  const now = new Date().toISOString();
-  const workplace: Workplace = {
-    id: nextId(),
-    ...fromForm(data),
-    is_default: false,
-    archived_at: null,
-    created_at: now,
-    updated_at: now,
-  };
-  commit([...state, workplace]);
-  return workplace;
-}
-
-export function updateWorkplace(
-  id: number,
-  data: WorkplaceFormData,
-): Workplace | undefined {
-  let updated: Workplace | undefined;
-  const next = state.map((workplace) => {
-    if (workplace.id !== id) return workplace;
-    updated = {
-      ...workplace,
-      ...fromForm(data),
-      updated_at: new Date().toISOString(),
-    };
-    return updated;
-  });
-  if (updated) commit(next);
-  return updated;
-}
-
-export function archiveWorkplace(id: number): void {
-  const now = new Date().toISOString();
-  commit(
-    state.map((workplace) =>
-      workplace.id === id
-        ? { ...workplace, archived_at: now, updated_at: now }
-        : workplace,
-    ),
-  );
-}
-
-export function unarchiveWorkplace(id: number): void {
-  commit(
-    state.map((workplace) =>
-      workplace.id === id
-        ? {
-            ...workplace,
-            archived_at: null,
-            updated_at: new Date().toISOString(),
-          }
-        : workplace,
-    ),
-  );
-}
-
-export function deleteWorkplace(id: number): void {
-  commit(state.filter((workplace) => workplace.id !== id));
-}
-
-/** Kembalikan data contoh (buang semua perubahan dummy di localStorage). */
-export function resetWorkplaces(): void {
-  commit(seed());
 }

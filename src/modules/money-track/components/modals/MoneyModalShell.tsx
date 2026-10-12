@@ -30,6 +30,8 @@ export function MoneyModalShell({
   step,
   stepTotal,
 }: MoneyModalShellProps) {
+  // Money-track rawan salah pencet saat mengisi nominal; jangan tutup modal
+  // ketika area luar diklik. Tutup hanya via tombol X/Batal.
   return (
     <ModalShell
       accent="money"
@@ -41,6 +43,7 @@ export function MoneyModalShell({
       step={step}
       stepTotal={stepTotal}
       titleId="money-modal-title"
+      dismissOnBackdrop={false}
     >
       {children}
     </ModalShell>

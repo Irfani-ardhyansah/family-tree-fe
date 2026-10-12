@@ -5,6 +5,7 @@ import {
   CheckSquare,
   Clock,
   GitMerge,
+  GitPullRequest,
   Layout,
   Plus,
   RefreshCw,
@@ -16,7 +17,7 @@ import {
   archiveWorkplace,
   createWorkplace,
   deleteWorkplace,
-  resetWorkplaces,
+  refreshWorkplaces,
   unarchiveWorkplace,
   updateWorkplace,
   useWorkplaces,
@@ -54,11 +55,13 @@ export function WorkplaceListPage() {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [workplacesLoading, setWorkplacesLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [view, setView] = useState<BoardView>('active');
   const [formState, setFormState] = useState<FormState | null>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +92,25 @@ export function WorkplaceListPage() {
     };
   }, [reloadKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setWorkplacesLoading(true);
+    void refreshWorkplaces()
+      .catch((error) => {
+        if (!cancelled) {
+          setErrorMessage(
+            error instanceof Error ? error.message : 'Gagal memuat tempat kerja.',
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setWorkplacesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const statsByWorkplace = useMemo(() => buildWorkplaceStats(tasks), [tasks]);
 
   const activeWorkplaces = useMemo(
@@ -102,22 +124,43 @@ export function WorkplaceListPage() {
 
   const totals = useMemo(() => {
     let inProgress = 0;
+    let mergeRequest = 0;
     let merged = 0;
     for (const task of tasks) {
       if (task.status === 'In Progress') inProgress += 1;
+      else if (task.status === 'Merge Request') mergeRequest += 1;
       else if (task.status === 'Merged') merged += 1;
     }
-    return { total: tasks.length, inProgress, merged };
+    return { total: tasks.length, inProgress, mergeRequest, merged };
   }, [tasks]);
 
   const statsFor = (workplace: Workplace): WorkplaceTaskStats =>
     statsByWorkplace.get(workplace.id) ?? emptyWorkplaceStats();
 
-  const handleSave = (data: WorkplaceFormData) => {
+  const reload = () => {
+    setReloadKey((n) => n + 1);
+    void refreshWorkplaces().catch(() => undefined);
+  };
+
+  const runAction = async (action: () => Promise<void>) => {
+    setBusy(true);
+    setErrorMessage(null);
+    try {
+      await action();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Operasi gagal.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSave = async (data: WorkplaceFormData) => {
     if (formState?.mode === 'edit' && formState.workplace) {
-      updateWorkplace(formState.workplace.id, data);
+      await updateWorkplace(formState.workplace.id, data);
     } else {
-      createWorkplace(data);
+      await createWorkplace(data);
     }
     setFormState(null);
   };
@@ -125,9 +168,9 @@ export function WorkplaceListPage() {
   const visibleWorkplaces =
     view === 'active' ? activeWorkplaces : archivedWorkplaces;
 
-  const confirmStats = confirmState
-    ? statsFor(confirmState.workplace)
-    : null;
+  const confirmStats = confirmState ? statsFor(confirmState.workplace) : null;
+
+  const isInitialLoading = (loading || workplacesLoading) && workplaces.length === 0;
 
   return (
     <div>
@@ -145,11 +188,14 @@ export function WorkplaceListPage() {
             </Link>
             <button
               type="button"
-              onClick={() => setReloadKey((n) => n + 1)}
-              disabled={loading}
+              onClick={reload}
+              disabled={loading || workplacesLoading}
               className="inline-flex items-center gap-1.5 rounded-control border border-suite-border bg-suite-surface px-3 py-2 text-[13px] font-semibold text-suite-muted transition-colors hover:bg-suite-soft hover:text-suite-ink disabled:opacity-50"
             >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw
+                size={14}
+                className={loading || workplacesLoading ? 'animate-spin' : ''}
+              />
               Muat ulang
             </button>
             <button
@@ -166,20 +212,19 @@ export function WorkplaceListPage() {
 
       {errorMessage ? (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-card border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-[13px] font-semibold text-rose-700 dark:text-rose-300">
-          <span>
-            {errorMessage} — jumlah task di bawah mungkin belum akurat.
-          </span>
+          <span>{errorMessage}</span>
           <button
             type="button"
-            onClick={() => setReloadKey((n) => n + 1)}
-            className="shrink-0 rounded-control border border-rose-500/40 px-3 py-1.5 text-[12px] font-bold transition-colors hover:bg-rose-500/10"
+            onClick={() => setErrorMessage(null)}
+            className="shrink-0 text-rose-600 hover:text-rose-800 dark:text-rose-400"
+            aria-label="Tutup pesan error"
           >
-            Coba lagi
+            ✕
           </button>
         </div>
       ) : null}
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <SummaryTile
           icon={<CheckSquare size={16} />}
           label="Total Task"
@@ -190,6 +235,12 @@ export function WorkplaceListPage() {
           label="In Progress"
           value={totals.inProgress}
           accentClass="bg-sky-500/10 text-sky-600 dark:text-sky-300"
+        />
+        <SummaryTile
+          icon={<GitPullRequest size={16} />}
+          label="Merge Request"
+          value={totals.mergeRequest}
+          accentClass="bg-orange-500/10 text-orange-600 dark:text-orange-300"
         />
         <SummaryTile
           icon={<GitMerge size={16} />}
@@ -222,7 +273,7 @@ export function WorkplaceListPage() {
         </div>
       </div>
 
-      {loading ? (
+      {isInitialLoading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div
@@ -271,10 +322,10 @@ export function WorkplaceListPage() {
                   ? undefined
                   : () => setConfirmState({ type: 'archive', workplace })
               }
-              onRestore={() => unarchiveWorkplace(workplace.id)}
-              onDelete={() =>
-                setConfirmState({ type: 'delete', workplace })
+              onRestore={() =>
+                void runAction(() => unarchiveWorkplace(workplace.id))
               }
+              onDelete={() => setConfirmState({ type: 'delete', workplace })}
             />
           ))}
 
@@ -301,23 +352,6 @@ export function WorkplaceListPage() {
         </div>
       )}
 
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-[11.5px] text-suite-faint">
-        <span>
-          Data tempat kerja masih contoh & tersimpan di perangkat ini.
-        </span>
-        <button
-          type="button"
-          onClick={() => {
-            if (window.confirm('Kembalikan data contoh tempat kerja?')) {
-              resetWorkplaces();
-            }
-          }}
-          className="font-semibold text-suite-muted underline decoration-dotted hover:text-suite-ink"
-        >
-          Reset data contoh
-        </button>
-      </div>
-
       {formState ? (
         <WorkplaceFormModal
           mode={formState.mode}
@@ -331,15 +365,20 @@ export function WorkplaceListPage() {
         <WorkplaceConfirmModal
           state={confirmState}
           stats={confirmStats}
+          busy={busy}
           onClose={() => setConfirmState(null)}
-          onArchive={() => {
-            archiveWorkplace(confirmState.workplace.id);
-            setConfirmState(null);
-          }}
-          onDelete={() => {
-            deleteWorkplace(confirmState.workplace.id);
-            setConfirmState(null);
-          }}
+          onArchive={() =>
+            void runAction(async () => {
+              await archiveWorkplace(confirmState.workplace.id);
+              setConfirmState(null);
+            })
+          }
+          onDelete={() =>
+            void runAction(async () => {
+              await deleteWorkplace(confirmState.workplace.id);
+              setConfirmState(null);
+            })
+          }
         />
       ) : null}
     </div>
@@ -349,12 +388,14 @@ export function WorkplaceListPage() {
 function WorkplaceConfirmModal({
   state,
   stats,
+  busy,
   onClose,
   onArchive,
   onDelete,
 }: {
   state: ConfirmState;
   stats: WorkplaceTaskStats;
+  busy: boolean;
   onClose: () => void;
   onArchive: () => void;
   onDelete: () => void;
@@ -390,9 +431,10 @@ function WorkplaceConfirmModal({
                 <button
                   type="button"
                   onClick={onArchive}
-                  className="w-full rounded-control bg-amber-500 px-4 py-3 text-[13px] font-extrabold text-white transition-colors hover:bg-amber-600"
+                  disabled={busy}
+                  className="w-full rounded-control bg-amber-500 px-4 py-3 text-[13px] font-extrabold text-white transition-colors hover:bg-amber-600 disabled:opacity-60"
                 >
-                  Arsipkan
+                  {busy ? 'Memproses…' : 'Arsipkan'}
                 </button>
               </div>
             ) : null}
@@ -407,17 +449,19 @@ function WorkplaceConfirmModal({
                 <button
                   type="button"
                   onClick={onDelete}
-                  className="w-full rounded-control bg-rose-600 px-4 py-3 text-[13px] font-extrabold text-white transition-colors hover:bg-rose-700"
+                  disabled={busy}
+                  className="w-full rounded-control bg-rose-600 px-4 py-3 text-[13px] font-extrabold text-white transition-colors hover:bg-rose-700 disabled:opacity-60"
                 >
-                  Hapus
+                  {busy ? 'Memproses…' : 'Hapus'}
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={onArchive}
-                  className="w-full rounded-control bg-amber-500 px-4 py-3 text-[13px] font-extrabold text-white transition-colors hover:bg-amber-600"
+                  disabled={busy}
+                  className="w-full rounded-control bg-amber-500 px-4 py-3 text-[13px] font-extrabold text-white transition-colors hover:bg-amber-600 disabled:opacity-60"
                 >
-                  Arsipkan
+                  {busy ? 'Memproses…' : 'Arsipkan'}
                 </button>
               )}
             </div>

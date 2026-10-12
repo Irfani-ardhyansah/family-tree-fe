@@ -83,6 +83,7 @@ export const adminPaths = {
   settings: '/admin/settings',
   backup: '/admin/backup',
   biometric: '/admin/biometric',
+  cleanup: '/admin/cleanup',
 } as const;
 
 export const modulePaths = {

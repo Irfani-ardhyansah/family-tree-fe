@@ -21,6 +21,7 @@ import { taskBoardApi } from '../api/taskBoardApi';
 import { TaskTypeBadge } from '../components/TaskTypeBadge';
 import { TaskStatusBadge } from '../components/TaskStatusBadge';
 import { LinkChip } from '../components/LinkChip';
+import { CopyBranchButton } from '../components/CopyBranchButton';
 import { TaskHistoryModal } from '../components/TaskHistoryModal';
 import { TaskStatusUpdateModal } from '../components/TaskStatusUpdateModal';
 import { TaskDescriptionEditModal } from '../components/TaskDescriptionEditModal';
@@ -91,28 +92,46 @@ function todoKeyOf(todo: TaskTodo): string {
   return `id-${todo.id}`;
 }
 
+/**
+ * Urutkan item: pakai `sort_order` dari BE kalau ada (server sumber
+ * kebenaran), kalau tidak jatuh ke urutan lokal di localStorage.
+ */
+function orderByServerFirst<T extends { sort_order?: number }>(
+  items: T[],
+  storageKey: string,
+  localKeyOf: (item: T, index: number) => string,
+): T[] {
+  const hasServerOrder =
+    items.length > 0 &&
+    items.every((item) => typeof item.sort_order === 'number');
+  if (hasServerOrder) {
+    return [...items].sort(
+      (a, b) => (a.sort_order as number) - (b.sort_order as number),
+    );
+  }
+  return sortByOrder(items, localKeyOf, readKeyOrder(storageKey));
+}
+
 /** Field array/relasi dari BE bisa null — samakan jadi array kosong/null. */
 function withDefaults(data: Task): Task {
   const descriptions = data.descriptions ?? [];
   const todos = data.todos ?? [];
   return {
     ...data,
-    // Terapkan urutan lokal (hasil drag) supaya tampil konsisten walau BE
-    // belum menyimpan `sort_order`.
-    descriptions: sortByOrder(
+    // Utamakan urutan dari BE; cadangan lokal dipakai kalau BE belum kirim
+    // `sort_order`.
+    descriptions: orderByServerFirst(
       descriptions,
+      descriptionOrderKey(data.id),
       descriptionKeyOf,
-      readKeyOrder(descriptionOrderKey(data.id)),
     ),
     migration_files: data.migration_files ?? [],
     parent_task_id: data.parent_task_id ?? null,
     parent_task: data.parent_task ?? null,
     revisions: data.revisions ?? [],
     history: data.history ?? [],
-    todos: sortByOrder(
-      todos,
-      (todo) => todoKeyOf(todo),
-      readKeyOrder(todoOrderKey(data.id)),
+    todos: orderByServerFirst(todos, todoOrderKey(data.id), (todo) =>
+      todoKeyOf(todo),
     ),
   };
 }
@@ -1004,8 +1023,13 @@ export function TaskDetailPage() {
             </div>
             <div className="divide-y divide-suite-border">
               <DetailRow icon={<GitBranch size={14} />} label="Branch">
-                <span className="font-money-mono text-[12px] text-suite-ink">
-                  {task.branch_name}
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="font-money-mono text-[12px] text-suite-ink">
+                    {task.branch_name}
+                  </span>
+                  {task.branch_name ? (
+                    <CopyBranchButton value={task.branch_name} size={13} />
+                  ) : null}
                 </span>
               </DetailRow>
               {workplace ? (

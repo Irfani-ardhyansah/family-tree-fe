@@ -8,6 +8,7 @@ import {
   Shield,
   Sliders,
   Smartphone,
+  Trash2,
   Users,
 } from 'react-feather';
 import { adminPaths } from '@/shared/routes';
@@ -57,6 +58,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { to: adminPaths.broadcast, label: 'Broadcast', icon: Bell },
       { to: adminPaths.settings, label: 'Pengaturan', icon: Settings },
       { to: adminPaths.backup, label: 'Backup & Export', icon: Archive },
+      { to: adminPaths.cleanup, label: 'Pembersihan Otomatis', icon: Trash2 },
     ],
   },
 ];

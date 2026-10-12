@@ -183,6 +183,11 @@ export function WorkplaceCard({
                   label="In Progress"
                 />
                 <Legend
+                  color={TASK_STATUS_META['Merge Request'].dotClass}
+                  value={stats.mergeRequest}
+                  label="Merge Request"
+                />
+                <Legend
                   color={TASK_STATUS_META.Merged.dotClass}
                   value={stats.merged}
                   label="Merged"
