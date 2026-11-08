@@ -4,6 +4,7 @@ import {
   BarChart2,
   Bell,
   Clipboard,
+  Key,
   Settings,
   Shield,
   Sliders,
@@ -37,6 +38,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { to: adminPaths.biometric, label: 'Login biometrik', icon: Smartphone },
       { to: adminPaths.audit, label: 'Audit Log', icon: Clipboard },
       { to: adminPaths.sessions, label: 'Session', icon: Users },
+      { to: adminPaths.mcpTokens, label: 'Token MCP', icon: Key },
     ],
   },
   {

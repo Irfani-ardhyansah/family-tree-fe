@@ -20,6 +20,11 @@ type ModalShellProps = {
    * supaya klik di luar tidak menutup form.
    */
   dismissOnBackdrop?: boolean;
+  /**
+   * Sembunyikan tombol X dan kunci penutupan lewat backdrop. Dipakai saat
+   * modal menampilkan sesuatu yang hanya muncul sekali (mis. token MCP).
+   */
+  closeDisabled?: boolean;
 };
 
 export function ModalShell({
@@ -34,10 +39,11 @@ export function ModalShell({
   stepTotal,
   titleId = 'suite-modal-title',
   dismissOnBackdrop = true,
+  closeDisabled = false,
 }: ModalShellProps) {
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4">
-      {dismissOnBackdrop ? (
+      {dismissOnBackdrop && !closeDisabled ? (
         <button
           type="button"
           className="absolute inset-0 bg-[rgba(20,24,15,0.45)]"
@@ -90,14 +96,16 @@ export function ModalShell({
               <p className="mt-0.5 text-[12px] text-suite-faint">{subtitle}</p>
             ) : null}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1.5 text-suite-faint hover:bg-suite-soft"
-            aria-label="Tutup"
-          >
-            <X size={18} />
-          </button>
+          {closeDisabled ? null : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full p-1.5 text-suite-faint hover:bg-suite-soft"
+              aria-label="Tutup"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>

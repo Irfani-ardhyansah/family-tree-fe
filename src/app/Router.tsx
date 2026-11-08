@@ -7,6 +7,7 @@ import { adminRoutes } from '@/modules/admin/routes';
 import { familyCoreRoutes } from '@/modules/family-core/routes';
 import { familyRootsRoutes } from '@/modules/family-roots/routes';
 import { householdRoutes } from '@/modules/household/routes';
+import { mcpTokenRoutes } from '@/modules/mcp-tokens/routes';
 import { moneyTrackRoutes } from '@/modules/money-track/routes';
 import { taskBoardRoutes } from '@/modules/task-board/routes';
 import { AuthProvider } from '@/shared/context/AuthContext';
@@ -32,6 +33,7 @@ const router = createBrowserRouter(
         ...familyCoreRoutes,
         ...moneyTrackRoutes,
         ...householdRoutes,
+        ...mcpTokenRoutes,
         ...taskBoardRoutes,
         ...adminRoutes,
         ...legacyRedirectRoutes,

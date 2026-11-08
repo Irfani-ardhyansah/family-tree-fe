@@ -9,6 +9,7 @@ import { BackupExportPage } from '@/modules/admin/pages/BackupExportPage';
 import { BiometricAdminPage } from '@/modules/admin/pages/BiometricAdminPage';
 import { BroadcastPage } from '@/modules/admin/pages/BroadcastPage';
 import { DashboardPage } from '@/modules/admin/pages/DashboardPage';
+import { McpTokensAdminPage } from '@/modules/admin/pages/McpTokensAdminPage';
 import { SessionManagementPage } from '@/modules/admin/pages/SessionManagementPage';
 import { SettingsPage } from '@/modules/admin/pages/SettingsPage';
 import { StatusModulPage } from '@/modules/admin/pages/StatusModulPage';
@@ -32,6 +33,7 @@ export const adminRoutes: RouteObject[] = [
               { path: 'biometric', element: <BiometricAdminPage /> },
               { path: 'audit', element: <AuditLogPage /> },
               { path: 'sessions', element: <SessionManagementPage /> },
+              { path: 'mcp-tokens', element: <McpTokensAdminPage /> },
               { path: 'broadcast', element: <BroadcastPage /> },
               { path: 'settings', element: <SettingsPage /> },
               { path: 'backup', element: <BackupExportPage /> },

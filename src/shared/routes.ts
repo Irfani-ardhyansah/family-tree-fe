@@ -5,6 +5,8 @@ export const appPaths = {
   login: '/login',
   register: '/register',
   inbox: '/inbox',
+  /** Pengelolaan token MCP milik user sendiri. */
+  mcpTokens: '/mcp-tokens',
 } as const;
 
 export const rootsPaths = {
@@ -84,6 +86,7 @@ export const adminPaths = {
   backup: '/admin/backup',
   biometric: '/admin/biometric',
   cleanup: '/admin/cleanup',
+  mcpTokens: '/admin/mcp-tokens',
 } as const;
 
 export const modulePaths = {

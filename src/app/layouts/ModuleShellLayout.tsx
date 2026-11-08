@@ -10,11 +10,14 @@ import { shortPersonName } from '@/shared/utils/personDisplayName';
 type ModuleShellLayoutProps = {
   children: ReactNode;
   moduleName: string;
+  /** Tema warna suite; default mengikuti Household. */
+  dataModule?: 'roots' | 'household' | 'core' | 'money' | 'admin';
 };
 
 export function ModuleShellLayout({
   children,
   moduleName,
+  dataModule = 'household',
 }: ModuleShellLayoutProps) {
   const { logout, person } = useAuth();
   const loginName = person
@@ -22,7 +25,7 @@ export function ModuleShellLayout({
     : null;
 
   return (
-    <div data-module="household" className="flex min-h-screen flex-col bg-suite-bg text-suite-ink">
+    <div data-module={dataModule} className="flex min-h-screen flex-col bg-suite-bg text-suite-ink">
       <header className="sticky top-0 z-40 border-b border-suite-border bg-suite-surface/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-3 sm:h-16 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">

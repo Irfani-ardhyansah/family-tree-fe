@@ -242,6 +242,16 @@ export function LauncherPage() {
                     </button>
                   </MenuItem>
                 )}
+                <MenuItem>
+                  <button
+                    type="button"
+                    onClick={() => navigate(appPaths.mcpTokens)}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm text-suite-ink data-[focus]:bg-suite-soft"
+                  >
+                    <Key size={14} className="text-suite-faint" />
+                    Token MCP
+                  </button>
+                </MenuItem>
                 {hasSecondaryPassword && (
                   <MenuItem>
                     <button
