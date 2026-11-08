@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Clipboard, Edit2, Plus, Trash2, X } from 'react-feather';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
@@ -117,15 +117,43 @@ export function TransactionsPage() {
     bumpActivity,
     refreshApi,
     removeTransaction,
+    preferences,
   } = useMoneyTrackUi();
   const [searchParams] = useSearchParams();
   const pocketFromUrl = searchParams.get('pocket');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const defaultPeriod = useMemo(() => currentMonthRange(), []);
+  const currentPeriodFrom = preferences.period.current?.from ?? '';
+  const currentPeriodTo = preferences.period.current?.to ?? '';
+  const defaultPeriod = useMemo(() => {
+    if (currentPeriodFrom && currentPeriodTo) {
+      return { fromDate: currentPeriodFrom, toDate: currentPeriodTo };
+    }
+    return currentMonthRange();
+  }, [currentPeriodFrom, currentPeriodTo]);
   const [fromDate, setFromDate] = useState(defaultPeriod.fromDate);
   const [toDate, setToDate] = useState(defaultPeriod.toDate);
+
+  // Preferensi dari API bisa datang setelah mount (mis. cache masih kosong).
+  // Ikutkan rentang baru selama user belum mengubah tanggal sendiri.
+  const lastDefaultPeriodRef = useRef(defaultPeriod);
+  useEffect(() => {
+    const prev = lastDefaultPeriodRef.current;
+    lastDefaultPeriodRef.current = defaultPeriod;
+    if (
+      prev.fromDate === defaultPeriod.fromDate &&
+      prev.toDate === defaultPeriod.toDate
+    ) {
+      return;
+    }
+    setFromDate((current) =>
+      current === prev.fromDate ? defaultPeriod.fromDate : current,
+    );
+    setToDate((current) =>
+      current === prev.toDate ? defaultPeriod.toDate : current,
+    );
+  }, [defaultPeriod]);
   const periodLabel = formatPeriodLabel(fromDate, toDate);
 
   const handleFromDateChange = (value: string) => {
@@ -302,13 +330,17 @@ export function TransactionsPage() {
     setCategoryId('all');
     setPocketId('all');
     setQuery('');
-    const period = currentMonthRange();
-    setFromDate(period.fromDate);
-    setToDate(period.toDate);
+    setFromDate(defaultPeriod.fromDate);
+    setToDate(defaultPeriod.toDate);
   };
 
   const isDefaultPeriod =
     fromDate === defaultPeriod.fromDate && toDate === defaultPeriod.toDate;
+
+  const applyDefaultPeriod = () => {
+    setFromDate(defaultPeriod.fromDate);
+    setToDate(defaultPeriod.toDate);
+  };
 
   const shownCountLabel =
     dataSource === 'api' && apiTotal > rows.length
@@ -417,6 +449,9 @@ export function TransactionsPage() {
               }}
             />
           ))}
+          {!isDefaultPeriod ? (
+            <FilterChip label="Periode berjalan" onClick={applyDefaultPeriod} />
+          ) : null}
           {(kind !== 'all' || hasExtraFilters || !isDefaultPeriod) && (
             <button
               type="button"

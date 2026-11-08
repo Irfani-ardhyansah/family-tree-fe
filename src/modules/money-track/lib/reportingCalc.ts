@@ -46,7 +46,11 @@ export type CategorySlice = {
 
 export type MonthlyReportView = {
   periodLabel: string;
+  periodFrom: string;
+  periodTo: string;
   previousPeriodLabel: string;
+  previousPeriodFrom: string;
+  previousPeriodTo: string;
   income: number;
   expense: number;
   net: number;
@@ -163,8 +167,12 @@ export function mapMoneyMonthlyReport(
 
   return {
     periodLabel: api.period?.label ?? api.period?.yearMonth ?? '',
+    periodFrom: api.period?.from ?? '',
+    periodTo: api.period?.to ?? '',
     previousPeriodLabel:
       api.previousPeriod?.label ?? api.previousPeriod?.yearMonth ?? '',
+    previousPeriodFrom: api.previousPeriod?.from ?? '',
+    previousPeriodTo: api.previousPeriod?.to ?? '',
     income,
     expense,
     net: api.summary?.net ?? income - expense,
@@ -205,7 +213,11 @@ export function buildLocalMonthlyReport(input: {
   month: string;
   daysInMonth: number;
   periodLabel: string;
+  periodFrom: string;
+  periodTo: string;
   previousPeriodLabel: string;
+  previousPeriodFrom: string;
+  previousPeriodTo: string;
   currentRows: MoneyUiTx[];
   previousRows: MoneyUiTx[];
   debts: Array<{
@@ -261,7 +273,11 @@ export function buildLocalMonthlyReport(input: {
 
   return {
     periodLabel: input.periodLabel,
+    periodFrom: input.periodFrom,
+    periodTo: input.periodTo,
     previousPeriodLabel: input.previousPeriodLabel,
+    previousPeriodFrom: input.previousPeriodFrom,
+    previousPeriodTo: input.previousPeriodTo,
     income,
     expense,
     net,
@@ -541,7 +557,10 @@ export function downloadMonthlyCsv(input: {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `money-report-${input.periodLabel.replace(/\s+/g, '-').toLowerCase()}.csv`;
+  a.download = `money-report-${input.periodLabel
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

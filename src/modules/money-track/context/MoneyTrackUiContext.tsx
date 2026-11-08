@@ -60,6 +60,7 @@ import {
 import type { MoneyDashboardMock, MoneyScope } from '@/modules/money-track/types';
 import {
   readCachedMoneyPreferences,
+  refreshPreferencesPeriod,
   writeCachedMoneyPreferences,
   type MoneyPreferences,
 } from '@/modules/money-track/lib/preferences';
@@ -413,12 +414,14 @@ export function MoneyTrackUiProvider({ children }: { children: ReactNode }) {
   const savePreferences = useCallback(
     async (next: MoneyPreferences) => {
       // Optimistic: cache + state dulu supaya UI langsung terasa.
-      writeCachedMoneyPreferences(next);
+      // Hitung ulang periode berjalan supaya halaman lain ikut setting baru.
+      const optimistic = refreshPreferencesPeriod(next);
+      writeCachedMoneyPreferences(optimistic);
       if (dataSource === 'dummy') {
-        setDummyPreferences(next);
+        setDummyPreferences(optimistic);
         return;
       }
-      setApiPreferences(next);
+      setApiPreferences(optimistic);
       try {
         const saved = await saveMoneyPreferences(next);
         writeCachedMoneyPreferences(saved);

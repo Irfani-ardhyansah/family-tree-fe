@@ -28,6 +28,7 @@ import {
   monthDateRange,
   yearMonthFromPeriodLabel,
 } from '@/modules/money-track/lib/dateOnly';
+import { formatPeriodHeading } from '@/modules/money-track/lib/moneyPeriod';
 import {
   formatIdr,
   formatIdrShort,
@@ -123,6 +124,8 @@ export function DashboardPage() {
     summary: MoneyDashboardMock['summary'];
     recentActivity: MoneyActivityItem[];
     periodLabel: string;
+    periodFrom: string | null;
+    periodTo: string | null;
     yearMonth: string;
   } | null>(null);
   const [dashLoading, setDashLoading] = useState(dataSource === 'api');
@@ -148,6 +151,8 @@ export function DashboardPage() {
           summary: mapped.summary,
           recentActivity: mapped.recentActivity,
           periodLabel: mapped.periodLabel,
+          periodFrom: api.period.from ?? null,
+          periodTo: api.period.to ?? null,
           yearMonth: api.period.yearMonth,
         });
       } catch {
@@ -179,7 +184,15 @@ export function DashboardPage() {
     dataSource === 'api' && scopedDash?.yearMonth
       ? scopedDash.yearMonth
       : yearMonthFromPeriodLabel(periodLabel);
-  const periodRange = monthDateRange(yearMonth);
+  const periodRange =
+    dataSource === 'api' && scopedDash?.periodFrom && scopedDash?.periodTo
+      ? { from: scopedDash.periodFrom, to: scopedDash.periodTo }
+      : monthDateRange(yearMonth);
+  const periodDisplayLabel = formatPeriodHeading(
+    periodLabel,
+    periodRange?.from,
+    periodRange?.to,
+  );
 
   const debtSnapshot = useMemo(() => {
     let utang = 0;
@@ -200,7 +213,7 @@ export function DashboardPage() {
     setDetail({
       mode: 'activity',
       title: kind === 'income' ? 'Pemasukan' : 'Pengeluaran',
-      subtitle: periodLabel,
+      subtitle: periodDisplayLabel,
       from: periodRange.from,
       to: periodRange.to,
       personId: scope === 'all' ? undefined : scope,
@@ -242,7 +255,7 @@ export function DashboardPage() {
           >
             <ChevronLeft size={14} />
           </button>
-          {periodLabel}
+          {periodDisplayLabel}
           <button
             type="button"
             className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-money-soft text-money-muted"

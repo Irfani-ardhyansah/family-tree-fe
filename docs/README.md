@@ -88,6 +88,7 @@ docs/
 | [`requests/from-be/done/BIOMETRIC-LOGIN-FE-PROMPT.md`](./requests/from-be/done/BIOMETRIC-LOGIN-FE-PROMPT.md) | Login biometrik (WebAuthn) |
 | [`requests/from-be/done/TASK-BOARD-ENHANCEMENTS-FE-PROMPT.md`](./requests/from-be/done/TASK-BOARD-ENHANCEMENTS-FE-PROMPT.md) | Task Board: status `Merged`, deskripsi, revisi, riwayat — FE wired |
 | [`requests/from-be/done/TASK-BOARD-ACTIVITY-HISTORY-FE-PROMPT.md`](./requests/from-be/done/TASK-BOARD-ACTIVITY-HISTORY-FE-PROMPT.md) | Task Board: riwayat aktivitas (deskripsi, revisi) + link child — FE wired |
+| [`requests/from-be/done/MONEY-PERIOD-START-FE-PROMPT.md`](./requests/from-be/done/MONEY-PERIOD-START-FE-PROMPT.md) | Money Track: jadwal reset/gajian (periode mulai, hari kerja terakhir, libur) — FE wired |
 
 ## Requests from BE — pending
 

@@ -16,6 +16,7 @@ import {
   PageHeader,
 } from '@/modules/money-track/components/PageChrome';
 import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
+import { formatPeriodHeading } from '@/modules/money-track/lib/moneyPeriod';
 import {
   applyCategoryExclusions,
   buildLocalMonthlyReport,
@@ -852,13 +853,17 @@ export function ReportingPage() {
     transactions,
     debts,
     activityTick,
+    preferences,
   } = useMoneyTrackUi();
 
   const now = new Date();
-  const [month, setMonth] = useState(
-    String(now.getMonth() + 1).padStart(2, '0'),
-  );
-  const [year, setYear] = useState(String(now.getFullYear()));
+  const initialYearMonth = /^\d{4}-\d{2}$/.test(
+    preferences.period.current?.yearMonth ?? '',
+  )
+    ? preferences.period.current.yearMonth
+    : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const [month, setMonth] = useState(initialYearMonth.slice(5, 7));
+  const [year, setYear] = useState(initialYearMonth.slice(0, 4));
   const [kind, setKind] = useState<ReportKind>('expense');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [hoverDay, setHoverDay] = useState<number | null>(null);
@@ -874,7 +879,7 @@ export function ReportingPage() {
   );
   const activeExcluded = kind === 'expense' ? excluded.expense : excluded.income;
   const yearOptions = useMemo(
-    () => buildYearOptions(now.getFullYear()),
+    () => buildYearOptions(Number(initialYearMonth.slice(0, 4))),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fixed around first mount year
     [],
   );
@@ -950,7 +955,11 @@ export function ReportingPage() {
       month,
       daysInMonth,
       periodLabel: periodLabelLocal,
+      periodFrom: fromDate,
+      periodTo: toDate,
       previousPeriodLabel: prevPeriodLabelLocal,
+      previousPeriodFrom: prevRange.fromDate,
+      previousPeriodTo: prevRange.toDate,
       currentRows,
       previousRows,
       debts,
@@ -990,8 +999,16 @@ export function ReportingPage() {
   );
   const activeExcludedKeys =
     kind === 'expense' ? excludedExpenseKeys : excludedIncomeKeys;
-  const periodLabel = report?.periodLabel || periodLabelLocal;
-  const prevPeriodLabel = report?.previousPeriodLabel || prevPeriodLabelLocal;
+  const periodLabel = formatPeriodHeading(
+    report?.periodLabel || periodLabelLocal,
+    report?.periodFrom || fromDate,
+    report?.periodTo || toDate,
+  );
+  const prevPeriodLabel = formatPeriodHeading(
+    report?.previousPeriodLabel || prevPeriodLabelLocal,
+    report?.previousPeriodFrom || prevRange.fromDate,
+    report?.previousPeriodTo || prevRange.toDate,
+  );
 
   const incomeTotal = report?.income ?? 0;
   const expenseTotal = report?.expense ?? 0;
@@ -1079,8 +1096,8 @@ export function ReportingPage() {
   ) => {
     setDetail({
       mode: 'activity',
-      from: input.from ?? fromDate,
-      to: input.to ?? toDate,
+      from: input.from ?? (report?.periodFrom || fromDate),
+      to: input.to ?? (report?.periodTo || toDate),
       personId,
       title: input.title,
       subtitle: input.subtitle,

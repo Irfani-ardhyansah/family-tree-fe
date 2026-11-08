@@ -6,6 +6,15 @@
  * endpoint BE belum tersedia.
  */
 
+import {
+  currentPeriodDto,
+  DEFAULT_MONEY_PERIOD_SETTINGS,
+  normalizeMoneyPeriodCurrent,
+  normalizeMoneyPeriodSettings,
+  type MoneyPeriodCurrent,
+  type MoneyPeriodSettings,
+} from '@/modules/money-track/lib/moneyPeriod';
+
 export type MoneyPrefType = 'expense' | 'income';
 
 /** Default per tipe transaksi (dipakai bersama atau per-person). */
@@ -25,6 +34,8 @@ export type MoneyPreferences = {
   shared: MoneyScopedDefaults;
   /** Override per-person (mode couple), key = personId. */
   persons: Record<string, MoneyScopedDefaults>;
+  /** Jadwal reset/gajian + periode berjalan. */
+  period: MoneyPeriodSettings & { current: MoneyPeriodCurrent };
 };
 
 /** Uppercase label supaya konsisten di seluruh UI. */
@@ -47,6 +58,11 @@ export const DEFAULT_MONEY_PREFERENCES: MoneyPreferences = {
   quickAmounts: [...DEFAULT_QUICK_AMOUNTS],
   shared: emptyScopedDefaults(),
   persons: {},
+  period: {
+    ...DEFAULT_MONEY_PERIOD_SETTINGS,
+    holidays: [...DEFAULT_MONEY_PERIOD_SETTINGS.holidays],
+    current: currentPeriodDto(DEFAULT_MONEY_PERIOD_SETTINGS),
+  },
 };
 
 function normalizeId(value: unknown): string | null {
@@ -88,11 +104,30 @@ export function normalizeMoneyPreferences(input: unknown): MoneyPreferences {
     if (!key) continue;
     persons[key] = normalizeScoped(value);
   }
+  const period = normalizeMoneyPeriodSettings(row.period);
   return {
     defaultTxType: row.defaultTxType === 'income' ? 'income' : 'expense',
     quickAmounts: normalizeQuickAmounts(row.quickAmounts),
     shared: normalizeScoped(row.shared),
     persons,
+    period: {
+      ...period,
+      current: normalizeMoneyPeriodCurrent(
+        (row.period as Record<string, unknown> | undefined)?.current,
+        period,
+      ),
+    },
+  };
+}
+
+/** Hitung ulang `period.current` lokal (mis. setelah simpan tanpa body response). */
+export function refreshPreferencesPeriod(
+  prefs: MoneyPreferences,
+): MoneyPreferences {
+  const period = normalizeMoneyPeriodSettings(prefs.period);
+  return {
+    ...prefs,
+    period: { ...period, current: currentPeriodDto(period) },
   };
 }
 
@@ -134,10 +169,10 @@ export const MONEY_PREFERENCES_KEY = 'money-track-preferences';
 export function readCachedMoneyPreferences(): MoneyPreferences {
   try {
     const raw = localStorage.getItem(MONEY_PREFERENCES_KEY);
-    if (!raw) return DEFAULT_MONEY_PREFERENCES;
-    return normalizeMoneyPreferences(JSON.parse(raw));
+    if (!raw) return refreshPreferencesPeriod(DEFAULT_MONEY_PREFERENCES);
+    return refreshPreferencesPeriod(normalizeMoneyPreferences(JSON.parse(raw)));
   } catch {
-    return DEFAULT_MONEY_PREFERENCES;
+    return refreshPreferencesPeriod(DEFAULT_MONEY_PREFERENCES);
   }
 }
 

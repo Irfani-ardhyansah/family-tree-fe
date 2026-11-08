@@ -8,6 +8,7 @@ import type { MoneyDataSource } from '@/modules/money-track/lib/dataSource';
 import {
   normalizeMoneyPreferences,
   readCachedMoneyPreferences,
+  refreshPreferencesPeriod,
   type MoneyPreferences,
 } from '@/modules/money-track/lib/preferences';
 import type {
@@ -39,7 +40,7 @@ export type MoneySetupResponse = {
 };
 
 export type MoneyDashboardApi = {
-  period: { yearMonth: string; label: string };
+  period: { yearMonth: string; label: string; from?: string; to?: string };
   scope: 'all' | 'person';
   mode: 'single' | 'couple';
   summary: MoneyDashboardMock['summary'];
@@ -366,6 +367,12 @@ export type MoneyPreferencesApi = {
       incomeCategoryId: number | null;
     }
   >;
+  period: {
+    startMode: MoneyPreferences['period']['startMode'];
+    startDay: number;
+    weekendAdjust: MoneyPreferences['period']['weekendAdjust'];
+    holidays: string[];
+  };
 };
 
 function toApiId(value: string | null): number | null {
@@ -393,6 +400,12 @@ function preferencesToApi(prefs: MoneyPreferences): MoneyPreferencesApi {
     quickAmounts: prefs.quickAmounts,
     shared: scopedToApi(prefs.shared),
     persons,
+    period: {
+      startMode: prefs.period.startMode,
+      startDay: prefs.period.startDay,
+      weekendAdjust: prefs.period.weekendAdjust,
+      holidays: [...prefs.period.holidays],
+    },
   };
 }
 
@@ -409,7 +422,8 @@ export async function saveMoneyPreferences(
     body: JSON.stringify(preferencesToApi(prefs)),
   });
   // BE boleh balikin body kosong / partial — pakai input sebagai basis.
-  return data == null ? prefs : normalizeMoneyPreferences(data);
+  // Hitung ulang `period.current` supaya preview ikut setting baru.
+  return data == null ? refreshPreferencesPeriod(prefs) : normalizeMoneyPreferences(data);
 }
 
 export type MoneyUiAccount = {
@@ -661,6 +675,8 @@ export type MoneyMonthlyReportApi = {
   previousPeriod: {
     yearMonth: string;
     label: string;
+    from?: string;
+    to?: string;
   };
   scope: 'all' | 'person' | string;
   summary: {

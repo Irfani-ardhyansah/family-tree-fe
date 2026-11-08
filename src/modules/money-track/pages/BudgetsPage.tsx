@@ -1,21 +1,36 @@
 import { useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { DataSourceBanner } from '@/modules/money-track/components/DataSourceBanner';
 import { MoneyCard, PageHeader } from '@/modules/money-track/components/PageChrome';
+import { useMoneyTrackUi } from '@/modules/money-track/context/MoneyTrackUiContext';
+import {
+  formatPeriodRangeLong,
+  periodDateRange,
+  yearMonthLabel,
+} from '@/modules/money-track/lib/moneyPeriod';
+import { moneyPaths } from '@/shared/routes';
 
 /** Stub navigasi dari reminder budget — UI CRUD menyusul. */
 export function BudgetsPage() {
   const [params] = useSearchParams();
-  const yearMonth = params.get('yearMonth');
+  const { preferences } = useMoneyTrackUi();
+  const paramYearMonth = params.get('yearMonth');
+  const current = preferences.period.current;
 
-  const label = useMemo(() => {
-    if (!yearMonth || !/^\d{4}-\d{2}$/.test(yearMonth)) return null;
-    const [y, m] = yearMonth.split('-').map(Number);
-    return new Intl.DateTimeFormat('id-ID', {
-      month: 'long',
-      year: 'numeric',
-    }).format(new Date(y, m - 1, 1));
-  }, [yearMonth]);
+  const yearMonth =
+    paramYearMonth && /^\d{4}-\d{2}$/.test(paramYearMonth)
+      ? paramYearMonth
+      : (current?.yearMonth ?? '');
+
+  const range = useMemo(() => {
+    if (!yearMonth) return null;
+    if (!paramYearMonth && current) {
+      return { from: current.from, to: current.to };
+    }
+    return periodDateRange(yearMonth, preferences.period);
+  }, [yearMonth, paramYearMonth, current, preferences.period]);
+
+  const label = yearMonth ? yearMonthLabel(yearMonth) : null;
 
   return (
     <div>
@@ -29,10 +44,21 @@ export function BudgetsPage() {
           Halaman budget menyusul
         </p>
         <p className="mt-2 text-[13px] text-money-muted">
-          {label
-            ? `Periode dari reminder: ${label} (${yearMonth}).`
-            : 'Buka dari reminder budget untuk membawa query yearMonth.'}
+          {label && range
+            ? `Periode ${label} · ${formatPeriodRangeLong(range.from, range.to)}`
+            : 'Atur jadwal gajian dulu untuk menentukan periode budget.'}
         </p>
+        <p className="mt-1 text-[12px] text-money-faint">
+          {paramYearMonth
+            ? `Query yearMonth dari reminder: ${paramYearMonth}.`
+            : `Key periode aktif: ${yearMonth || '—'}.`}
+        </p>
+        <Link
+          to={moneyPaths.settings}
+          className="mt-4 inline-flex items-center rounded-full border border-money-border px-3.5 py-2 text-[12.5px] font-bold text-money-brown-deep hover:bg-money-soft"
+        >
+          Atur jadwal gajian
+        </Link>
       </MoneyCard>
     </div>
   );
