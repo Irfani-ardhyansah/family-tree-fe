@@ -1,6 +1,16 @@
-/** Modul sensitif yang boleh di-"trust" ke token MCP. */
-export const MCP_UNLOCK_MODULES = ['money', 'core', 'household'] as const;
+/** Modul yang otomatis diberikan ke semua token MCP (tanpa checkbox/unlock). */
+export const MCP_DEFAULT_MODULES = ['money'] as const;
+export type McpDefaultModule = (typeof MCP_DEFAULT_MODULES)[number];
 
+/** Modul opsional yang boleh di-"trust" ke token MCP (butuh password kedua). */
+export const MCP_OPTIONAL_MODULES = ['core', 'household'] as const;
+export type McpOptionalModule = (typeof MCP_OPTIONAL_MODULES)[number];
+
+/** Semua modul yang dikenal token MCP (default + opsional). */
+export const MCP_UNLOCK_MODULES = [
+  ...MCP_DEFAULT_MODULES,
+  ...MCP_OPTIONAL_MODULES,
+] as const;
 export type McpUnlockModule = (typeof MCP_UNLOCK_MODULES)[number];
 
 export type McpTokenItem = {
@@ -39,8 +49,8 @@ export type CreateMcpTokenResponse = {
 export type CreateMcpTokenInput = {
   label: string;
   /**
-   * `undefined` = ikuti unlock header (kalau ada).
-   * `[]` = token tanpa modul sensitif.
+   * Hanya modul opsional (`core` / `household`). Money Track otomatis.
+   * `undefined` / `[]` = akses default saja (Family Roots, Task Board, Money).
    */
-  modules?: McpUnlockModule[] | null;
+  modules?: McpOptionalModule[] | null;
 };

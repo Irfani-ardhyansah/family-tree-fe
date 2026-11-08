@@ -20,8 +20,9 @@ import {
 } from '@/shared/lib/apiClient';
 import { useSecondaryPasswordGate } from '@/shared/context/SecondaryPasswordGateContext';
 import {
-  MCP_UNLOCK_MODULES,
+  MCP_OPTIONAL_MODULES,
   type CreateMcpTokenResponse,
+  type McpOptionalModule,
   type McpTokenItem,
   type McpUnlockModule,
 } from '@/shared/types/mcpToken';
@@ -34,6 +35,38 @@ const MODULE_LABEL: Record<McpUnlockModule, string> = {
   core: 'Family Core',
   household: 'Household',
 };
+
+/** Modul default yang otomatis aktif dan tidak punya checkbox. */
+const MCP_DEFAULT_LABELS = ['Family Roots', 'Task Board', 'Money Track'];
+
+function McpAccessList() {
+  return (
+    <div className="rounded-control border border-suite-border bg-suite-soft/70 px-3 py-3">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-suite-faint">
+        Akses default
+      </p>
+      <p className="mt-0.5 text-[12px] leading-relaxed text-suite-muted">
+        Token MCP otomatis bisa mengakses <strong>Family Roots</strong>,{' '}
+        <strong>Task Board</strong>, dan <strong>Money Track</strong> sesuai hak
+        akun. Ketiganya tidak punya checkbox.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {MCP_DEFAULT_LABELS.map((label) => (
+          <span
+            key={label}
+            className="inline-flex rounded-full bg-emerald-500/12 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300"
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+      <p className="mt-2 text-[11.5px] leading-relaxed text-suite-faint">
+        Family Core dan Household opsional lewat checkbox di bawah. Modul
+        opsional butuh verifikasi password kedua saat token dibuat.
+      </p>
+    </div>
+  );
+}
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return '—';
@@ -85,7 +118,7 @@ function UnlockBadges({ unlocks }: { unlocks: McpUnlockModule[] }) {
   if (unlocks.length === 0) {
     return (
       <span className="inline-flex rounded-full bg-suite-soft px-2.5 py-1 text-[11px] font-semibold text-suite-muted">
-        Tanpa modul sensitif
+        Tanpa modul opsional
       </span>
     );
   }
@@ -183,13 +216,13 @@ function CreateTokenModal({
 }) {
   const { ensureUnlocked } = useSecondaryPasswordGate();
   const [label, setLabel] = useState('Nouride');
-  const [modules, setModules] = useState<McpUnlockModule[]>([]);
+  const [modules, setModules] = useState<McpOptionalModule[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [created, setCreated] = useState<CreateMcpTokenResponse | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const toggleModule = (moduleId: McpUnlockModule) => {
+  const toggleModule = (moduleId: McpOptionalModule) => {
     setModules((prev) =>
       prev.includes(moduleId)
         ? prev.filter((id) => id !== moduleId)
@@ -203,9 +236,14 @@ function CreateTokenModal({
     try {
       let unlockToken: string | null = null;
 
+      // Money Track otomatis; password kedua hanya perlu kalau memilih modul
+      // opsional (Family Core / Household).
       if (modules.length > 0) {
         const unlocked = await ensureUnlocked();
         if (!unlocked) {
+          setError(
+            'Verifikasi password kedua diperlukan untuk memberi akses modul opsional. Token belum dibuat.',
+          );
           return;
         }
         unlockToken = getModuleUnlockToken();
@@ -314,12 +352,22 @@ function CreateTokenModal({
           </div>
 
           <p className="text-[12px] leading-relaxed text-suite-muted">
+            Token ini otomatis bisa mengakses <strong>Family Roots</strong>,{' '}
+            <strong>Task Board</strong>, dan <strong>Money Track</strong> sesuai
+            hak akun. Modul opsional yang diizinkan:
+          </p>
+
+          <UnlockBadges
+            unlocks={created.item.unlocks.filter(
+              (moduleId) => moduleId !== 'money',
+            )}
+          />
+
+          <p className="text-[12px] leading-relaxed text-suite-muted">
             Tempel token ini di Nouride → <strong>Connectors</strong> →{' '}
             <strong>FamilyRoots</strong>, lalu simpan sebagai credential agent.
             Panduan lengkap ada di bawah daftar token.
           </p>
-
-          <UnlockBadges unlocks={created.item.unlocks} />
         </div>
       ) : (
         <div className="space-y-5">
@@ -342,16 +390,19 @@ function CreateTokenModal({
             </span>
           </label>
 
+          <McpAccessList />
+
           <fieldset>
             <legend className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-suite-faint">
-              Akses modul
+              Modul opsional{' '}
+              <span className="font-medium normal-case">(opsional)</span>
             </legend>
             <p className="mb-2.5 text-[12px] leading-relaxed text-suite-muted">
-              Family Roots selalu bisa diakses sesuai hak akun. Modul di bawah
-              ini butuh verifikasi password kedua.
+              Centang hanya kalau agent perlu akses modul ini. Token tanpa
+              centang tidak bisa mengakses modul tersebut.
             </p>
             <div className="space-y-2">
-              {MCP_UNLOCK_MODULES.map((moduleId) => {
+              {MCP_OPTIONAL_MODULES.map((moduleId) => {
                 const checked = modules.includes(moduleId);
                 return (
                   <label
@@ -382,7 +433,7 @@ function CreateTokenModal({
               <Shield size={17} className="mt-0.5 shrink-0" />
               <p>
                 Kamu akan diminta password kedua. Setelah terverifikasi, token
-                boleh mengakses modul yang dipilih tanpa unlock ulang.
+                boleh mengakses modul opsional yang dipilih tanpa unlock ulang.
               </p>
             </div>
           ) : null}
@@ -484,7 +535,8 @@ function NourideGuide() {
           </h2>
           <p className="mt-0.5 text-[12.5px] leading-relaxed text-suite-muted">
             Nouride adalah agent yang memakai token ini. Satu agent Nouride
-            memakai satu token FamilyRoots.
+            memakai satu token FamilyRoots. Token otomatis bisa mengakses Family
+            Roots, Task Board, dan Money Track sesuai hak akun.
           </p>
         </div>
       </div>
@@ -509,9 +561,9 @@ function NourideGuide() {
       </ol>
 
       <p className="mt-4 rounded-control border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-[12px] leading-relaxed text-amber-800 dark:text-amber-200">
-        Token dengan akses Money Track bersifat trusted: agent bisa membaca dan
-        menulis data money tanpa unlock ulang. Karena itu perlakukan token
-        seperti password.
+        Money Track otomatis bersifat trusted untuk semua token MCP: agent bisa
+        membaca dan menulis data money tanpa unlock ulang. Karena itu perlakukan
+        token seperti password.
       </p>
     </section>
   );
